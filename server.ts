@@ -6,8 +6,8 @@ import { fileURLToPath } from 'url';
 import {
   inspectSuperAppArchive,
   readSuperAppArchiveFile,
-} from './server/superAppArchiveInspector';
-import { superAppGovernanceStore } from './server/superAppBridgeState';
+} from './server/superAppArchiveInspector.ts';
+import { superAppGovernanceStore } from './server/superAppBridgeState.ts';
 
 dotenv.config();
 
@@ -1549,7 +1549,7 @@ async function bootstrapServer() {
     const vite = await createServer({
       server: {
         middlewareMode: { server: httpServer },
-        ws: { server: httpServer },
+        hmr: process.env.DISABLE_HMR !== 'true' ? { server: httpServer } : false,
       },
       appType: 'spa',
     });
