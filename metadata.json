@@ -1,0 +1,6 @@
+{
+  "name": "Afronala SuperApp Admin Panel & Control Center",
+  "description": "Ultra-premium modular operations admin panel for Afronala SuperApp with real-time Back4App database sync, Ride and Truck Delivery fleet management, live interactive dispatch maps, driver & vehicle controls, and Flutter/Dart SDK integration.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
