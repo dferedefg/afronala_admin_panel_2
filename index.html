@@ -1,6 +1,87 @@
 <!doctype html>
 <html lang="en">
   <head>
+    <script>
+      (function () {
+        // Intercept vite-hmr WebSocket in Cloud Run iframe environment (per environment spec: HMR is disabled)
+        var OrigWebSocket = window.WebSocket;
+        if (OrigWebSocket) {
+          window.WebSocket = function (url, protocols) {
+            var isViteHmr =
+              (typeof protocols === 'string' && protocols === 'vite-hmr') ||
+              (Array.isArray(protocols) && protocols.indexOf('vite-hmr') !== -1) ||
+              (typeof url === 'string' && (url.indexOf('token=') !== -1 || url.indexOf('vite') !== -1));
+
+            if (isViteHmr) {
+              var dummyTarget = new EventTarget();
+              var fakeWs = {
+                readyState: 1, // OPEN
+                OPEN: 1,
+                CLOSED: 3,
+                CLOSING: 2,
+                CONNECTING: 0,
+                url: String(url),
+                protocol: 'vite-hmr',
+                extensions: '',
+                bufferedAmount: 0,
+                binaryType: 'blob',
+                send: function () {},
+                close: function () {},
+                addEventListener: function (type, listener, options) {
+                  dummyTarget.addEventListener(type, listener, options);
+                },
+                removeEventListener: function (type, listener, options) {
+                  dummyTarget.removeEventListener(type, listener, options);
+                },
+                dispatchEvent: function (event) {
+                  return dummyTarget.dispatchEvent(event);
+                },
+                onopen: null,
+                onmessage: null,
+                onerror: null,
+                onclose: null,
+              };
+              setTimeout(function () {
+                var openEvt = new Event('open');
+                if (typeof fakeWs.onopen === 'function') fakeWs.onopen(openEvt);
+                dummyTarget.dispatchEvent(openEvt);
+              }, 10);
+              return fakeWs;
+            }
+            return new OrigWebSocket(url, protocols);
+          };
+          window.WebSocket.prototype = OrigWebSocket.prototype;
+          window.WebSocket.CONNECTING = 0;
+          window.WebSocket.OPEN = 1;
+          window.WebSocket.CLOSING = 2;
+          window.WebSocket.CLOSED = 3;
+        }
+
+        window.addEventListener('unhandledrejection', function (e) {
+          var reason = e.reason;
+          var msg = (reason && reason.message) || String(reason || '');
+          var stack = (reason && reason.stack) || '';
+          if (
+            msg.indexOf('WebSocket') !== -1 ||
+            msg.indexOf('vite-hmr') !== -1 ||
+            stack.indexOf('createWebSocketModuleRunnerTransport') !== -1 ||
+            stack.indexOf('@vite/client') !== -1
+          ) {
+            e.preventDefault();
+            e.stopImmediatePropagation();
+          }
+        });
+
+        window.addEventListener('error', function (e) {
+          var msg = e.message || '';
+          var filename = e.filename || '';
+          if (msg.indexOf('WebSocket') !== -1 || filename.indexOf('@vite/client') !== -1) {
+            e.preventDefault();
+            e.stopImmediatePropagation();
+          }
+        });
+      })();
+    </script>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Afronala Control Center | Ultra Premium SuperApp Admin</title>

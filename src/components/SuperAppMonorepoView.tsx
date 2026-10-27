@@ -23,6 +23,7 @@ import {
 import { superAppBridgeService } from '../services/superAppBridge';
 import { back4AppService } from '../services/back4app';
 import { downloadCsv } from '../services/rbac';
+import { Back4AppDatabaseClassesView } from './Back4AppDatabaseClassesView';
 
 interface SuperAppMonorepoViewProps {
   darkMode: boolean;
@@ -31,9 +32,10 @@ interface SuperAppMonorepoViewProps {
   onNotify: (title: string, message?: string, type?: ToastMessage['type']) => void;
 }
 
-type InspectorTab = 'packages' | 'schemas' | 'functions';
+type InspectorTab = 'packages' | 'schemas' | 'functions' | 'back4app_classes';
 
 export const SuperAppMonorepoView: React.FC<SuperAppMonorepoViewProps> = ({
+  darkMode,
   onGuardPermission,
   onNotify,
 }) => {
@@ -385,7 +387,27 @@ export const SuperAppMonorepoView: React.FC<SuperAppMonorepoViewProps> = ({
         >
           Cloud Function RPC Bridge ({manifest.cloudFunctions.length})
         </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab('back4app_classes')}
+          className={`px-3.5 py-1.5 rounded-md text-xs font-medium transition-colors flex items-center gap-1.5 ${
+            activeTab === 'back4app_classes'
+              ? 'bg-white dark:bg-slate-700 text-cyan-600 dark:text-cyan-400 font-semibold shadow-2xs'
+              : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+          }`}
+        >
+          <Database className="w-3.5 h-3.5" />
+          <span>Back4App Database Classes (7 Classes · 260+ Records)</span>
+        </button>
       </div>
+
+      {/* TAB 0: UPLOADED BACK4APP PARSE DATABASE CLASSES */}
+      {activeTab === 'back4app_classes' && (
+        <Back4AppDatabaseClassesView
+          darkMode={darkMode}
+          onNotify={onNotify}
+        />
+      )}
 
       {/* TAB 1: WORKSPACE PACKAGES & MINI-APP DESCRIPTORS */}
       {activeTab === 'packages' && (

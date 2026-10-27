@@ -1,6 +1,7 @@
 import React from 'react';
 import {
   LayoutDashboard,
+  Database,
   Car,
   Truck,
   Users,
@@ -201,6 +202,22 @@ export const Sidebar: React.FC<SidebarProps> = ({
           >
             <Archive className="w-4 h-4 shrink-0 text-cyan-600 dark:text-cyan-400" />
             {!collapsed && <span>SuperApp Inspector</span>}
+          </button>
+
+          <button
+            onClick={() => onSelectTab('back4app-classes')}
+            className={`w-full ${navItemClass(activeTab === 'back4app-classes')}`}
+            title="Back4App Parse Database Classes (7 Classes · 260+ Records Explorer)"
+          >
+            <Database className="w-4 h-4 shrink-0 text-cyan-600 dark:text-cyan-400" />
+            {!collapsed && (
+              <div className="flex items-center justify-between w-full">
+                <span>Database Classes</span>
+                <span className="text-[10px] px-1.5 py-0.5 rounded font-mono font-bold bg-cyan-100 dark:bg-cyan-950/80 text-cyan-800 dark:text-cyan-300 border border-cyan-200 dark:border-cyan-800/80">
+                  7 CSVs
+                </span>
+              </div>
+            )}
           </button>
 
           <button

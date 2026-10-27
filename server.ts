@@ -7,6 +7,11 @@ import {
   inspectSuperAppArchive,
   readSuperAppArchiveFile,
 } from './server/superAppArchiveInspector.ts';
+import {
+  inspectBack4AppClasses,
+  getBack4AppClassRecords,
+  rescanBack4AppClasses,
+} from './server/back4appClassInspector.ts';
 import { superAppGovernanceStore } from './server/superAppBridgeState.ts';
 
 dotenv.config();
@@ -1165,6 +1170,45 @@ app.post('/api/superapp/monorepo/sync-audit', async (_req: Request, res: Respons
     return res.status(500).json({
       error: error?.message || 'Schema sync audit failed',
     });
+  }
+});
+
+// -----------------------------------------------------------------------------
+// Back4App Uploaded Classes Explorer (back4app_cloud_code/back4app_classes)
+// -----------------------------------------------------------------------------
+
+app.get('/api/back4app/uploaded-classes', (_req: Request, res: Response) => {
+  try {
+    const manifest = inspectBack4AppClasses();
+    return res.json(manifest);
+  } catch (error: any) {
+    return res.status(500).json({ error: error?.message || 'Failed to inspect Back4App classes' });
+  }
+});
+
+app.get('/api/back4app/uploaded-classes/:className', (req: Request, res: Response) => {
+  const { className } = req.params;
+  if (!className) {
+    return res.status(400).json({ error: 'Missing className parameter' });
+  }
+  try {
+    const data = getBack4AppClassRecords(className);
+    return res.json(data);
+  } catch (error: any) {
+    return res.status(404).json({ error: error?.message || `Class ${className} not found` });
+  }
+});
+
+app.post('/api/back4app/uploaded-classes/rescan', (_req: Request, res: Response) => {
+  try {
+    const manifest = rescanBack4AppClasses();
+    return res.json({
+      success: true,
+      message: 'Rescanned Back4App Parse classes successfully',
+      manifest,
+    });
+  } catch (error: any) {
+    return res.status(500).json({ error: error?.message || 'Failed to rescan Back4App classes' });
   }
 });
 

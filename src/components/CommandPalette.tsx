@@ -72,6 +72,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
     { id: 'superapp-bidding', label: 'Vehicle Owner Fleet, Truck Bidding & Escrow Desk', group: 'SuperApp Governance', icon: <Gavel className="w-4 h-4 text-blue-600 dark:text-blue-400" /> },
     { id: 'superapp-pricing', label: 'Dynamic Pricing, Surge & FeatureFlag Studio', group: 'SuperApp Governance', icon: <Flame className="w-4 h-4 text-amber-600 dark:text-amber-400" /> },
     { id: 'superapp-inspector', label: 'SuperApp Monorepo, Schema Sync & Cloud RPC Inspector', group: 'SuperApp Governance', icon: <Archive className="w-4 h-4 text-cyan-600 dark:text-cyan-400" /> },
+    { id: 'back4app-classes', label: 'Back4App Database Classes (7 Classes · 260+ Records Explorer)', group: 'SuperApp Governance', icon: <Database className="w-4 h-4 text-cyan-600 dark:text-cyan-400" /> },
     { id: 'superapp-diagnostics', label: 'Bridge Diagnostics: Connectivity Ping & .apk Activity Stream', group: 'SuperApp Governance', icon: <Activity className="w-4 h-4 text-emerald-600 dark:text-emerald-400" /> },
     { id: 'dispatch', label: 'Autonomous GPS Dispatch Simulator', group: 'Operations', icon: <Navigation className="w-4 h-4 text-cyan-600 dark:text-cyan-400" /> },
     { id: 'ambalay', label: 'AmbaLay Maps Ethiopia Geospatial Hub', group: 'Geospatial', icon: <Compass className="w-4 h-4 text-cyan-600 dark:text-cyan-400" /> },

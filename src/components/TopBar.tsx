@@ -6,11 +6,9 @@ import {
   Sun,
   Database,
   Menu,
-  Code2,
   ChevronDown,
   Navigation,
   Compass,
-  Smartphone,
   ShieldCheck,
   LogOut,
   Check,
@@ -25,12 +23,9 @@ interface TopBarProps {
   onOpenCommandPalette: () => void;
   onOpenNotifications: () => void;
   onOpenDbModal: () => void;
-  onOpenFlutterModal: () => void;
   onOpenDispatchSimulator?: () => void;
   onOpenSchemaEditor?: () => void;
   onOpenAmbaLay?: () => void;
-  onToggleDriverSimulator?: () => void;
-  isDriverSimulatorOpen?: boolean;
   onToggleSidebar: () => void;
   unreadCount: number;
   dbStatus: { online: boolean; latency: number };
@@ -46,11 +41,8 @@ export const TopBar: React.FC<TopBarProps> = ({
   onOpenCommandPalette,
   onOpenNotifications,
   onOpenDbModal,
-  onOpenFlutterModal,
   onOpenDispatchSimulator,
   onOpenAmbaLay,
-  onToggleDriverSimulator,
-  isDriverSimulatorOpen = false,
   onToggleSidebar,
   unreadCount,
   dbStatus,
@@ -120,21 +112,6 @@ export const TopBar: React.FC<TopBarProps> = ({
 
       {/* Zone 3: Operational Controls & Persona Switcher */}
       <div className="flex items-center gap-2 sm:gap-2.5 shrink-0">
-        {onToggleDriverSimulator && (
-          <button
-            onClick={onToggleDriverSimulator}
-            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-colors whitespace-nowrap shrink-0 ${
-              isDriverSimulatorOpen
-                ? 'bg-cyan-600 text-white'
-                : 'bg-slate-100 hover:bg-slate-200 dark:bg-slate-800/80 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700'
-            }`}
-            title="Toggle In-Cab Driver Phone Companion Simulator"
-          >
-            <Smartphone className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400" />
-            <span className="font-mono text-[11px] hidden sm:inline">Driver HUD</span>
-          </button>
-        )}
-
         {onOpenDispatchSimulator && (
           <button
             onClick={onOpenDispatchSimulator}
@@ -171,16 +148,6 @@ export const TopBar: React.FC<TopBarProps> = ({
             <span className="text-[11px] font-mono font-semibold">AmbaLay</span>
           </button>
         )}
-
-        {/* Flutter SDK Export */}
-        <button
-          onClick={onOpenFlutterModal}
-          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors whitespace-nowrap shrink-0 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800/80 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700"
-          title="Flutter / Dart Architecture & SDK"
-        >
-          <Code2 className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400" />
-          <span className="hidden md:inline font-mono text-[11px]">Flutter SDK</span>
-        </button>
 
         {/* Theme toggle */}
         <button

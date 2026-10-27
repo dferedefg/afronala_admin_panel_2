@@ -871,4 +871,51 @@ export interface ActivityStreamResponse {
   events: ActivityStreamEvent[];
 }
 
+export interface Back4AppInferredField {
+  name: string;
+  type: 'String' | 'Number' | 'Boolean' | 'Date' | 'GeoPoint' | 'Pointer' | 'Array' | 'Object (JSON)';
+  pointerTarget?: string;
+  nonNullCount: number;
+  uniqueCount: number;
+  sampleValues: any[];
+}
+
+export interface Back4AppClassPointerRel {
+  sourceColumn: string;
+  targetClass: string;
+  sampleObjectId?: string;
+}
+
+export interface Back4AppClassSummary {
+  className: string;
+  fileName: string;
+  recordCount: number;
+  columnCount: number;
+  category: 'Identity' | 'Customer' | 'Mobility (Ride)' | 'Logistics (Truck)';
+  primaryFunction: string;
+  columns: Back4AppInferredField[];
+  outgoingPointers: Back4AppClassPointerRel[];
+  incomingPointers: { sourceClass: string; sourceColumn: string }[];
+  fileSizeBytes: number;
+  lastModifiedIso: string;
+}
+
+export interface Back4AppUploadedClassesManifest {
+  scannedAt: string;
+  totalClasses: number;
+  totalRecords: number;
+  classesDirectory: string;
+  classes: Back4AppClassSummary[];
+  pointerTopology: {
+    nodes: { id: string; label: string; category: string; records: number }[];
+    edges: { source: string; target: string; via: string; label: string }[];
+  };
+}
+
+export interface Back4AppClassDetailResponse {
+  summary: Back4AppClassSummary;
+  records: Record<string, any>[];
+}
+
+
 

@@ -48,6 +48,7 @@ import { SuperAppApprovalsView } from './components/SuperAppApprovalsView';
 import { FleetBiddingEscrowView } from './components/FleetBiddingEscrowView';
 import { PricingSurgeFlagsView } from './components/PricingSurgeFlagsView';
 import { SuperAppMonorepoView } from './components/SuperAppMonorepoView';
+import { Back4AppDatabaseClassesView } from './components/Back4AppDatabaseClassesView';
 import { BridgeDiagnosticsView } from './components/BridgeDiagnosticsView';
 import { X, Smartphone, CheckCircle2, AlertTriangle, Info, ShieldAlert } from 'lucide-react';
 
@@ -571,12 +572,9 @@ export default function App() {
         onOpenCommandPalette={() => setIsCommandPaletteOpen(true)}
         onOpenNotifications={() => setIsNotificationDrawerOpen(true)}
         onOpenDbModal={() => setIsDbModalOpen(true)}
-        onOpenFlutterModal={() => setIsFlutterModalOpen(true)}
         onOpenDispatchSimulator={() => setActiveTab('dispatch')}
         onOpenSchemaEditor={() => handleOpenSchemaEditor('ride')}
         onOpenAmbaLay={() => setActiveTab('ambalay')}
-        onToggleDriverSimulator={() => setIsDriverSimulatorOpen(!isDriverSimulatorOpen)}
-        isDriverSimulatorOpen={isDriverSimulatorOpen}
         onToggleSidebar={() => setMobileSidebarOpen(!mobileSidebarOpen)}
         unreadCount={unreadCount}
         dbStatus={dbStatus}
@@ -762,6 +760,13 @@ export default function App() {
               darkMode={darkMode}
               userRole={currentUser.role}
               onGuardPermission={guardPermission}
+              onNotify={pushToast}
+            />
+          )}
+
+          {activeTab === 'back4app-classes' && (
+            <Back4AppDatabaseClassesView
+              darkMode={darkMode}
               onNotify={pushToast}
             />
           )}

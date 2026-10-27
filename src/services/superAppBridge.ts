@@ -90,6 +90,41 @@ class SuperAppBridgeService {
     }
     return json;
   }
+
+  async getUploadedClassesManifest(): Promise<import('../types').Back4AppUploadedClassesManifest> {
+    const res = await fetch('/api/back4app/uploaded-classes', {
+      headers: this.headers(),
+    });
+    const json = await res.json();
+    if (!res.ok) {
+      throw new Error(json?.error || 'Unable to load Back4App uploaded classes manifest');
+    }
+    return json;
+  }
+
+  async getUploadedClassRecords(className: string): Promise<import('../types').Back4AppClassDetailResponse> {
+    const res = await fetch(`/api/back4app/uploaded-classes/${encodeURIComponent(className)}`, {
+      headers: this.headers(),
+    });
+    const json = await res.json();
+    if (!res.ok) {
+      throw new Error(json?.error || `Unable to load records for class ${className}`);
+    }
+    return json;
+  }
+
+  async rescanUploadedClasses(): Promise<{ success: boolean; message: string; manifest: import('../types').Back4AppUploadedClassesManifest }> {
+    const res = await fetch('/api/back4app/uploaded-classes/rescan', {
+      method: 'POST',
+      headers: this.headers(),
+    });
+    const json = await res.json();
+    if (!res.ok) {
+      throw new Error(json?.error || 'Unable to rescan Back4App uploaded classes');
+    }
+    return json;
+  }
 }
 
 export const superAppBridgeService = new SuperAppBridgeService();
+
