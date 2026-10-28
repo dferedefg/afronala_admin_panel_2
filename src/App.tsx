@@ -50,64 +50,11 @@ import { PricingSurgeFlagsView } from './components/PricingSurgeFlagsView';
 import { SuperAppMonorepoView } from './components/SuperAppMonorepoView';
 import { Back4AppDatabaseClassesView } from './components/Back4AppDatabaseClassesView';
 import { BridgeDiagnosticsView } from './components/BridgeDiagnosticsView';
+import { NotificationsView } from './components/NotificationsView';
+import { DEFAULT_EAST_AFRICA_NOTIFICATIONS } from './services/notifications';
 import { X, Smartphone, CheckCircle2, AlertTriangle, Info, ShieldAlert } from 'lucide-react';
 
-const INITIAL_NOTIFICATIONS: NotificationItem[] = [
-  {
-    id: 'n-1',
-    title: 'New driver registration',
-    subtitle: 'Abebe Kebede has registered as a new driver in Bole area.',
-    timeAgo: '5 min ago',
-    category: 'operations',
-    read: false,
-    type: 'driver',
-  },
-  {
-    id: 'n-2',
-    title: 'Vehicle pending approval',
-    subtitle: 'Toyota Vitz (AA-12345) requires document verification.',
-    timeAgo: '12 min ago',
-    category: 'operations',
-    read: false,
-    type: 'vehicle',
-  },
-  {
-    id: 'n-3',
-    title: 'Trip cancelled',
-    subtitle: 'Trip #TRP9282 was cancelled by passenger (CMC → Bole).',
-    timeAgo: '25 min ago',
-    category: 'unread',
-    read: false,
-    type: 'trip',
-  },
-  {
-    id: 'n-4',
-    title: 'Shipment delayed',
-    subtitle: 'Freight shipment #DLV7721 delayed at Modjo toll gate.',
-    timeAgo: '1 hour ago',
-    category: 'operations',
-    read: false,
-    type: 'shipment',
-  },
-  {
-    id: 'n-5',
-    title: 'System update',
-    subtitle: 'Back4App Parse proxy routes verified on server.',
-    timeAgo: '2 hours ago',
-    category: 'system',
-    read: true,
-    type: 'system',
-  },
-  {
-    id: 'n-6',
-    title: 'Super Admin permission audit',
-    subtitle: 'Daniel Ferede updated ModuleRegistry on Parse Cloud.',
-    timeAgo: '3 hours ago',
-    category: 'security',
-    read: true,
-    type: 'system',
-  },
-];
+const INITIAL_NOTIFICATIONS: NotificationItem[] = DEFAULT_EAST_AFRICA_NOTIFICATIONS;
 
 export default function App() {
   // Authentication & RBAC persona state
@@ -575,12 +522,31 @@ export default function App() {
         onOpenDispatchSimulator={() => setActiveTab('dispatch')}
         onOpenSchemaEditor={() => handleOpenSchemaEditor('ride')}
         onOpenAmbaLay={() => setActiveTab('ambalay')}
+        onOpenFlutterModal={() => setIsFlutterModalOpen(true)}
+        onOpenRegisterModal={() => {
+          if (!guardPermission('manage_modules', 'Open Register New Module dialog')) return;
+          setIsRegisterModalOpen(true);
+        }}
+        onOpenDriverSimulator={() => setIsDriverSimulatorOpen(true)}
         onToggleSidebar={() => setMobileSidebarOpen(!mobileSidebarOpen)}
         unreadCount={unreadCount}
         dbStatus={dbStatus}
         onSelectDashboard={() => setActiveTab('dashboard')}
         onSwitchPersona={handleSwitchPersona}
         onLogout={() => setCurrentUser(null)}
+        onNavigateTab={(tab, filterValue) => {
+          setActiveTab(tab);
+          if (filterValue) {
+            pushToast('Universal Search Jump', `Navigated to ${tab} · Filter: "${filterValue}"`, 'info');
+          }
+        }}
+        drivers={drivers}
+        vehicles={vehicles}
+        trips={trips}
+        shipments={shipments}
+        customers={customers}
+        modules={modules}
+        alerts={alerts}
       />
 
       {/* Main Workspace: Sidebar + Viewport */}
@@ -840,49 +806,21 @@ export default function App() {
           )}
 
           {activeTab === 'notifications' && (
-            <div className="space-y-4">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <div>
-                  <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
-                    Notification &amp; Security Audit History
-                  </h1>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                    All system events, fleet operations alerts, and RBAC governance records
-                  </p>
-                </div>
-                <button
-                  onClick={() => setIsNotificationDrawerOpen(true)}
-                  className="px-3.5 py-2 rounded-lg text-xs font-semibold bg-cyan-600 hover:bg-cyan-500 text-white whitespace-nowrap shrink-0 self-start sm:self-auto"
-                >
-                  Open Slideout Drawer
-                </button>
-              </div>
-
-              <div className="p-6 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xs">
-                <div className="divide-y divide-slate-100 dark:divide-slate-800">
-                  {notifications.map((n) => (
-                    <div
-                      key={n.id}
-                      className="py-3.5 first:pt-0 last:pb-0 flex items-center justify-between gap-4 text-xs"
-                    >
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <p className="font-semibold text-slate-900 dark:text-white">{n.title}</p>
-                          <span aria-hidden="true" className="text-slate-300 dark:text-slate-700">·</span>
-                          <span className="text-[11px] text-slate-500 dark:text-slate-400 capitalize">
-                            {n.category}
-                          </span>
-                        </div>
-                        <p className="text-slate-600 dark:text-slate-400 mt-0.5">{n.subtitle}</p>
-                      </div>
-                      <span className="text-[11px] text-slate-500 font-mono tabular-nums whitespace-nowrap shrink-0">
-                        {n.timeAgo}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
+            <NotificationsView
+              darkMode={darkMode}
+              userRole={currentUser.role}
+              notifications={notifications}
+              onUpdateNotifications={setNotifications}
+              onNavigateTab={(tab, filterValue) => {
+                setActiveTab(tab);
+                if (filterValue) {
+                  pushToast('Navigated', `Switched to ${tab} · Filter: ${filterValue}`, 'info');
+                }
+              }}
+              onOpenDrawer={() => setIsNotificationDrawerOpen(true)}
+              onNotify={pushToast}
+              onGuardPermission={guardPermission}
+            />
           )}
 
           {activeTab === 'settings' && (
@@ -893,6 +831,7 @@ export default function App() {
               onOpenDbModal={() => setIsDbModalOpen(true)}
               onOpenFlutterModal={() => setIsFlutterModalOpen(true)}
               onSwitchPersona={handleSwitchPersona}
+              onNotify={pushToast}
             />
           )}
         </main>
@@ -902,11 +841,14 @@ export default function App() {
       <CommandPalette
         isOpen={isCommandPaletteOpen}
         onClose={() => setIsCommandPaletteOpen(false)}
-        onNavigate={(tab) => {
+        onNavigate={(tab, filterValue) => {
           if (tab === 'open-palette') {
             setIsCommandPaletteOpen(true);
           } else {
             setActiveTab(tab);
+            if (filterValue) {
+              pushToast('Universal Search Jump', `Navigated to ${tab} · Filter: "${filterValue}"`, 'info');
+            }
           }
         }}
         onToggleTheme={toggleTheme}
@@ -917,7 +859,15 @@ export default function App() {
           setIsRegisterModalOpen(true);
         }}
         onOpenSchemaModal={() => handleOpenSchemaEditor('ride')}
+        onOpenDriverSimulator={() => setIsDriverSimulatorOpen(true)}
         darkMode={darkMode}
+        drivers={drivers}
+        vehicles={vehicles}
+        trips={trips}
+        shipments={shipments}
+        customers={customers}
+        modules={modules}
+        alerts={alerts}
       />
 
       {/* Slide-out Notification Drawer */}

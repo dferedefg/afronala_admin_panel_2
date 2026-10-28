@@ -10,9 +10,22 @@ import {
   Save,
   Sliders,
   Smartphone,
+  Globe,
+  Sparkles,
+  ArrowRight,
+  ShieldCheck,
+  TrendingUp,
+  Truck,
+  Car,
+  AlertTriangle,
+  RotateCcw,
+  Zap,
 } from 'lucide-react';
 import {
+  EastAfricaCountryCode,
+  EastAfricaCurrency,
   PermissionAction,
+  RegionalCountryPricingContext,
   SuperAppFeatureFlagItem,
   SuperAppRuntimeConfig,
   SuperAppSurgeZone,
@@ -20,6 +33,7 @@ import {
 } from '../types';
 import { superAppBridgeService } from '../services/superAppBridge';
 import { downloadCsv } from '../services/rbac';
+import { EAST_AFRICA_HUBS } from '../services/payments';
 
 interface PricingSurgeFlagsViewProps {
   darkMode: boolean;
@@ -31,17 +45,130 @@ interface PricingSurgeFlagsViewProps {
 type StudioTab = 'pricing' | 'surge' | 'flags';
 type PreviewRole = 'customer' | 'driver' | 'vehicle_owner' | 'admin';
 
+interface CorridorPreset {
+  id: string;
+  name: string;
+  countryCode: EastAfricaCountryCode;
+  serviceType: 'ride' | 'truck';
+  defaultDistanceKm: number;
+  defaultDurationMin: number;
+  defaultTons: number;
+  note: string;
+}
+
+const REGIONAL_CORRIDOR_PRESETS: CorridorPreset[] = [
+  {
+    id: 'corridor-aa-city',
+    name: 'Addis Ababa Bole → Piassa Urban Ride',
+    countryCode: 'ET',
+    serviceType: 'ride',
+    defaultDistanceKm: 10,
+    defaultDurationMin: 24,
+    defaultTons: 0,
+    note: 'Urban metropolitan ride hailing with AmbaLay route matrix',
+  },
+  {
+    id: 'corridor-modjo-djibouti',
+    name: 'Modjo Dry Port ⇄ Doraleh Port Djibouti (Container Vein)',
+    countryCode: 'DJ',
+    serviceType: 'truck',
+    defaultDistanceKm: 910,
+    defaultDurationMin: 960,
+    defaultTons: 28,
+    note: 'Bilateral export/import heavy container haul (ETB/DJF dual-rail clearing)',
+  },
+  {
+    id: 'corridor-nbo-westlands',
+    name: 'Nairobi Westlands → Upper Hill Corporate Ride',
+    countryCode: 'KE',
+    serviceType: 'ride',
+    defaultDistanceKm: 12,
+    defaultDurationMin: 30,
+    defaultTons: 0,
+    note: 'Nairobi commercial express lane via Safaricom M-PESA',
+  },
+  {
+    id: 'corridor-moyale-nbo',
+    name: 'Moyale Border Post ⇄ Nairobi Northern Frontier',
+    countryCode: 'KE',
+    serviceType: 'truck',
+    defaultDistanceKm: 780,
+    defaultDurationMin: 720,
+    defaultTons: 24,
+    note: 'Cross-border livestock and commodities transit route',
+  },
+  {
+    id: 'corridor-kla-malaba',
+    name: 'Kampala ⇄ Malaba Customs Terminal (Northern Corridor)',
+    countryCode: 'UG',
+    serviceType: 'truck',
+    defaultDistanceKm: 220,
+    defaultDurationMin: 280,
+    defaultTons: 20,
+    note: 'East Africa Northern Transit Corridor linking Mombasa to Uganda',
+  },
+  {
+    id: 'corridor-kgl-heights',
+    name: 'Kigali Heights → Special Economic Zone (Masoro)',
+    countryCode: 'RW',
+    serviceType: 'ride',
+    defaultDistanceKm: 16,
+    defaultDurationMin: 32,
+    defaultTons: 0,
+    note: 'Clean urban corridor regulated by National Bank of Rwanda',
+  },
+  {
+    id: 'corridor-dar-port',
+    name: 'Dar es Salaam Port ⇄ Morogoro Central Route',
+    countryCode: 'TZ',
+    serviceType: 'truck',
+    defaultDistanceKm: 190,
+    defaultDurationMin: 240,
+    defaultTons: 28,
+    note: 'Tanzania maritime container transit into interior dry hubs',
+  },
+  {
+    id: 'corridor-mgq-airport',
+    name: 'Mogadishu Aden Adde Airport ⇄ Port Gateway',
+    countryCode: 'SO',
+    serviceType: 'ride',
+    defaultDistanceKm: 14,
+    defaultDurationMin: 25,
+    defaultTons: 0,
+    note: 'High-security transport corridor operating on USD/EVC Plus',
+  },
+  {
+    id: 'corridor-jub-river',
+    name: 'Juba River Port ⇄ Custom Market Transit',
+    countryCode: 'SS',
+    serviceType: 'truck',
+    defaultDistanceKm: 25,
+    defaultDurationMin: 50,
+    defaultTons: 15,
+    note: 'White Nile inland river port connection to Juba retail depots',
+  },
+];
+
 export const PricingSurgeFlagsView: React.FC<PricingSurgeFlagsViewProps> = ({
   onGuardPermission,
   onNotify,
 }) => {
   const [activeTab, setActiveTab] = useState<StudioTab>('pricing');
+  const [selectedCountry, setSelectedCountry] = useState<EastAfricaCountryCode | 'ALL'>('ALL');
   const [config, setConfig] = useState<SuperAppRuntimeConfig | null>(null);
   const [configSource, setConfigSource] = useState<string>('governance-store');
   const [loading, setLoading] = useState(true);
   const [savingConfig, setSavingConfig] = useState(false);
   const [busyItem, setBusyItem] = useState<string | null>(null);
   const [previewRole, setPreviewRole] = useState<PreviewRole>('customer');
+
+  // Simulator Interactive States
+  const [selectedCorridorPresetId, setSelectedCorridorPresetId] = useState<string>('corridor-aa-city');
+  const [simDistanceKm, setSimDistanceKm] = useState<number>(10);
+  const [simDurationMin, setSimDurationMin] = useState<number>(24);
+  const [simTonnage, setSimTonnage] = useState<number>(20);
+  const [simPriorityMultiplier, setSimPriorityMultiplier] = useState<number>(1.0);
+  const [simSurgeMultiplier, setSimSurgeMultiplier] = useState<number>(1.0);
 
   const loadRuntimeConfig = async () => {
     setLoading(true);
@@ -60,6 +187,63 @@ export const PricingSurgeFlagsView: React.FC<PricingSurgeFlagsViewProps> = ({
     loadRuntimeConfig();
   }, []);
 
+  const handleCountryChange = (cCode: EastAfricaCountryCode | 'ALL') => {
+    setSelectedCountry(cCode);
+    if (cCode !== 'ALL') {
+      const matchingPreset = REGIONAL_CORRIDOR_PRESETS.find((p) => p.countryCode === cCode);
+      if (matchingPreset) {
+        setSelectedCorridorPresetId(matchingPreset.id);
+        setSimDistanceKm(matchingPreset.defaultDistanceKm);
+        setSimDurationMin(matchingPreset.defaultDurationMin);
+        setSimTonnage(matchingPreset.defaultTons || 20);
+      }
+    }
+  };
+
+  const handleCorridorPresetChange = (presetId: string) => {
+    setSelectedCorridorPresetId(presetId);
+    const p = REGIONAL_CORRIDOR_PRESETS.find((cp) => cp.id === presetId);
+    if (p) {
+      setSimDistanceKm(p.defaultDistanceKm);
+      setSimDurationMin(p.defaultDurationMin);
+      setSimTonnage(p.defaultTons || 20);
+      if (selectedCountry !== p.countryCode) {
+        setSelectedCountry(p.countryCode);
+      }
+    }
+  };
+
+  const activeHub = selectedCountry !== 'ALL' ? EAST_AFRICA_HUBS[selectedCountry] : null;
+
+  // Active pricing context (country specific or base global)
+  const currentPricing = useMemo(() => {
+    if (!config) return null;
+    if (selectedCountry !== 'ALL' && config.regionalCountryPricing?.[selectedCountry]) {
+      return config.regionalCountryPricing[selectedCountry];
+    }
+    // Default to Ethiopia base
+    return {
+      countryCode: 'ET' as EastAfricaCountryCode,
+      countryName: 'Ethiopia (Base Ledger)',
+      flag: '🇪🇹',
+      currency: 'ETB' as EastAfricaCurrency,
+      currencySymbol: 'Br',
+      exchangeRateToETB: 1.0,
+      regulator: 'National Bank of Ethiopia (NBE)',
+      rideBaseFare: config.pricingFinancialContext.rideBaseFareETB,
+      ridePerKm: config.pricingFinancialContext.ridePerKmETB,
+      ridePerMin: config.pricingFinancialContext.ridePerMinETB,
+      truckBaseFare: config.pricingFinancialContext.truckBaseFareETB,
+      truckPerTonKm: config.pricingFinancialContext.truckPerTonKmETB,
+      biddingFloorPct: config.pricingFinancialContext.biddingFloorPct,
+      biddingCeilingPct: config.pricingFinancialContext.biddingCeilingPct,
+      platformMarginPct: config.pricingFinancialContext.platformMarginPct,
+      withholdingTaxPct: config.pricingFinancialContext.withholdingTaxPct,
+      autoBidWindowMinutes: config.pricingFinancialContext.autoBidWindowMinutes,
+      corridorNotes: 'Global Core Ledger / Addis Ababa Axis',
+    };
+  }, [config, selectedCountry]);
+
   const handleSavePricingConfig = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!config) return;
@@ -69,15 +253,21 @@ export const PricingSurgeFlagsView: React.FC<PricingSurgeFlagsViewProps> = ({
 
     setSavingConfig(true);
     try {
-      const res = await superAppBridgeService.updateParseConfig({
+      const payload: Partial<SuperAppRuntimeConfig> = {
         bookingPriorities: config.bookingPriorities,
         pricingFinancialContext: config.pricingFinancialContext,
-      });
+      };
+
+      if (config.regionalCountryPricing) {
+        payload.regionalCountryPricing = config.regionalCountryPricing;
+      }
+
+      const res = await superAppBridgeService.updateParseConfig(payload);
       setConfig(res.params);
       onNotify(
         'Parse Config Synchronized',
         res.persistedToBack4App
-          ? 'Saved to Back4App runtime snapshot & SuperApp PricingConfigService.'
+          ? `Saved to Back4App runtime snapshot & SuperApp PricingConfigService (${selectedCountry === 'ALL' ? 'All Hubs' : selectedCountry}).`
           : 'Saved to server governance store.',
         'success'
       );
@@ -120,6 +310,39 @@ export const PricingSurgeFlagsView: React.FC<PricingSurgeFlagsViewProps> = ({
     }
   };
 
+  const handleBulkSetCountrySurge = async (targetMultiplier: number) => {
+    if (selectedCountry === 'ALL') {
+      onNotify('Select Country Hub', 'Please select a specific country to bulk-adjust surge multipliers.', 'info');
+      return;
+    }
+    if (!onGuardPermission('manage_pricing_flags', `Bulk set surge in ${selectedCountry}`)) return;
+    if (!config) return;
+
+    const targetZones = config.regionalSurgeZones.filter((z) => (z.countryCode || 'ET') === selectedCountry);
+    if (targetZones.length === 0) return;
+
+    setBusyItem('bulk-surge');
+    try {
+      for (const zone of targetZones) {
+        await superAppBridgeService.callCloudFunction('updateSurgeMultiplier', {
+          zoneId: zone.zoneId,
+          multiplier: targetMultiplier,
+          autoSurgeEnabled: targetMultiplier === 1.0,
+        });
+      }
+      await loadRuntimeConfig();
+      onNotify(
+        'Bulk Surge Multiplier Applied',
+        `All ${targetZones.length} zones in ${EAST_AFRICA_HUBS[selectedCountry]?.countryName} updated to ${targetMultiplier.toFixed(2)}x.`,
+        'success'
+      );
+    } catch (err: any) {
+      onNotify('Bulk Surge Error', err?.message, 'error');
+    } finally {
+      setBusyItem(null);
+    }
+  };
+
   const handleToggleFlag = async (
     flag: SuperAppFeatureFlagItem,
     enabled: boolean,
@@ -152,86 +375,137 @@ export const PricingSurgeFlagsView: React.FC<PricingSurgeFlagsViewProps> = ({
     }
   };
 
-  // Sample Ride & Truck Fare Preview using live PricingFinancialContext
-  const farePreview = useMemo(() => {
-    if (!config) return null;
-    const p = config.pricingFinancialContext;
-    const rideGross = p.rideBaseFareETB + 10 * p.ridePerKmETB + 22 * p.ridePerMinETB;
-    const rideMargin = (rideGross * p.platformMarginPct) / 100;
-    const rideTax = (rideGross * p.withholdingTaxPct) / 100;
-    const rideNet = rideGross - rideMargin - rideTax;
+  // Filtered surge zones by country
+  const filteredSurgeZones = useMemo(() => {
+    if (!config) return [];
+    if (selectedCountry === 'ALL') return config.regionalSurgeZones;
+    return config.regionalSurgeZones.filter((z) => (z.countryCode || 'ET') === selectedCountry);
+  }, [config, selectedCountry]);
 
-    const truckGross =
-      (p.truckBaseFareETB + 20 * 95 * p.truckPerTonKmETB) * config.bookingPriorities.urgent;
-    const truckMargin = (truckGross * p.platformMarginPct) / 100;
-    const truckTax = (truckGross * p.withholdingTaxPct) / 100;
-    const truckNet = truckGross - truckMargin - truckTax;
+  // Filtered feature flags by country
+  const filteredFeatureFlags = useMemo(() => {
+    if (!config) return [];
+    if (selectedCountry === 'ALL') return config.featureFlags;
+    return config.featureFlags.filter(
+      (f) => !f.countries || f.countries.length === 0 || f.countries.includes(selectedCountry)
+    );
+  }, [config, selectedCountry]);
+
+  // Comprehensive multi-currency fare calculation
+  const fareSimulation = useMemo(() => {
+    if (!config || !currentPricing) return null;
+    const cp = currentPricing;
+
+    // Ride fare in native currency
+    const rideGrossNative =
+      (cp.rideBaseFare + simDistanceKm * cp.ridePerKm + simDurationMin * cp.ridePerMin) *
+      simPriorityMultiplier *
+      simSurgeMultiplier;
+    const rideMarginNative = (rideGrossNative * cp.platformMarginPct) / 100;
+    const rideTaxNative = (rideGrossNative * cp.withholdingTaxPct) / 100;
+    const rideNetNative = rideGrossNative - rideMarginNative - rideTaxNative;
+
+    // Truck fare in native currency
+    const truckGrossNative =
+      (cp.truckBaseFare + simTonnage * simDistanceKm * cp.truckPerTonKm) *
+      simPriorityMultiplier *
+      simSurgeMultiplier;
+    const truckMarginNative = (truckGrossNative * cp.platformMarginPct) / 100;
+    const truckTaxNative = (truckGrossNative * cp.withholdingTaxPct) / 100;
+    const truckNetNative = truckGrossNative - truckMarginNative - truckTaxNative;
+
+    // Convert to ETB equivalent
+    const rateToETB = cp.exchangeRateToETB || 1.0;
+    const rideGrossETB = rideGrossNative * rateToETB;
+    const rideNetETB = rideNetNative * rateToETB;
+    const truckGrossETB = truckGrossNative * rateToETB;
+    const truckNetETB = truckNetNative * rateToETB;
 
     return {
-      rideGross,
-      rideNet,
-      truckGross,
-      truckNet,
+      currency: cp.currency,
+      currencySymbol: cp.currencySymbol,
+      rateToETB,
+      rideGrossNative,
+      rideMarginNative,
+      rideTaxNative,
+      rideNetNative,
+      truckGrossNative,
+      truckMarginNative,
+      truckTaxNative,
+      truckNetNative,
+      rideGrossETB,
+      rideNetETB,
+      truckGrossETB,
+      truckNetETB,
     };
-  }, [config]);
+  }, [
+    config,
+    currentPricing,
+    simDistanceKm,
+    simDurationMin,
+    simTonnage,
+    simPriorityMultiplier,
+    simSurgeMultiplier,
+  ]);
 
   const roleLauncherFlags = useMemo(() => {
     if (!config) return [];
-    return config.featureFlags.filter(
+    return filteredFeatureFlags.filter(
       (f) => f.enabled && f.rolloutPercentage > 0 && f.targetRoles.includes(previewRole)
     );
-  }, [config, previewRole]);
+  }, [config, filteredFeatureFlags, previewRole]);
 
   const handleDownloadCsv = () => {
     if (!config) return;
     if (activeTab === 'surge') {
       downloadCsv(
-        'afronala_superapp_surge_zones.csv',
-        ['Zone ID', 'Corridor Name', 'Service', 'Active Requests', 'Available Drivers', 'Multiplier', 'Auto Surge'],
-        config.regionalSurgeZones.map((z) => [
+        `afronala_surge_zones_${selectedCountry.toLowerCase()}_${Date.now()}.csv`,
+        ['Zone ID', 'Country', 'City', 'Corridor Name', 'Service', 'Active Requests', 'Available Drivers', 'Multiplier', 'Auto Surge', 'Currency'],
+        filteredSurgeZones.map((z) => [
           z.zoneId,
+          z.countryCode || 'ET',
+          z.city || 'Addis Ababa',
           z.zoneName,
           z.serviceType,
           z.activeRequests,
           z.availableDrivers,
           `${z.currentMultiplier.toFixed(2)}x`,
-          z.autoSurgeEnabled ? 'Enabled' : 'Manual',
+          z.autoSurgeEnabled ? 'Auto-Dynamic' : 'Manual Lock',
+          z.currency || 'ETB',
         ])
       );
     } else if (activeTab === 'flags') {
       downloadCsv(
-        'afronala_superapp_feature_flags.csv',
-        ['Flag Key', 'Name', 'Service', 'Enabled', 'Rollout %', 'Target Roles', 'Description'],
-        config.featureFlags.map((f) => [
+        `afronala_feature_flags_${selectedCountry.toLowerCase()}_${Date.now()}.csv`,
+        ['Flag Key', 'Name', 'Service', 'Enabled', 'Rollout %', 'Target Roles', 'Target Countries', 'Description'],
+        filteredFeatureFlags.map((f) => [
           f.key,
           f.name,
           f.serviceType,
           f.enabled ? 'TRUE' : 'FALSE',
           `${f.rolloutPercentage}%`,
           f.targetRoles.join(' | '),
+          f.countries ? f.countries.join(' | ') : 'ALL',
           f.description,
         ])
       );
     } else {
-      const c = config.pricingFinancialContext;
+      const c = currentPricing || config.pricingFinancialContext;
       downloadCsv(
-        'afronala_superapp_pricing_config.csv',
-        ['Parameter', 'Value', 'Unit'],
+        `afronala_pricing_matrix_${selectedCountry.toLowerCase()}_${Date.now()}.csv`,
+        ['Hub / Scope', 'Parameter', 'Native Value', 'Currency', 'Exchange Rate to ETB'],
         [
-          ['Priority Normal', config.bookingPriorities.normal, 'x'],
-          ['Priority Urgent', config.bookingPriorities.urgent, 'x'],
-          ['Priority Express', config.bookingPriorities.express, 'x'],
-          ['Ride Base Fare', c.rideBaseFareETB, 'ETB'],
-          ['Ride Per Km', c.ridePerKmETB, 'ETB/km'],
-          ['Ride Per Minute', c.ridePerMinETB, 'ETB/min'],
-          ['Truck Base Fare', c.truckBaseFareETB, 'ETB'],
-          ['Truck Per Ton-Km', c.truckPerTonKmETB, 'ETB/ton-km'],
-          ['Platform Margin', c.platformMarginPct, '%'],
-          ['Withholding Tax', c.withholdingTaxPct, '%'],
+          [selectedCountry === 'ALL' ? 'Global Base' : selectedCountry, 'Ride Base Fare', 'rideBaseFare' in c ? c.rideBaseFare : c.rideBaseFareETB, 'currency' in c ? c.currency : 'ETB', 'exchangeRateToETB' in c ? c.exchangeRateToETB : 1.0],
+          [selectedCountry === 'ALL' ? 'Global Base' : selectedCountry, 'Ride Distance Rate', 'ridePerKm' in c ? c.ridePerKm : c.ridePerKmETB, `${'currency' in c ? c.currency : 'ETB'}/km`, 'exchangeRateToETB' in c ? c.exchangeRateToETB : 1.0],
+          [selectedCountry === 'ALL' ? 'Global Base' : selectedCountry, 'Ride Time Rate', 'ridePerMin' in c ? c.ridePerMin : c.ridePerMinETB, `${'currency' in c ? c.currency : 'ETB'}/min`, 'exchangeRateToETB' in c ? c.exchangeRateToETB : 1.0],
+          [selectedCountry === 'ALL' ? 'Global Base' : selectedCountry, 'Truck Base Dispatch', 'truckBaseFare' in c ? c.truckBaseFare : c.truckBaseFareETB, 'currency' in c ? c.currency : 'ETB', 'exchangeRateToETB' in c ? c.exchangeRateToETB : 1.0],
+          [selectedCountry === 'ALL' ? 'Global Base' : selectedCountry, 'Truck Ton-Km Rate', 'truckPerTonKm' in c ? c.truckPerTonKm : c.truckPerTonKmETB, `${'currency' in c ? c.currency : 'ETB'}/ton-km`, 'exchangeRateToETB' in c ? c.exchangeRateToETB : 1.0],
+          [selectedCountry === 'ALL' ? 'Global Base' : selectedCountry, 'Platform Margin', c.platformMarginPct, '%', 'N/A'],
+          [selectedCountry === 'ALL' ? 'Global Base' : selectedCountry, 'Withholding Tax', c.withholdingTaxPct, '%', 'N/A'],
         ]
       );
     }
-    onNotify('CSV Exported', `Downloaded ${activeTab} configuration table.`, 'success');
+    onNotify('CSV Exported', `Downloaded ${activeTab} configuration table for ${selectedCountry}.`, 'success');
   };
 
   if (loading || !config) {
@@ -246,30 +520,147 @@ export const PricingSurgeFlagsView: React.FC<PricingSurgeFlagsViewProps> = ({
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-slate-200 dark:border-slate-800">
         <div>
-          <div className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-400">
-            <span>SuperApp Governance</span>
+          <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
+            <span>Financial Governance &amp; Tariffs</span>
             <span aria-hidden="true">·</span>
-            <span>Parse Runtime Config</span>
+            <span className="flex items-center gap-1 font-medium text-cyan-600 dark:text-cyan-400">
+              <Globe className="w-3.5 h-3.5" />
+              <span>East Africa Cross-Border Pricing Studio (8 Nations)</span>
+            </span>
             <span aria-hidden="true">·</span>
-            <span className="font-mono text-cyan-700 dark:text-cyan-400">{configSource}</span>
+            <span className="font-mono text-emerald-600 dark:text-emerald-400">{configSource}</span>
           </div>
-          <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 dark:text-white mt-0.5">
-            Dynamic Pricing, Surge &amp; FeatureFlag Studio
+          <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 dark:text-white mt-0.5 flex items-center gap-2.5">
+            <span>Dynamic Pricing &amp; Surge Studio</span>
+            <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-cyan-500/10 text-cyan-700 dark:text-cyan-300 border border-cyan-500/30">
+              Corridor Telemetry
+            </span>
           </h1>
         </div>
 
-        <div className="flex items-center gap-2.5 shrink-0">
+        <div className="flex items-center gap-2.5 shrink-0 flex-wrap">
           <button
             type="button"
             onClick={handleDownloadCsv}
-            className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-semibold bg-cyan-600 hover:bg-cyan-500 text-white whitespace-nowrap shrink-0"
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-semibold bg-cyan-600 hover:bg-cyan-500 text-white whitespace-nowrap shrink-0 shadow-xs"
           >
             <Download className="w-3.5 h-3.5" />
             <span>Download CSV</span>
           </button>
         </div>
+      </div>
+
+      {/* East Africa Regional Country Selector Bar */}
+      <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xs space-y-3">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <Globe className="w-4 h-4 text-cyan-600 dark:text-cyan-400" />
+            <span className="text-xs font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider">
+              Regional Pricing Hub &amp; Freight Corridor Scope
+            </span>
+          </div>
+          <span className="text-[11px] text-slate-500 dark:text-slate-400">
+            Regulated tariffs, fuel benchmarks &amp; statutory tax withholdings
+          </span>
+        </div>
+
+        <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-thin">
+          <button
+            onClick={() => handleCountryChange('ALL')}
+            className={`px-3 py-2 rounded-lg text-xs font-semibold transition-all shrink-0 flex items-center gap-2 border ${
+              selectedCountry === 'ALL'
+                ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900 border-slate-900 dark:border-white shadow-sm'
+                : 'bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700/80'
+            }`}
+          >
+            <span className="text-sm">🌍</span>
+            <span>All Regional Hubs</span>
+            <span className={`px-1.5 py-0.2 rounded text-[10px] font-mono ${selectedCountry === 'ALL' ? 'bg-white/20 dark:bg-black/20 text-white dark:text-slate-900' : 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300'}`}>
+              8 Nations
+            </span>
+          </button>
+
+          {(Object.keys(EAST_AFRICA_HUBS) as EastAfricaCountryCode[]).map((cCode) => {
+            const hub = EAST_AFRICA_HUBS[cCode];
+            const isSelected = selectedCountry === cCode;
+            return (
+              <button
+                key={cCode}
+                onClick={() => handleCountryChange(cCode)}
+                className={`px-3 py-2 rounded-lg text-xs font-semibold transition-all shrink-0 flex items-center gap-2 border ${
+                  isSelected
+                    ? 'bg-cyan-600 text-white border-cyan-600 shadow-sm ring-2 ring-cyan-500/20'
+                    : 'bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700/80'
+                }`}
+              >
+                <span className="text-base leading-none">{hub.flag}</span>
+                <span>{hub.countryName}</span>
+                <span className={`px-1.5 py-0.2 rounded text-[10px] font-mono uppercase ${isSelected ? 'bg-white/20 text-white' : 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-400'}`}>
+                  {hub.currency}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Selected Hub Detail Banner */}
+        {activeHub && currentPricing ? (
+          <div className="mt-2 p-3.5 rounded-lg bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs">
+            <div className="flex items-center gap-3">
+              <span className="text-3xl">{activeHub.flag}</span>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h3 className="font-bold text-slate-900 dark:text-white text-sm">
+                    {activeHub.countryName} Dynamic Tariff Profile
+                  </h3>
+                  <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-cyan-100 dark:bg-cyan-950 text-cyan-800 dark:text-cyan-300 border border-cyan-500/30">
+                    Regulator: {currentPricing.regulator}
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-600 dark:text-slate-400 mt-0.5">
+                  <span className="font-semibold text-slate-700 dark:text-slate-300">Strategic Corridor:</span> {currentPricing.corridorNotes || activeHub.settlementCorridorNote}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-4 shrink-0 pt-2 md:pt-0 border-t md:border-t-0 border-slate-200 dark:border-slate-700">
+              <div>
+                <span className="text-[10px] text-slate-500 dark:text-slate-400 uppercase tracking-wider block">Base Currency</span>
+                <span className="font-mono font-bold text-slate-900 dark:text-white">
+                  {currentPricing.currency} ({currentPricing.currencySymbol})
+                </span>
+              </div>
+              <div className="h-6 w-px bg-slate-200 dark:bg-slate-700" />
+              <div>
+                <span className="text-[10px] text-slate-500 dark:text-slate-400 uppercase tracking-wider block">ETB Peg / Rate</span>
+                <span className="font-mono font-bold text-emerald-600 dark:text-emerald-400">
+                  1 {currentPricing.currency} = {currentPricing.exchangeRateToETB} ETB
+                </span>
+              </div>
+              <div className="h-6 w-px bg-slate-200 dark:bg-slate-700" />
+              <div>
+                <span className="text-[10px] text-slate-500 dark:text-slate-400 uppercase tracking-wider block">Statutory Withholding</span>
+                <span className="font-mono font-bold text-purple-600 dark:text-purple-400">
+                  {currentPricing.withholdingTaxPct}% Tax · {currentPricing.platformMarginPct}% Margin
+                </span>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="mt-2 p-3 rounded-lg bg-cyan-50/50 dark:bg-cyan-950/20 border border-cyan-200/60 dark:border-cyan-900/50 flex flex-wrap items-center justify-between gap-2 text-xs">
+            <div className="flex items-center gap-2 text-cyan-800 dark:text-cyan-300">
+              <Sparkles className="w-4 h-4 text-cyan-600 shrink-0" />
+              <span>
+                <strong>Cross-Border Tariff Federation:</strong> Managing dynamic fares, surge multipliers, and feature rollout across 8 East African countries.
+              </span>
+            </div>
+            <div className="text-[11px] font-mono text-cyan-700 dark:text-cyan-400">
+              Bilateral Flagship: Modjo Dry Port (ET) ⇄ Doraleh Port (DJ) Multimodal Corridor
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Segmented Tabs */}
@@ -284,7 +675,7 @@ export const PricingSurgeFlagsView: React.FC<PricingSurgeFlagsViewProps> = ({
           }`}
         >
           <Sliders className="w-3.5 h-3.5" />
-          <span>Pricing &amp; Priorities</span>
+          <span>Pricing &amp; Corridor Tariffs</span>
         </button>
 
         <button
@@ -296,8 +687,8 @@ export const PricingSurgeFlagsView: React.FC<PricingSurgeFlagsViewProps> = ({
               : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
           }`}
         >
-          <Flame className="w-3.5 h-3.5" />
-          <span>Regional Surge Controller</span>
+          <Flame className="w-3.5 h-3.5 text-amber-500" />
+          <span>Regional Surge Controller ({filteredSurgeZones.length} Zones)</span>
         </button>
 
         <button
@@ -309,27 +700,31 @@ export const PricingSurgeFlagsView: React.FC<PricingSurgeFlagsViewProps> = ({
               : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
           }`}
         >
-          <Flag className="w-3.5 h-3.5" />
-          <span>FeatureFlags &amp; UnifiedAppRegistry</span>
+          <Flag className="w-3.5 h-3.5 text-cyan-500" />
+          <span>FeatureFlags &amp; Regional Rollout ({filteredFeatureFlags.length})</span>
         </button>
       </div>
 
-      {/* TAB 1: PRICING FINANCIAL CONTEXT & SYSTEMCONFIG PRIORITIES */}
-      {activeTab === 'pricing' && (
+      {/* TAB 1: PRICING FINANCIAL CONTEXT & REGIONAL CORRIDOR SIMULATOR */}
+      {activeTab === 'pricing' && currentPricing && (
         <form onSubmit={handleSavePricingConfig} className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-          <div className="lg:col-span-8 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 space-y-6">
+          <div className="lg:col-span-7 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 space-y-6">
+            {/* Priority Multipliers */}
             <div>
-              <h2 className="text-sm font-bold text-slate-900 dark:text-white">
-                SystemConfig Booking Priority Multipliers
+              <h2 className="text-sm font-bold text-slate-900 dark:text-white flex items-center justify-between">
+                <span>SystemConfig Booking Priority Multipliers</span>
+                <span className="text-[11px] font-normal text-slate-500 dark:text-slate-400">
+                  Global Fleet Dispatch Engine
+                </span>
               </h2>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                Synchronized with Flutter SystemConfigService (normal, urgent, express tiers)
+                Multipliers synchronized across Flutter client applications for normal, urgent, and express tiers
               </p>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-3">
                 {(['normal', 'urgent', 'express'] as const).map((tier) => (
                   <div key={tier}>
                     <label className="block text-xs font-semibold capitalize text-slate-700 dark:text-slate-300 mb-1">
-                      {tier} Multiplier (x)
+                      {tier} Tier (x)
                     </label>
                     <input
                       type="number"
@@ -353,114 +748,351 @@ export const PricingSurgeFlagsView: React.FC<PricingSurgeFlagsViewProps> = ({
               </div>
             </div>
 
+            {/* Regional Tariff Formula Inputs */}
             <div className="pt-4 border-t border-slate-200 dark:border-slate-800">
-              <h2 className="text-sm font-bold text-slate-900 dark:text-white">
-                PricingFinancialContext Tariffs, Bidding Bounds &amp; Margins
-              </h2>
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 mt-3 text-xs">
-                <div>
-                  <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                    Ride Base Fare (ETB)
-                  </label>
-                  <input
-                    type="number"
-                    step="1"
-                    value={config.pricingFinancialContext.rideBaseFareETB}
-                    onChange={(e) =>
-                      setConfig({
-                        ...config,
-                        pricingFinancialContext: {
-                          ...config.pricingFinancialContext,
-                          rideBaseFareETB: Number(e.target.value),
-                        },
-                      })
-                    }
-                    className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 font-mono tabular-nums text-slate-900 dark:text-white"
-                  />
-                </div>
+              <div className="flex items-center justify-between mb-1">
+                <h2 className="text-sm font-bold text-slate-900 dark:text-white">
+                  {selectedCountry !== 'ALL'
+                    ? `${currentPricing.countryName} (${currentPricing.currency}) Tariff Parameters`
+                    : 'Global Base Ledger (ETB) Tariffs & Bounds'}
+                </h2>
+                <span className="text-xs font-mono font-semibold text-cyan-600 dark:text-cyan-400">
+                  {currentPricing.currency} Rail
+                </span>
+              </div>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mb-3">
+                Ride and freight tariff matrix enforced by {currentPricing.regulator}
+              </p>
 
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 text-xs">
                 <div>
                   <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                    Ride Distance Rate (ETB/km)
+                    Ride Base Fare ({currentPricing.currency})
                   </label>
                   <input
                     type="number"
                     step="0.5"
-                    value={config.pricingFinancialContext.ridePerKmETB}
-                    onChange={(e) =>
-                      setConfig({
-                        ...config,
-                        pricingFinancialContext: {
-                          ...config.pricingFinancialContext,
-                          ridePerKmETB: Number(e.target.value),
-                        },
-                      })
+                    value={
+                      selectedCountry !== 'ALL' && config.regionalCountryPricing?.[selectedCountry]
+                        ? config.regionalCountryPricing[selectedCountry].rideBaseFare
+                        : config.pricingFinancialContext.rideBaseFareETB
                     }
+                    onChange={(e) => {
+                      const val = Number(e.target.value);
+                      if (selectedCountry !== 'ALL' && config.regionalCountryPricing?.[selectedCountry]) {
+                        setConfig({
+                          ...config,
+                          regionalCountryPricing: {
+                            ...config.regionalCountryPricing,
+                            [selectedCountry]: {
+                              ...config.regionalCountryPricing[selectedCountry],
+                              rideBaseFare: val,
+                            },
+                          },
+                        });
+                      } else {
+                        setConfig({
+                          ...config,
+                          pricingFinancialContext: {
+                            ...config.pricingFinancialContext,
+                            rideBaseFareETB: val,
+                          },
+                        });
+                      }
+                    }}
                     className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 font-mono tabular-nums text-slate-900 dark:text-white"
                   />
                 </div>
 
                 <div>
                   <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                    Ride Time Rate (ETB/min)
+                    Ride Distance Rate ({currentPricing.currency}/km)
                   </label>
                   <input
                     type="number"
                     step="0.1"
-                    value={config.pricingFinancialContext.ridePerMinETB}
-                    onChange={(e) =>
-                      setConfig({
-                        ...config,
-                        pricingFinancialContext: {
-                          ...config.pricingFinancialContext,
-                          ridePerMinETB: Number(e.target.value),
-                        },
-                      })
+                    value={
+                      selectedCountry !== 'ALL' && config.regionalCountryPricing?.[selectedCountry]
+                        ? config.regionalCountryPricing[selectedCountry].ridePerKm
+                        : config.pricingFinancialContext.ridePerKmETB
                     }
+                    onChange={(e) => {
+                      const val = Number(e.target.value);
+                      if (selectedCountry !== 'ALL' && config.regionalCountryPricing?.[selectedCountry]) {
+                        setConfig({
+                          ...config,
+                          regionalCountryPricing: {
+                            ...config.regionalCountryPricing,
+                            [selectedCountry]: {
+                              ...config.regionalCountryPricing[selectedCountry],
+                              ridePerKm: val,
+                            },
+                          },
+                        });
+                      } else {
+                        setConfig({
+                          ...config,
+                          pricingFinancialContext: {
+                            ...config.pricingFinancialContext,
+                            ridePerKmETB: val,
+                          },
+                        });
+                      }
+                    }}
                     className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 font-mono tabular-nums text-slate-900 dark:text-white"
                   />
                 </div>
 
                 <div>
                   <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                    Truck Base Dispatch (ETB)
+                    Ride Time Rate ({currentPricing.currency}/min)
+                  </label>
+                  <input
+                    type="number"
+                    step="0.05"
+                    value={
+                      selectedCountry !== 'ALL' && config.regionalCountryPricing?.[selectedCountry]
+                        ? config.regionalCountryPricing[selectedCountry].ridePerMin
+                        : config.pricingFinancialContext.ridePerMinETB
+                    }
+                    onChange={(e) => {
+                      const val = Number(e.target.value);
+                      if (selectedCountry !== 'ALL' && config.regionalCountryPricing?.[selectedCountry]) {
+                        setConfig({
+                          ...config,
+                          regionalCountryPricing: {
+                            ...config.regionalCountryPricing,
+                            [selectedCountry]: {
+                              ...config.regionalCountryPricing[selectedCountry],
+                              ridePerMin: val,
+                            },
+                          },
+                        });
+                      } else {
+                        setConfig({
+                          ...config,
+                          pricingFinancialContext: {
+                            ...config.pricingFinancialContext,
+                            ridePerMinETB: val,
+                          },
+                        });
+                      }
+                    }}
+                    className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 font-mono tabular-nums text-slate-900 dark:text-white"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    Truck Base Dispatch ({currentPricing.currency})
                   </label>
                   <input
                     type="number"
                     step="50"
-                    value={config.pricingFinancialContext.truckBaseFareETB}
-                    onChange={(e) =>
-                      setConfig({
-                        ...config,
-                        pricingFinancialContext: {
-                          ...config.pricingFinancialContext,
-                          truckBaseFareETB: Number(e.target.value),
-                        },
-                      })
+                    value={
+                      selectedCountry !== 'ALL' && config.regionalCountryPricing?.[selectedCountry]
+                        ? config.regionalCountryPricing[selectedCountry].truckBaseFare
+                        : config.pricingFinancialContext.truckBaseFareETB
                     }
+                    onChange={(e) => {
+                      const val = Number(e.target.value);
+                      if (selectedCountry !== 'ALL' && config.regionalCountryPricing?.[selectedCountry]) {
+                        setConfig({
+                          ...config,
+                          regionalCountryPricing: {
+                            ...config.regionalCountryPricing,
+                            [selectedCountry]: {
+                              ...config.regionalCountryPricing[selectedCountry],
+                              truckBaseFare: val,
+                            },
+                          },
+                        });
+                      } else {
+                        setConfig({
+                          ...config,
+                          pricingFinancialContext: {
+                            ...config.pricingFinancialContext,
+                            truckBaseFareETB: val,
+                          },
+                        });
+                      }
+                    }}
                     className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 font-mono tabular-nums text-slate-900 dark:text-white"
                   />
                 </div>
 
                 <div>
                   <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                    Truck Ton-Km Rate (ETB)
+                    Truck Ton-Km Rate ({currentPricing.currency})
                   </label>
                   <input
                     type="number"
-                    step="0.2"
-                    value={config.pricingFinancialContext.truckPerTonKmETB}
-                    onChange={(e) =>
-                      setConfig({
-                        ...config,
-                        pricingFinancialContext: {
-                          ...config.pricingFinancialContext,
-                          truckPerTonKmETB: Number(e.target.value),
-                        },
-                      })
+                    step="0.5"
+                    value={
+                      selectedCountry !== 'ALL' && config.regionalCountryPricing?.[selectedCountry]
+                        ? config.regionalCountryPricing[selectedCountry].truckPerTonKm
+                        : config.pricingFinancialContext.truckPerTonKmETB
                     }
+                    onChange={(e) => {
+                      const val = Number(e.target.value);
+                      if (selectedCountry !== 'ALL' && config.regionalCountryPricing?.[selectedCountry]) {
+                        setConfig({
+                          ...config,
+                          regionalCountryPricing: {
+                            ...config.regionalCountryPricing,
+                            [selectedCountry]: {
+                              ...config.regionalCountryPricing[selectedCountry],
+                              truckPerTonKm: val,
+                            },
+                          },
+                        });
+                      } else {
+                        setConfig({
+                          ...config,
+                          pricingFinancialContext: {
+                            ...config.pricingFinancialContext,
+                            truckPerTonKmETB: val,
+                          },
+                        });
+                      }
+                    }}
                     className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 font-mono tabular-nums text-slate-900 dark:text-white"
                   />
+                </div>
+
+                <div>
+                  <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    Platform Take Margin (%)
+                  </label>
+                  <input
+                    type="number"
+                    step="0.5"
+                    value={currentPricing.platformMarginPct}
+                    onChange={(e) => {
+                      const val = Number(e.target.value);
+                      if (selectedCountry !== 'ALL' && config.regionalCountryPricing?.[selectedCountry]) {
+                        setConfig({
+                          ...config,
+                          regionalCountryPricing: {
+                            ...config.regionalCountryPricing,
+                            [selectedCountry]: {
+                              ...config.regionalCountryPricing[selectedCountry],
+                              platformMarginPct: val,
+                            },
+                          },
+                        });
+                      } else {
+                        setConfig({
+                          ...config,
+                          pricingFinancialContext: {
+                            ...config.pricingFinancialContext,
+                            platformMarginPct: val,
+                          },
+                        });
+                      }
+                    }}
+                    className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 font-mono tabular-nums text-slate-900 dark:text-white"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    Statutory Tax Withholding (%)
+                  </label>
+                  <input
+                    type="number"
+                    step="0.5"
+                    value={currentPricing.withholdingTaxPct}
+                    onChange={(e) => {
+                      const val = Number(e.target.value);
+                      if (selectedCountry !== 'ALL' && config.regionalCountryPricing?.[selectedCountry]) {
+                        setConfig({
+                          ...config,
+                          regionalCountryPricing: {
+                            ...config.regionalCountryPricing,
+                            [selectedCountry]: {
+                              ...config.regionalCountryPricing[selectedCountry],
+                              withholdingTaxPct: val,
+                            },
+                          },
+                        });
+                      } else {
+                        setConfig({
+                          ...config,
+                          pricingFinancialContext: {
+                            ...config.pricingFinancialContext,
+                            withholdingTaxPct: val,
+                          },
+                        });
+                      }
+                    }}
+                    className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 font-mono tabular-nums text-slate-900 dark:text-white"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    Carrier Bid Floor / Ceiling (%)
+                  </label>
+                  <div className="flex items-center gap-2 font-mono tabular-nums">
+                    <input
+                      type="number"
+                      value={currentPricing.biddingFloorPct}
+                      onChange={(e) => {
+                        const val = Number(e.target.value);
+                        if (selectedCountry !== 'ALL' && config.regionalCountryPricing?.[selectedCountry]) {
+                          setConfig({
+                            ...config,
+                            regionalCountryPricing: {
+                              ...config.regionalCountryPricing,
+                              [selectedCountry]: {
+                                ...config.regionalCountryPricing[selectedCountry],
+                                biddingFloorPct: val,
+                              },
+                            },
+                          });
+                        } else {
+                          setConfig({
+                            ...config,
+                            pricingFinancialContext: {
+                              ...config.pricingFinancialContext,
+                              biddingFloorPct: val,
+                            },
+                          });
+                        }
+                      }}
+                      className="w-full px-2.5 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white"
+                    />
+                    <span className="text-slate-400">–</span>
+                    <input
+                      type="number"
+                      value={currentPricing.biddingCeilingPct}
+                      onChange={(e) => {
+                        const val = Number(e.target.value);
+                        if (selectedCountry !== 'ALL' && config.regionalCountryPricing?.[selectedCountry]) {
+                          setConfig({
+                            ...config,
+                            regionalCountryPricing: {
+                              ...config.regionalCountryPricing,
+                              [selectedCountry]: {
+                                ...config.regionalCountryPricing[selectedCountry],
+                                biddingCeilingPct: val,
+                              },
+                            },
+                          });
+                        } else {
+                          setConfig({
+                            ...config,
+                            pricingFinancialContext: {
+                              ...config.pricingFinancialContext,
+                              biddingCeilingPct: val,
+                            },
+                          });
+                        }
+                      }}
+                      className="w-full px-2.5 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white"
+                    />
+                  </div>
                 </div>
 
                 <div>
@@ -470,111 +1102,45 @@ export const PricingSurgeFlagsView: React.FC<PricingSurgeFlagsViewProps> = ({
                   <input
                     type="number"
                     min="5"
-                    max="120"
-                    value={config.pricingFinancialContext.autoBidWindowMinutes}
-                    onChange={(e) =>
-                      setConfig({
-                        ...config,
-                        pricingFinancialContext: {
-                          ...config.pricingFinancialContext,
-                          autoBidWindowMinutes: Number(e.target.value),
-                        },
-                      })
-                    }
-                    className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 font-mono tabular-nums text-slate-900 dark:text-white"
-                  />
-                </div>
-
-                <div>
-                  <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                    Platform Commission (%)
-                  </label>
-                  <input
-                    type="number"
-                    step="0.5"
-                    min="0"
-                    max="40"
-                    value={config.pricingFinancialContext.platformMarginPct}
-                    onChange={(e) =>
-                      setConfig({
-                        ...config,
-                        pricingFinancialContext: {
-                          ...config.pricingFinancialContext,
-                          platformMarginPct: Number(e.target.value),
-                        },
-                      })
-                    }
-                    className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 font-mono tabular-nums text-slate-900 dark:text-white"
-                  />
-                </div>
-
-                <div>
-                  <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                    Withholding Tax (%)
-                  </label>
-                  <input
-                    type="number"
-                    step="0.5"
-                    min="0"
-                    max="15"
-                    value={config.pricingFinancialContext.withholdingTaxPct}
-                    onChange={(e) =>
-                      setConfig({
-                        ...config,
-                        pricingFinancialContext: {
-                          ...config.pricingFinancialContext,
-                          withholdingTaxPct: Number(e.target.value),
-                        },
-                      })
-                    }
-                    className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 font-mono tabular-nums text-slate-900 dark:text-white"
-                  />
-                </div>
-
-                <div>
-                  <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                    Bid Floor / Ceiling (%)
-                  </label>
-                  <div className="flex items-center gap-2 font-mono tabular-nums">
-                    <input
-                      type="number"
-                      value={config.pricingFinancialContext.biddingFloorPct}
-                      onChange={(e) =>
+                    max="60"
+                    value={currentPricing.autoBidWindowMinutes}
+                    onChange={(e) => {
+                      const val = Number(e.target.value);
+                      if (selectedCountry !== 'ALL' && config.regionalCountryPricing?.[selectedCountry]) {
+                        setConfig({
+                          ...config,
+                          regionalCountryPricing: {
+                            ...config.regionalCountryPricing,
+                            [selectedCountry]: {
+                              ...config.regionalCountryPricing[selectedCountry],
+                              autoBidWindowMinutes: val,
+                            },
+                          },
+                        });
+                      } else {
                         setConfig({
                           ...config,
                           pricingFinancialContext: {
                             ...config.pricingFinancialContext,
-                            biddingFloorPct: Number(e.target.value),
+                            autoBidWindowMinutes: val,
                           },
-                        })
+                        });
                       }
-                      className="w-full px-2.5 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white"
-                    />
-                    <span className="text-slate-400">–</span>
-                    <input
-                      type="number"
-                      value={config.pricingFinancialContext.biddingCeilingPct}
-                      onChange={(e) =>
-                        setConfig({
-                          ...config,
-                          pricingFinancialContext: {
-                            ...config.pricingFinancialContext,
-                            biddingCeilingPct: Number(e.target.value),
-                          },
-                        })
-                      }
-                      className="w-full px-2.5 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white"
-                    />
-                  </div>
+                    }}
+                    className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 font-mono tabular-nums text-slate-900 dark:text-white"
+                  />
                 </div>
               </div>
             </div>
 
-            <div className="pt-3 flex items-center justify-end">
+            <div className="pt-3 flex items-center justify-between border-t border-slate-200 dark:border-slate-800">
+              <span className="text-xs text-slate-500 dark:text-slate-400">
+                Active Regulatory Authority: <span className="font-semibold text-slate-700 dark:text-slate-300">{currentPricing.regulator}</span>
+              </span>
               <button
                 type="submit"
                 disabled={savingConfig}
-                className="flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold bg-cyan-600 hover:bg-cyan-500 text-white transition-colors"
+                className="flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold bg-cyan-600 hover:bg-cyan-500 text-white transition-colors shadow-xs"
               >
                 <Save className="w-3.5 h-3.5" />
                 <span>{savingConfig ? 'Syncing Parse Config...' : 'Save to Parse Config'}</span>
@@ -582,56 +1148,199 @@ export const PricingSurgeFlagsView: React.FC<PricingSurgeFlagsViewProps> = ({
             </div>
           </div>
 
-          {/* Live Financial Split Preview */}
-          <div className="lg:col-span-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 space-y-5">
-            <div className="flex items-center gap-2">
-              <Calculator className="w-4 h-4 text-cyan-600 dark:text-cyan-400" />
-              <h3 className="text-sm font-bold text-slate-900 dark:text-white">
-                Live Tariff &amp; Split Simulator
-              </h3>
+          {/* Live Regional Corridor Split Simulator */}
+          <div className="lg:col-span-5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Calculator className="w-4 h-4 text-cyan-600 dark:text-cyan-400" />
+                <h3 className="text-sm font-bold text-slate-900 dark:text-white">
+                  Corridor Fare &amp; Take-Rate Simulator
+                </h3>
+              </div>
+              <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-cyan-50 dark:bg-cyan-950 text-cyan-700 dark:text-cyan-300 border border-cyan-500/30">
+                Live Dual-Currency
+              </span>
             </div>
 
-            {farePreview && (
-              <div className="space-y-4 text-xs">
-                <div className="p-3.5 rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 space-y-1.5">
-                  <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">
-                    10 km · 22 min Addis City Ride
+            {/* Corridor Preset Selector */}
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                Select Tested Trade Corridor / Route:
+              </label>
+              <select
+                value={selectedCorridorPresetId}
+                onChange={(e) => handleCorridorPresetChange(e.target.value)}
+                className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white text-xs font-medium"
+              >
+                {REGIONAL_CORRIDOR_PRESETS.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {EAST_AFRICA_HUBS[p.countryCode]?.flag} [{p.countryCode}] {p.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Interactive Simulation Sliders */}
+            <div className="grid grid-cols-2 gap-3 p-3 rounded-lg bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/60 text-xs">
+              <div>
+                <div className="flex justify-between items-center mb-1">
+                  <span className="font-semibold text-slate-600 dark:text-slate-400">Distance</span>
+                  <span className="font-mono font-bold text-slate-900 dark:text-white">{simDistanceKm} km</span>
+                </div>
+                <input
+                  type="range"
+                  min="2"
+                  max="1200"
+                  step="5"
+                  value={simDistanceKm}
+                  onChange={(e) => setSimDistanceKm(Number(e.target.value))}
+                  className="w-full accent-cyan-600 cursor-pointer"
+                />
+              </div>
+
+              <div>
+                <div className="flex justify-between items-center mb-1">
+                  <span className="font-semibold text-slate-600 dark:text-slate-400">Cargo Weight</span>
+                  <span className="font-mono font-bold text-slate-900 dark:text-white">{simTonnage} Tons</span>
+                </div>
+                <input
+                  type="range"
+                  min="1"
+                  max="40"
+                  step="1"
+                  value={simTonnage}
+                  onChange={(e) => setSimTonnage(Number(e.target.value))}
+                  className="w-full accent-cyan-600 cursor-pointer"
+                />
+              </div>
+
+              <div>
+                <div className="flex justify-between items-center mb-1">
+                  <span className="font-semibold text-slate-600 dark:text-slate-400">Duration</span>
+                  <span className="font-mono font-bold text-slate-900 dark:text-white">{simDurationMin} min</span>
+                </div>
+                <input
+                  type="range"
+                  min="5"
+                  max="1440"
+                  step="5"
+                  value={simDurationMin}
+                  onChange={(e) => setSimDurationMin(Number(e.target.value))}
+                  className="w-full accent-cyan-600 cursor-pointer"
+                />
+              </div>
+
+              <div>
+                <div className="flex justify-between items-center mb-1">
+                  <span className="font-semibold text-slate-600 dark:text-slate-400">Surge / Priority</span>
+                  <span className="font-mono font-bold text-amber-600 dark:text-amber-400">
+                    {(simPriorityMultiplier * simSurgeMultiplier).toFixed(2)}x
                   </span>
-                  <div className="flex justify-between font-mono tabular-nums">
-                    <span className="text-slate-600 dark:text-slate-400">Passenger Gross</span>
-                    <span className="font-bold text-slate-900 dark:text-white">
-                      ETB {farePreview.rideGross.toFixed(2)}
+                </div>
+                <input
+                  type="range"
+                  min="1.0"
+                  max="2.5"
+                  step="0.05"
+                  value={simSurgeMultiplier}
+                  onChange={(e) => setSimSurgeMultiplier(Number(e.target.value))}
+                  className="w-full accent-amber-500 cursor-pointer"
+                />
+              </div>
+            </div>
+
+            {/* Calculated Output Breakdown */}
+            {fareSimulation && (
+              <div className="space-y-3 text-xs">
+                {/* Ride Preview Card */}
+                <div className="p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/40 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                      <Car className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400" />
+                      <span>Metropolitan Passenger Ride ({simDistanceKm} km · {simDurationMin} min)</span>
+                    </span>
+                    <span className="font-mono text-[10px] text-slate-500">
+                      Surge: {simSurgeMultiplier.toFixed(2)}x
                     </span>
                   </div>
+
                   <div className="flex justify-between font-mono tabular-nums">
-                    <span className="text-slate-600 dark:text-slate-400">Net Driver Wallet</span>
-                    <span className="font-semibold text-emerald-700 dark:text-emerald-400">
-                      ETB {farePreview.rideNet.toFixed(2)}
+                    <span className="text-slate-500 dark:text-slate-400">Passenger Gross Fare</span>
+                    <div className="text-right">
+                      <span className="font-bold text-slate-900 dark:text-white">
+                        {fareSimulation.currency} {fareSimulation.rideGrossNative.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </span>
+                      {fareSimulation.currency !== 'ETB' && (
+                        <span className="text-[10px] text-slate-400 block font-normal">
+                          ≈ ETB {fareSimulation.rideGrossETB.toFixed(2)}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="flex justify-between font-mono tabular-nums pt-1 border-t border-slate-200/60 dark:border-slate-700/60">
+                    <span className="text-slate-500 dark:text-slate-400">
+                      Platform Take ({currentPricing.platformMarginPct}%) + Tax ({currentPricing.withholdingTaxPct}%)
+                    </span>
+                    <span className="font-medium text-purple-600 dark:text-purple-400">
+                      -{fareSimulation.currency} {(fareSimulation.rideMarginNative + fareSimulation.rideTaxNative).toFixed(2)}
+                    </span>
+                  </div>
+
+                  <div className="flex justify-between font-mono tabular-nums pt-1 border-t border-slate-200/60 dark:border-slate-700/60 font-semibold">
+                    <span className="text-emerald-700 dark:text-emerald-400">Net Driver Wallet Take-Home</span>
+                    <span className="text-emerald-700 dark:text-emerald-400 font-bold">
+                      {fareSimulation.currency} {fareSimulation.rideNetNative.toFixed(2)}
                     </span>
                   </div>
                 </div>
 
-                <div className="p-3.5 rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 space-y-1.5">
-                  <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">
-                    20T · 95 km Urgent Freight ({config.bookingPriorities.urgent.toFixed(2)}x)
-                  </span>
-                  <div className="flex justify-between font-mono tabular-nums">
-                    <span className="text-slate-600 dark:text-slate-400">Escrow Lock Gross</span>
-                    <span className="font-bold text-slate-900 dark:text-white">
-                      ETB {Math.round(farePreview.truckGross).toLocaleString()}
+                {/* Freight Haul Preview Card */}
+                <div className="p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/40 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                      <Truck className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+                      <span>Heavy Freight Corridor ({simTonnage}T · {simDistanceKm} km)</span>
+                    </span>
+                    <span className="font-mono text-[10px] text-slate-500">
+                      Escrow Protected
                     </span>
                   </div>
+
                   <div className="flex justify-between font-mono tabular-nums">
-                    <span className="text-slate-600 dark:text-slate-400">Net Fleet / Carrier</span>
-                    <span className="font-semibold text-emerald-700 dark:text-emerald-400">
-                      ETB {Math.round(farePreview.truckNet).toLocaleString()}
+                    <span className="text-slate-500 dark:text-slate-400">Escrow Locked Gross</span>
+                    <div className="text-right">
+                      <span className="font-bold text-slate-900 dark:text-white">
+                        {fareSimulation.currency} {Math.round(fareSimulation.truckGrossNative).toLocaleString()}
+                      </span>
+                      {fareSimulation.currency !== 'ETB' && (
+                        <span className="text-[10px] text-slate-400 block font-normal">
+                          ≈ ETB {Math.round(fareSimulation.truckGrossETB).toLocaleString()}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="flex justify-between font-mono tabular-nums pt-1 border-t border-slate-200/60 dark:border-slate-700/60">
+                    <span className="text-slate-500 dark:text-slate-400">
+                      Platform Fee ({currentPricing.platformMarginPct}%) + Statutory Tax ({currentPricing.withholdingTaxPct}%)
+                    </span>
+                    <span className="font-medium text-purple-600 dark:text-purple-400">
+                      -{fareSimulation.currency} {Math.round(fareSimulation.truckMarginNative + fareSimulation.truckTaxNative).toLocaleString()}
+                    </span>
+                  </div>
+
+                  <div className="flex justify-between font-mono tabular-nums pt-1 border-t border-slate-200/60 dark:border-slate-700/60 font-semibold">
+                    <span className="text-blue-700 dark:text-blue-400">Net Fleet / Carrier Payout</span>
+                    <span className="text-blue-700 dark:text-blue-400 font-bold">
+                      {fareSimulation.currency} {Math.round(fareSimulation.truckNetNative).toLocaleString()}
                     </span>
                   </div>
                 </div>
 
                 <div className="pt-2 border-t border-slate-200 dark:border-slate-800">
                   <p className="text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1.5">
-                    Enabled Transport Categories ({config.availableTransportCategories.length})
+                    Fleet Vehicle Categories Configured ({config.availableTransportCategories.length})
                   </p>
                   <p className="text-[11px] font-mono text-slate-700 dark:text-slate-300 leading-relaxed">
                     {config.availableTransportCategories.join(' · ')}
@@ -645,19 +1354,47 @@ export const PricingSurgeFlagsView: React.FC<PricingSurgeFlagsViewProps> = ({
 
       {/* TAB 2: REGIONAL SURGE CONTROLLER */}
       {activeTab === 'surge' && (
-        <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 overflow-hidden">
-          <div className="px-4 py-3 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
-            <h2 className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">
-              Live Corridor Demand &amp; Surge Multipliers (getCurrentSurge)
-            </h2>
-            <span className="text-[11px] font-mono text-slate-500 dark:text-slate-400">
-              Range 1.00x – 3.50x
-            </span>
+        <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 overflow-hidden shadow-xs space-y-4 p-5">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-200 dark:border-slate-800">
+            <div>
+              <h2 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                <span>Regional Surge Demand &amp; Multipliers Controller</span>
+                <span className="text-xs font-normal text-slate-500 dark:text-slate-400">
+                  (Showing {filteredSurgeZones.length} of {config.regionalSurgeZones.length} East African Zones)
+                </span>
+              </h2>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                Dynamic dispatch algorithm monitoring real-time passenger requests vs available fleet capacity
+              </p>
+            </div>
+
+            {selectedCountry !== 'ALL' && (
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-slate-500 dark:text-slate-400">Bulk Actions ({selectedCountry}):</span>
+                <button
+                  type="button"
+                  onClick={() => handleBulkSetCountrySurge(1.25)}
+                  className="px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-300 border border-amber-500/30 transition-colors"
+                >
+                  Apply 1.25x
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleBulkSetCountrySurge(1.0)}
+                  className="px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition-colors flex items-center gap-1"
+                >
+                  <RotateCcw className="w-3 h-3" />
+                  <span>Reset 1.0x</span>
+                </button>
+              </div>
+            )}
           </div>
+
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="border-b border-slate-200 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-950/50 text-[11px] font-semibold text-slate-600 dark:text-slate-400">
+                  <th className="py-2.5 px-4">Hub &amp; City</th>
                   <th className="py-2.5 px-4">Corridor / Zone</th>
                   <th className="py-2.5 px-4">Service</th>
                   <th className="py-2.5 px-4 text-right">Demand / Supply</th>
@@ -667,212 +1404,284 @@ export const PricingSurgeFlagsView: React.FC<PricingSurgeFlagsViewProps> = ({
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200 dark:divide-slate-800 text-xs">
-                {config.regionalSurgeZones.map((zone) => {
-                  const pressure = (zone.activeRequests / Math.max(1, zone.availableDrivers)).toFixed(2);
-                  return (
-                    <tr key={zone.zoneId} className="h-12">
-                      <td className="py-2.5 px-4">
-                        <div className="font-semibold text-slate-900 dark:text-white">
-                          {zone.zoneName}
-                        </div>
-                        <div className="text-[11px] font-mono text-slate-500 dark:text-slate-400">
-                          {zone.zoneId} · {zone.updatedAt}
-                        </div>
-                      </td>
-                      <td className="py-2.5 px-4 font-mono uppercase text-slate-700 dark:text-slate-300">
-                        {zone.serviceType}
-                      </td>
-                      <td className="py-2.5 px-4 text-right font-mono tabular-nums text-slate-800 dark:text-slate-200">
-                        {zone.activeRequests} req / {zone.availableDrivers} drv ({pressure})
-                      </td>
-                      <td className="py-2.5 px-4 text-right font-mono tabular-nums font-bold">
-                        <span
-                          className={
-                            zone.currentMultiplier > 1.25
-                              ? 'text-amber-700 dark:text-amber-400'
-                              : 'text-emerald-700 dark:text-emerald-400'
-                          }
-                        >
-                          {zone.currentMultiplier.toFixed(2)}x
-                        </span>
-                      </td>
-                      <td className="py-2.5 px-4">
-                        <button
-                          type="button"
-                          disabled={busyItem === zone.zoneId}
-                          onClick={() =>
-                            handleAdjustSurge(zone, zone.currentMultiplier, !zone.autoSurgeEnabled)
-                          }
-                          className="text-[11px] font-semibold text-cyan-700 dark:text-cyan-400 hover:underline"
-                        >
-                          {zone.autoSurgeEnabled ? 'Auto-Dynamic' : 'Manual Override'}
-                        </button>
-                      </td>
-                      <td className="py-2.5 px-4 text-right whitespace-nowrap">
-                        <div className="inline-flex items-center gap-1.5">
-                          <button
-                            type="button"
-                            disabled={busyItem === zone.zoneId || zone.currentMultiplier <= 1.0}
-                            onClick={() => handleAdjustSurge(zone, zone.currentMultiplier - 0.1)}
-                            className="p-1.5 rounded-md border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-40"
-                            title="Decrease surge by 0.10x"
+                {filteredSurgeZones.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="py-8 text-center text-slate-400">
+                      No surge zones configured for this regional hub.
+                    </td>
+                  </tr>
+                ) : (
+                  filteredSurgeZones.map((zone) => {
+                    const cCode = zone.countryCode || 'ET';
+                    const hub = EAST_AFRICA_HUBS[cCode] || EAST_AFRICA_HUBS.ET;
+                    const pressure = (zone.activeRequests / Math.max(1, zone.availableDrivers)).toFixed(2);
+                    const isSurgeHigh = zone.currentMultiplier >= 1.4;
+
+                    return (
+                      <tr key={zone.zoneId} className="h-14 hover:bg-slate-50/60 dark:hover:bg-slate-800/30 transition-colors">
+                        <td className="py-2.5 px-4">
+                          <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] font-medium bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 border border-slate-200 dark:border-slate-700">
+                            <span>{hub.flag}</span>
+                            <span className="font-semibold">{zone.city || hub.countryName}</span>
+                          </span>
+                        </td>
+                        <td className="py-2.5 px-4">
+                          <div className="font-semibold text-slate-900 dark:text-white">
+                            {zone.zoneName}
+                          </div>
+                          <div className="text-[11px] font-mono text-slate-500 dark:text-slate-400">
+                            {zone.zoneId} · {zone.corridor || 'Corridor Route'}
+                          </div>
+                        </td>
+                        <td className="py-2.5 px-4">
+                          <span
+                            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase ${
+                              zone.serviceType === 'truck'
+                                ? 'bg-blue-50 dark:bg-blue-950/80 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800'
+                                : 'bg-emerald-50 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800'
+                            }`}
                           >
-                            <Minus className="w-3.5 h-3.5" />
-                          </button>
+                            {zone.serviceType === 'truck' ? (
+                              <Truck className="w-3 h-3" />
+                            ) : (
+                              <Car className="w-3 h-3" />
+                            )}
+                            <span>{zone.serviceType}</span>
+                          </span>
+                        </td>
+                        <td className="py-2.5 px-4 text-right font-mono tabular-nums">
+                          <span className="text-slate-900 dark:text-white font-semibold">
+                            {zone.activeRequests} req
+                          </span>{' '}
+                          / <span className="text-slate-500">{zone.availableDrivers} fleet</span>
+                          <span className="text-[10px] text-slate-400 block font-normal">
+                            Pressure: {pressure}x
+                          </span>
+                        </td>
+                        <td className="py-2.5 px-4 text-right">
+                          <span
+                            className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md font-mono font-bold tabular-nums text-xs ${
+                              isSurgeHigh
+                                ? 'bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-200 border border-amber-500/40'
+                                : 'bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200'
+                            }`}
+                          >
+                            <Flame className={`w-3 h-3 ${isSurgeHigh ? 'text-amber-600 dark:text-amber-400' : 'text-slate-400'}`} />
+                            <span>{zone.currentMultiplier.toFixed(2)}x</span>
+                          </span>
+                        </td>
+                        <td className="py-2.5 px-4">
                           <button
                             type="button"
                             disabled={busyItem === zone.zoneId}
-                            onClick={() => handleAdjustSurge(zone, 1.0)}
-                            className="px-2 py-1 rounded-md border border-slate-200 dark:border-slate-700 text-[11px] font-mono font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
+                            onClick={() =>
+                              handleAdjustSurge(zone, zone.currentMultiplier, !zone.autoSurgeEnabled)
+                            }
+                            className={`px-2 py-0.5 rounded text-[11px] font-semibold transition-colors ${
+                              zone.autoSurgeEnabled
+                                ? 'bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30'
+                                : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-300 dark:border-slate-700'
+                            }`}
                           >
-                            1.00x
+                            {zone.autoSurgeEnabled ? 'Auto-Dynamic' : 'Manual Lock'}
                           </button>
-                          <button
-                            type="button"
-                            disabled={busyItem === zone.zoneId || zone.currentMultiplier >= 3.5}
-                            onClick={() => handleAdjustSurge(zone, zone.currentMultiplier + 0.1)}
-                            className="p-1.5 rounded-md border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-40"
-                            title="Increase surge by 0.10x"
-                          >
-                            <Plus className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
+                        </td>
+                        <td className="py-2.5 px-4 text-right">
+                          <div className="flex items-center justify-end gap-1">
+                            <button
+                              type="button"
+                              disabled={busyItem === zone.zoneId || zone.currentMultiplier <= 1.0}
+                              onClick={() => handleAdjustSurge(zone, zone.currentMultiplier - 0.05)}
+                              className="w-7 h-7 flex items-center justify-center rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-40 text-slate-700 dark:text-slate-300"
+                              title="Decrease Surge by 0.05x"
+                            >
+                              <Minus className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              disabled={busyItem === zone.zoneId || zone.currentMultiplier >= 3.5}
+                              onClick={() => handleAdjustSurge(zone, zone.currentMultiplier + 0.05)}
+                              className="w-7 h-7 flex items-center justify-center rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-40 text-slate-700 dark:text-slate-300"
+                              title="Increase Surge by 0.05x"
+                            >
+                              <Plus className="w-3.5 h-3.5" />
+                            </button>
+                            {zone.currentMultiplier !== 1.0 && (
+                              <button
+                                type="button"
+                                disabled={busyItem === zone.zoneId}
+                                onClick={() => handleAdjustSurge(zone, 1.0, true)}
+                                className="px-2 py-1 text-[10px] font-semibold rounded-md text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
+                                title="Reset to base 1.00x"
+                              >
+                                1.0x
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
               </tbody>
             </table>
           </div>
         </div>
       )}
 
-      {/* TAB 3: FEATUREFLAGS & UNIFIEDAPPREGISTRY PREVIEW */}
+      {/* TAB 3: FEATURE FLAGS & REGIONAL ROLLOUT */}
       {activeTab === 'flags' && (
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-          <div className="lg:col-span-8 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 overflow-hidden">
-            <div className="px-4 py-3 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
-              <h2 className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">
-                Parse FeatureFlag Class &amp; Rollout Percentages
-              </h2>
-              <span className="text-[11px] text-slate-500 dark:text-slate-400">
-                Super Admin gated mutations
-              </span>
-            </div>
-            <div className="divide-y divide-slate-200 dark:divide-slate-800">
-              {config.featureFlags.map((flag) => (
-                <div
-                  key={flag.key}
-                  className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 text-xs"
-                >
-                  <div className="space-y-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className="font-bold text-slate-900 dark:text-white">{flag.name}</span>
-                      <span aria-hidden="true" className="text-slate-400">
-                        ·
-                      </span>
-                      <span className="font-mono text-[11px] text-cyan-700 dark:text-cyan-400">
-                        {flag.key}
-                      </span>
-                    </div>
-                    <p className="text-slate-600 dark:text-slate-400">{flag.description}</p>
-                    <p className="text-[11px] font-mono text-slate-500 dark:text-slate-400">
-                      Roles: {flag.targetRoles.join(', ')} · Service: {flag.serviceType}
-                    </p>
-                  </div>
-
-                  <div className="flex items-center gap-4 shrink-0">
-                    <div className="w-32">
-                      <div className="flex justify-between text-[11px] font-mono tabular-nums text-slate-600 dark:text-slate-400 mb-1">
-                        <span>Rollout</span>
-                        <span>{flag.rolloutPercentage}%</span>
-                      </div>
-                      <input
-                        type="range"
-                        min={0}
-                        max={100}
-                        step={25}
-                        value={flag.rolloutPercentage}
-                        onChange={(e) =>
-                          handleToggleFlag(flag, flag.enabled, Number(e.target.value))
-                        }
-                        className="w-full accent-cyan-600 cursor-pointer"
-                      />
-                    </div>
-
-                    <button
-                      type="button"
-                      disabled={busyItem === flag.key}
-                      onClick={() =>
-                        handleToggleFlag(
-                          flag,
-                          !flag.enabled,
-                          !flag.enabled && flag.rolloutPercentage === 0
-                            ? 100
-                            : flag.rolloutPercentage
-                        )
-                      }
-                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors whitespace-nowrap ${
-                        flag.enabled
-                          ? 'bg-emerald-600 hover:bg-emerald-500 text-white'
-                          : 'bg-slate-200 hover:bg-slate-300 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-300'
-                      }`}
-                    >
-                      {flag.enabled ? 'Enabled' : 'Disabled'}
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* UnifiedAppRegistry Mobile Role Simulator */}
-          <div className="lg:col-span-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 space-y-4">
-            <div className="flex items-center gap-2">
-              <Smartphone className="w-4 h-4 text-cyan-600 dark:text-cyan-400" />
-              <h3 className="text-sm font-bold text-slate-900 dark:text-white">
-                UnifiedAppRegistry Role Gate Preview
-              </h3>
-            </div>
-            <p className="text-xs text-slate-600 dark:text-slate-400">
-              Preview active capabilities rendered inside the Flutter SuperApp launcher per authenticated role.
-            </p>
-
-            <div className="grid grid-cols-2 gap-1.5">
-              {(['customer', 'driver', 'vehicle_owner', 'admin'] as PreviewRole[]).map((r) => (
-                <button
-                  key={r}
-                  type="button"
-                  onClick={() => setPreviewRole(r)}
-                  className={`py-1.5 px-2.5 rounded-lg text-xs font-semibold capitalize border transition-colors ${
-                    previewRole === r
-                      ? 'border-cyan-500 bg-cyan-50 dark:bg-cyan-950/40 text-cyan-800 dark:text-cyan-300'
-                      : 'border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-                  }`}
-                >
-                  {r.replace('_', ' ')}
-                </button>
-              ))}
-            </div>
-
-            <div className="divide-y divide-slate-200 dark:divide-slate-800 border-t border-slate-200 dark:border-slate-800 pt-2">
-              {roleLauncherFlags.length === 0 ? (
-                <p className="text-xs text-slate-500 py-6 text-center">
-                  No active FeatureFlags targeting {previewRole}.
-                </p>
-              ) : (
-                roleLauncherFlags.map((f) => (
-                  <div key={f.key} className="py-2.5 flex items-center justify-between text-xs">
-                    <div className="flex items-center gap-2">
-                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
-                      <span className="font-medium text-slate-900 dark:text-white">{f.name}</span>
-                    </div>
-                    <span className="font-mono tabular-nums text-[11px] text-slate-500">
-                      {f.rolloutPercentage}%
+        <div className="space-y-6">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            <div className="lg:col-span-8 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 space-y-4 shadow-xs">
+              <div className="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-slate-800">
+                <div>
+                  <h2 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                    <span>FeatureFlags &amp; UnifiedAppRegistry Launcher</span>
+                    <span className="text-xs font-normal text-slate-500 dark:text-slate-400">
+                      ({filteredFeatureFlags.length} flags)
                     </span>
-                  </div>
-                ))
-              )}
+                  </h2>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                    Toggle feature flags and regional rollout percentages across East African mobile clients
+                  </p>
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                {filteredFeatureFlags.map((flag) => {
+                  const isBusy = busyItem === flag.key;
+                  return (
+                    <div
+                      key={flag.key}
+                      className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/40 space-y-3"
+                    >
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <h3 className="text-sm font-semibold text-slate-900 dark:text-white">
+                              {flag.name}
+                            </h3>
+                            <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300">
+                              {flag.key}
+                            </span>
+                          </div>
+                          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                            {flag.description}
+                          </p>
+                        </div>
+
+                        <div className="flex items-center gap-2 shrink-0">
+                          <button
+                            type="button"
+                            disabled={isBusy}
+                            onClick={() => handleToggleFlag(flag, !flag.enabled)}
+                            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+                              flag.enabled
+                                ? 'bg-emerald-600 hover:bg-emerald-500 text-white'
+                                : 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300'
+                            }`}
+                          >
+                            {flag.enabled ? 'Enabled' : 'Disabled'}
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Country Badges & Rollout Slider */}
+                      <div className="pt-2 border-t border-slate-200 dark:border-slate-700 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="text-[11px] text-slate-500 dark:text-slate-400">Target Hubs:</span>
+                          {flag.countries && flag.countries.length > 0 ? (
+                            flag.countries.map((c) => (
+                              <span
+                                key={c}
+                                className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-slate-200 dark:bg-slate-700 text-slate-800 dark:text-slate-200"
+                              >
+                                {EAST_AFRICA_HUBS[c]?.flag} {c}
+                              </span>
+                            ))
+                          ) : (
+                            <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-slate-200 dark:bg-slate-700 text-slate-800 dark:text-slate-200">
+                              🌍 All 8 Hubs
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="flex items-center gap-3">
+                          <span className="text-[11px] text-slate-500 dark:text-slate-400">
+                            Rollout: <strong className="text-slate-900 dark:text-white font-mono">{flag.rolloutPercentage}%</strong>
+                          </span>
+                          <input
+                            type="range"
+                            min="0"
+                            max="100"
+                            step="5"
+                            value={flag.rolloutPercentage}
+                            onChange={(e) => handleToggleFlag(flag, flag.enabled, Number(e.target.value))}
+                            className="w-28 accent-cyan-600 cursor-pointer"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Mobile Client Role Preview */}
+            <div className="lg:col-span-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 space-y-4 shadow-xs">
+              <div className="flex items-center gap-2">
+                <Smartphone className="w-4 h-4 text-cyan-600 dark:text-cyan-400" />
+                <h3 className="text-sm font-bold text-slate-900 dark:text-white">
+                  Flutter Client Role Preview
+                </h3>
+              </div>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                Preview active launcher tiles exposed to Flutter apps based on role &amp; regional flags
+              </p>
+
+              <div className="flex items-center gap-1.5 p-1 bg-slate-100 dark:bg-slate-800 rounded-lg">
+                {(['customer', 'driver', 'vehicle_owner', 'admin'] as const).map((r) => (
+                  <button
+                    key={r}
+                    type="button"
+                    onClick={() => setPreviewRole(r)}
+                    className={`flex-1 py-1.5 text-[11px] font-medium rounded-md capitalize transition-colors ${
+                      previewRole === r
+                        ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white font-semibold shadow-xs'
+                        : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                    }`}
+                  >
+                    {r.replace('_', ' ')}
+                  </button>
+                ))}
+              </div>
+
+              <div className="space-y-2 pt-2">
+                <h4 className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                  Active Features for {previewRole.replace('_', ' ').toUpperCase()} ({roleLauncherFlags.length}):
+                </h4>
+                {roleLauncherFlags.length === 0 ? (
+                  <p className="text-xs text-slate-400 p-3 bg-slate-50 dark:bg-slate-800/40 rounded-lg text-center">
+                    No active features for this role.
+                  </p>
+                ) : (
+                  roleLauncherFlags.map((rf) => (
+                    <div
+                      key={rf.key}
+                      className="p-2.5 rounded-lg border border-emerald-200 dark:border-emerald-900/60 bg-emerald-50/40 dark:bg-emerald-950/20 flex items-center justify-between text-xs"
+                    >
+                      <div className="flex items-center gap-2">
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                        <span className="font-medium text-slate-900 dark:text-white">{rf.name}</span>
+                      </div>
+                      <span className="text-[10px] font-mono text-emerald-700 dark:text-emerald-300 font-semibold">
+                        {rf.rolloutPercentage}%
+                      </span>
+                    </div>
+                  ))
+                )}
+              </div>
             </div>
           </div>
         </div>

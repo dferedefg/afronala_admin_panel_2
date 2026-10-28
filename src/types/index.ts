@@ -48,6 +48,8 @@ export interface Driver {
   insuranceExpiryDate?: string;
   tinClearanceExpiryDate?: string;
   complianceNoticeSentAt?: string;
+  countryCode?: EastAfricaCountryCode;
+  countryName?: string;
 }
 
 export type VehicleStatus = 'Verified' | 'Inspection' | 'Suspended' | 'Active';
@@ -118,14 +120,47 @@ export interface SystemAlert {
   resolved?: boolean;
 }
 
+export type NotificationCategory =
+  | 'unread'
+  | 'system'
+  | 'operations'
+  | 'security'
+  | 'dispatch'
+  | 'regulatory'
+  | 'settlement';
+
+export type NotificationType =
+  | 'driver'
+  | 'vehicle'
+  | 'trip'
+  | 'shipment'
+  | 'system'
+  | 'corridor'
+  | 'payment'
+  | 'broadcast';
+
+export type NotificationSeverity = 'critical' | 'warning' | 'info' | 'security' | 'success';
+
 export interface NotificationItem {
   id: string;
   title: string;
   subtitle: string;
   timeAgo: string;
-  category: 'unread' | 'system' | 'operations' | 'security';
+  category: NotificationCategory;
   read: boolean;
-  type: 'driver' | 'vehicle' | 'trip' | 'shipment' | 'system';
+  type: NotificationType;
+  countryCode?: EastAfricaCountryCode;
+  countryName?: string;
+  corridor?: string;
+  severity?: NotificationSeverity;
+  targetModule?: string;
+  actionLabel?: string;
+  actionTab?: string;
+  timestamp?: string;
+  sourceAuthority?: string;
+  broadcastBy?: string;
+  recipientAudience?: 'all' | 'drivers' | 'shippers' | 'fleet_owners' | 'customs_agents';
+  pinned?: boolean;
 }
 
 export interface AdminUser {
@@ -134,6 +169,9 @@ export interface AdminUser {
   role: string;
   avatar: string;
   status: 'online' | 'busy' | 'away';
+  jurisdictionCountry?: EastAfricaCountryCode;
+  jurisdictionName?: string;
+  assignedCorridors?: string[];
 }
 
 export type DispatchStatus = 'Queued' | 'Assigned' | 'En Route' | 'Onboard' | 'Completed' | 'Cancelled';
@@ -318,8 +356,28 @@ export interface AmbaLayTripData {
   updatedAt: string;
 }
 
-// Ethiopian Payment Settlement Rails
-export type PaymentGateway = 'telebirr' | 'cbe_birr' | 'chapa' | 'cash';
+// East Africa Cross-Border Payment Settlement Rails & Multi-Country Hubs
+export type EastAfricaCountryCode = 'ALL' | 'ET' | 'KE' | 'UG' | 'RW' | 'TZ' | 'DJ' | 'SO' | 'SS';
+export type EastAfricaCurrency = 'ETB' | 'KES' | 'UGX' | 'RWF' | 'TZS' | 'DJF' | 'USD' | 'SSP';
+
+export type PaymentGateway =
+  | 'telebirr'       // Ethiopia - Ethio Telecom
+  | 'cbe_birr'       // Ethiopia - Commercial Bank of Ethiopia
+  | 'chapa'          // Ethiopia & International Cards
+  | 'mpesa_ke'       // Kenya - Safaricom M-PESA B2C & C2B
+  | 'airtel_ke'      // Kenya - Airtel Money Kenya
+  | 'mtn_ug'         // Uganda - MTN Mobile Money
+  | 'airtel_ug'      // Uganda - Airtel Money Uganda
+  | 'mtn_rw'         // Rwanda - MTN MoMo Rwanda
+  | 'airtel_rw'      // Rwanda - Airtel Money Rwanda
+  | 'mpesa_tz'       // Tanzania - Vodacom M-Pesa Tanzania
+  | 'tigo_tz'        // Tanzania - Tigo Pesa Tanzania
+  | 'dmoney_dj'      // Djibouti - D-Money (Djibouti Telecom)
+  | 'evc_plus_so'    // Somalia - Hormuud EVC Plus
+  | 'zaad_so'        // Somalia - Telesom Zaad Service
+  | 'mgurush_ss'     // South Sudan - m-GURUSH Mobile Money
+  | 'cash';          // Local Cash on Hand
+
 export type PaymentStatus = 'settled' | 'pending' | 'failed' | 'refunded' | 'bank_verified';
 
 export interface PaymentTransaction {
@@ -336,6 +394,10 @@ export interface PaymentTransaction {
   gateway: PaymentGateway;
   status: PaymentStatus;
   timestamp: string;
+  countryCode?: EastAfricaCountryCode;
+  currency?: EastAfricaCurrency;
+  localAmount?: number;
+  exchangeRateToETB?: number;
   settlementBatchId?: string;
   channelDetails?: string;
   externalRefId?: string;
@@ -354,8 +416,10 @@ export interface DriverWallet {
   pendingPayoutETB: number;
   totalEarnedETB: number;
   totalCommissionPaidETB: number;
-  preferredPayoutMethod: 'telebirr' | 'cbe_birr';
+  preferredPayoutMethod: PaymentGateway | 'telebirr' | 'cbe_birr';
   payoutAccount: string;
+  countryCode?: EastAfricaCountryCode;
+  currency?: EastAfricaCurrency;
   lastPayoutDate?: string;
 }
 
@@ -399,6 +463,14 @@ export interface FleetTripCompliance {
   complianceStatus: 'compliant' | 'tariff_exceeded' | 'undercharged';
   notes: string;
   date: string;
+  countryCode?: EastAfricaCountryCode;
+  currency?: EastAfricaCurrency;
+  fuelCostLocal?: number;
+  actualFareLocal?: number;
+  legalMaxFareLocal?: number;
+  exchangeRateToETB?: number;
+  regulatoryAuthority?: string;
+  inspectionType?: string;
 }
 
 export type DriverDocumentType =
@@ -438,6 +510,10 @@ export interface DriverDocumentComplianceRecord {
   driverStatus: DriverStatus;
   vehicleStatus?: VehicleStatus;
   sourceClass: 'Driver' | 'DriverProfile';
+  countryCode?: EastAfricaCountryCode;
+  countryName?: string;
+  regulatoryAuthority?: string;
+  inspectionAuthority?: string;
   documents: DriverComplianceDocument[];
   complianceScore: number; // 0 - 100
   riskTier: 'compliant' | 'expiring_soon' | 'critical_expired';
@@ -612,6 +688,10 @@ export interface SuperAppSurgeZone {
   currentMultiplier: number;
   autoSurgeEnabled: boolean;
   updatedAt: string;
+  countryCode?: EastAfricaCountryCode;
+  city?: string;
+  corridor?: string;
+  currency?: EastAfricaCurrency;
 }
 
 export interface SuperAppFeatureFlagItem {
@@ -621,8 +701,30 @@ export interface SuperAppFeatureFlagItem {
   enabled: boolean;
   rolloutPercentage: number;
   targetRoles: ('customer' | 'driver' | 'vehicle_owner' | 'admin')[];
+  countries?: EastAfricaCountryCode[];
   description: string;
   updatedAt: string;
+}
+
+export interface RegionalCountryPricingContext {
+  countryCode: EastAfricaCountryCode;
+  countryName: string;
+  flag: string;
+  currency: EastAfricaCurrency;
+  currencySymbol: string;
+  exchangeRateToETB: number;
+  regulator: string;
+  rideBaseFare: number;
+  ridePerKm: number;
+  ridePerMin: number;
+  truckBaseFare: number;
+  truckPerTonKm: number;
+  biddingFloorPct: number;
+  biddingCeilingPct: number;
+  platformMarginPct: number;
+  withholdingTaxPct: number;
+  autoBidWindowMinutes: number;
+  corridorNotes?: string;
 }
 
 export interface SuperAppRuntimeConfig {
@@ -644,6 +746,7 @@ export interface SuperAppRuntimeConfig {
     withholdingTaxPct: number;
     autoBidWindowMinutes: number;
   };
+  regionalCountryPricing?: Record<string, RegionalCountryPricingContext>;
   regionalSurgeZones: SuperAppSurgeZone[];
   featureFlags: SuperAppFeatureFlagItem[];
   updatedAt: string;

@@ -854,7 +854,7 @@ export function exportTripTariffCompliancePdf(options: TripTariffPdfOptions): {
   doc.setFontSize(8.5);
   doc.setTextColor(203, 213, 225);
   doc.text(
-    `Directive 2026/04 Municipal Tariff Schedule | Addis Ababa Retail Fuel Benchmark: ETB ${PUMP_PRICE_ETB_PER_LITER.toFixed(2)} / Liter`,
+    'East Africa 8-Nation Tariff Schedule & Fuel Benchmark | FTA/AACTB, NTSA, MoWT, RURA, LATRA, DTT, MoTCA, MoTR',
     14,
     17
   );
@@ -967,17 +967,33 @@ export function exportTripTariffCompliancePdf(options: TripTariffPdfOptions): {
         'Status & Notes',
       ],
     ],
-    body: records.map((r) => [
-      sanitizePdfText(r.tripId),
-      `${sanitizePdfText(r.vehiclePlate)} (${r.vehicleType})\n${sanitizePdfText(r.vehicleModel)}\nDriver: ${sanitizePdfText(r.driverName)}`,
-      `${sanitizePdfText(r.routeCorridor)}\n${r.distanceKm} km | ${r.durationMin} min | ${sanitizePdfText(r.date)}`,
-      `${r.estimatedFuelLiters} L`,
-      `ETB ${r.fuelCostETB.toFixed(2)}`,
-      `${r.co2Kg} kg`,
-      `ETB ${r.actualFareETB.toFixed(2)}`,
-      `ETB ${r.legalMaxFareETB.toFixed(2)}`,
-      `${r.complianceStatus === 'compliant' ? 'COMPLIANT' : 'TARIFF EXCEEDED'}\n${sanitizePdfText(r.notes)}`,
-    ]),
+    body: records.map((r) => {
+      const cur = r.currency || 'ETB';
+      const actualStr =
+        r.actualFareLocal !== undefined && cur !== 'ETB'
+          ? `${cur} ${r.actualFareLocal.toLocaleString()}\n(ETB ${r.actualFareETB.toFixed(0)})`
+          : `ETB ${r.actualFareETB.toFixed(2)}`;
+      const legalStr =
+        r.legalMaxFareLocal !== undefined && cur !== 'ETB'
+          ? `${cur} ${r.legalMaxFareLocal.toLocaleString()}\n(ETB ${r.legalMaxFareETB.toFixed(0)})`
+          : `ETB ${r.legalMaxFareETB.toFixed(2)}`;
+      const fuelCostStr =
+        r.fuelCostLocal !== undefined && cur !== 'ETB'
+          ? `${cur} ${r.fuelCostLocal.toFixed(1)}`
+          : `ETB ${r.fuelCostETB.toFixed(2)}`;
+      const cTag = r.countryCode ? `[${r.countryCode}] ` : '';
+      return [
+        sanitizePdfText(r.tripId),
+        `${cTag}${sanitizePdfText(r.vehiclePlate)} (${r.vehicleType})\n${sanitizePdfText(r.vehicleModel)}\nDriver: ${sanitizePdfText(r.driverName)}`,
+        `${sanitizePdfText(r.routeCorridor)}\n${r.distanceKm} km | ${r.durationMin} min | ${sanitizePdfText(r.date)}`,
+        `${r.estimatedFuelLiters} L`,
+        fuelCostStr,
+        `${r.co2Kg} kg`,
+        actualStr,
+        legalStr,
+        `${r.complianceStatus === 'compliant' ? 'COMPLIANT' : 'TARIFF EXCEEDED'}\n${sanitizePdfText(r.regulatoryAuthority ? r.regulatoryAuthority + ' | ' : '')}${sanitizePdfText(r.notes)}`,
+      ];
+    }),
     columnStyles: {
       0: { cellWidth: 19, font: 'courier', fontStyle: 'bold' },
       1: { cellWidth: 40 },

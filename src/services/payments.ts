@@ -1,6 +1,148 @@
-import { DriverWallet, PaymentGateway, PaymentStatus, PaymentTransaction } from '../types';
+import {
+  DriverWallet,
+  EastAfricaCountryCode,
+  EastAfricaCurrency,
+  PaymentGateway,
+  PaymentStatus,
+  PaymentTransaction,
+} from '../types';
+
+export interface RegionalSettlementHub {
+  countryCode: EastAfricaCountryCode;
+  countryName: string;
+  flag: string;
+  currency: EastAfricaCurrency;
+  currencySymbol: string;
+  exchangeRateToETB: number;
+  regulator: string;
+  settlementCorridorNote?: string;
+  gateways: {
+    id: PaymentGateway;
+    name: string;
+    provider: string;
+    type: 'mobile_money' | 'bank_transfer' | 'card_network' | 'cash';
+    badgeColor: 'emerald' | 'cyan' | 'blue' | 'amber' | 'rose' | 'purple';
+    settlementSpeed: string;
+  }[];
+}
+
+export const EAST_AFRICA_HUBS: Record<string, RegionalSettlementHub> = {
+  ET: {
+    countryCode: 'ET',
+    countryName: 'Ethiopia',
+    flag: '🇪🇹',
+    currency: 'ETB',
+    currencySymbol: 'Br',
+    exchangeRateToETB: 1.0,
+    regulator: 'National Bank of Ethiopia (NBE)',
+    settlementCorridorNote: 'Domestic Hub & Modjo-Djibouti Export Gateway',
+    gateways: [
+      { id: 'telebirr', name: 'Telebirr', provider: 'Ethio Telecom', type: 'mobile_money', badgeColor: 'cyan', settlementSpeed: 'Instant IPN' },
+      { id: 'cbe_birr', name: 'CBE Birr', provider: 'Commercial Bank of Ethiopia', type: 'bank_transfer', badgeColor: 'blue', settlementSpeed: 'Real-time RTGS' },
+      { id: 'chapa', name: 'Chapa Pay', provider: 'Chapa Financial Technologies', type: 'card_network', badgeColor: 'emerald', settlementSpeed: 'T+0 Instant' },
+      { id: 'cash', name: 'Cash on Hand', provider: 'In-Cab Driver Settlement', type: 'cash', badgeColor: 'amber', settlementSpeed: 'End of Shift' },
+    ],
+  },
+  KE: {
+    countryCode: 'KE',
+    countryName: 'Kenya',
+    flag: '🇰🇪',
+    currency: 'KES',
+    currencySymbol: 'KSh',
+    exchangeRateToETB: 0.95,
+    regulator: 'Central Bank of Kenya (CBK)',
+    settlementCorridorNote: 'Moyale–Marsabit–Nairobi Logistics Hub',
+    gateways: [
+      { id: 'mpesa_ke', name: 'Safaricom M-PESA', provider: 'Safaricom B2C & Paybill', type: 'mobile_money', badgeColor: 'emerald', settlementSpeed: 'Instant Daraja API' },
+      { id: 'airtel_ke', name: 'Airtel Money Kenya', provider: 'Airtel Networks Kenya', type: 'mobile_money', badgeColor: 'rose', settlementSpeed: 'Instant API' },
+    ],
+  },
+  UG: {
+    countryCode: 'UG',
+    countryName: 'Uganda',
+    flag: '🇺🇬',
+    currency: 'UGX',
+    currencySymbol: 'USh',
+    exchangeRateToETB: 0.033,
+    regulator: 'Bank of Uganda (BoU)',
+    settlementCorridorNote: 'Northern Corridor (Malaba–Kampala Route)',
+    gateways: [
+      { id: 'mtn_ug', name: 'MTN MoMo Uganda', provider: 'MTN Mobile Money Uganda', type: 'mobile_money', badgeColor: 'amber', settlementSpeed: 'Instant MoMo API' },
+      { id: 'airtel_ug', name: 'Airtel Money Uganda', provider: 'Airtel Uganda Ltd', type: 'mobile_money', badgeColor: 'rose', settlementSpeed: 'Instant' },
+    ],
+  },
+  RW: {
+    countryCode: 'RW',
+    countryName: 'Rwanda',
+    flag: '🇷🇼',
+    currency: 'RWF',
+    currencySymbol: 'FRw',
+    exchangeRateToETB: 0.092,
+    regulator: 'National Bank of Rwanda (BNR)',
+    settlementCorridorNote: 'Kigali Logistics & E-Commerce Hub',
+    gateways: [
+      { id: 'mtn_rw', name: 'MTN MoMo Rwanda', provider: 'MTN Rwandacell PLC', type: 'mobile_money', badgeColor: 'amber', settlementSpeed: 'Instant MoMo Pay' },
+      { id: 'airtel_rw', name: 'Airtel Money Rwanda', provider: 'Airtel Rwanda', type: 'mobile_money', badgeColor: 'rose', settlementSpeed: 'Instant' },
+    ],
+  },
+  TZ: {
+    countryCode: 'TZ',
+    countryName: 'Tanzania',
+    flag: '🇹🇿',
+    currency: 'TZS',
+    currencySymbol: 'TSh',
+    exchangeRateToETB: 0.046,
+    regulator: 'Bank of Tanzania (BoT)',
+    settlementCorridorNote: 'Dar es Salaam Maritime & Central Corridor',
+    gateways: [
+      { id: 'mpesa_tz', name: 'Vodacom M-Pesa', provider: 'Vodacom Tanzania', type: 'mobile_money', badgeColor: 'rose', settlementSpeed: 'Instant M-Pesa API' },
+      { id: 'tigo_tz', name: 'Tigo Pesa', provider: 'Tigo Tanzania / Axian', type: 'mobile_money', badgeColor: 'blue', settlementSpeed: 'Instant' },
+    ],
+  },
+  DJ: {
+    countryCode: 'DJ',
+    countryName: 'Djibouti',
+    flag: '🇩🇯',
+    currency: 'DJF',
+    currencySymbol: 'Fdj',
+    exchangeRateToETB: 0.70,
+    regulator: 'Banque Centrale de Djibouti (BCD)',
+    settlementCorridorNote: 'Modjo Dry Port – Port of Djibouti Bilateral Clearing Corridor',
+    gateways: [
+      { id: 'dmoney_dj', name: 'D-Money', provider: 'Djibouti Telecom', type: 'mobile_money', badgeColor: 'cyan', settlementSpeed: 'Instant D-Money API' },
+    ],
+  },
+  SO: {
+    countryCode: 'SO',
+    countryName: 'Somalia',
+    flag: '🇸🇴',
+    currency: 'USD',
+    currencySymbol: '$',
+    exchangeRateToETB: 125.0,
+    regulator: 'Central Bank of Somalia (CBS)',
+    settlementCorridorNote: 'Berbera & Mogadishu Trade Network',
+    gateways: [
+      { id: 'evc_plus_so', name: 'Hormuud EVC Plus', provider: 'Hormuud Telecom Somalia', type: 'mobile_money', badgeColor: 'emerald', settlementSpeed: 'Instant USSD/API' },
+      { id: 'zaad_so', name: 'Telesom Zaad', provider: 'Telesom Somaliland', type: 'mobile_money', badgeColor: 'blue', settlementSpeed: 'Instant' },
+    ],
+  },
+  SS: {
+    countryCode: 'SS',
+    countryName: 'South Sudan',
+    flag: '🇸🇸',
+    currency: 'SSP',
+    currencySymbol: 'SSP',
+    exchangeRateToETB: 0.04,
+    regulator: 'Bank of South Sudan (BSS)',
+    settlementCorridorNote: 'Juba Transit & Nimule Border Corridor',
+    gateways: [
+      { id: 'mgurush_ss', name: 'm-GURUSH', provider: 'Trinity Technologies / Zain', type: 'mobile_money', badgeColor: 'emerald', settlementSpeed: 'Instant m-GURUSH API' },
+    ],
+  },
+};
 
 export const INITIAL_TRANSACTIONS: PaymentTransaction[] = [
+  // Ethiopia (ET)
   {
     id: 'tx-101',
     reference: 'TB-ET-2026-88129',
@@ -13,6 +155,9 @@ export const INITIAL_TRANSACTIONS: PaymentTransaction[] = [
     withholdingTaxETB: 6.80,
     netDriverETB: 282.20,
     gateway: 'telebirr',
+    countryCode: 'ET',
+    currency: 'ETB',
+    localAmount: 340.00,
     status: 'settled',
     timestamp: '10 min ago',
     settlementBatchId: 'BATCH-AA-041',
@@ -30,6 +175,9 @@ export const INITIAL_TRANSACTIONS: PaymentTransaction[] = [
     withholdingTaxETB: 9.60,
     netDriverETB: 398.40,
     gateway: 'cbe_birr',
+    countryCode: 'ET',
+    currency: 'ETB',
+    localAmount: 480.00,
     status: 'bank_verified',
     timestamp: '25 min ago',
     settlementBatchId: 'BATCH-AA-041',
@@ -40,72 +188,337 @@ export const INITIAL_TRANSACTIONS: PaymentTransaction[] = [
     reconciliationBank: 'Commercial Bank of Ethiopia',
     reconciliationNotes: 'Matched against daily settlement clearing file from CBE Core Banking portal.',
   },
+  // Djibouti (DJ) — Modjo-Djibouti Bilateral Freight Corridor
   {
-    id: 'tx-103',
-    reference: 'CHP-CHG-99214',
-    tripId: 'TRP9280',
-    driverId: 'drv-4',
-    driverName: 'Ephrem Getachew',
-    passengerName: 'Blen Tesfaye',
+    id: 'tx-dj-201',
+    reference: 'DJ-DMONEY-77192',
+    tripId: 'DLV7721',
+    driverId: 'drv-dj-1',
+    driverName: 'Mohamed Abdillahi',
+    passengerName: 'Djibouti Multimodal Transit SA',
+    grossFareETB: 24500.00,
+    platformCommissionETB: 3675.00,
+    withholdingTaxETB: 490.00,
+    netDriverETB: 20335.00,
+    gateway: 'dmoney_dj',
+    countryCode: 'DJ',
+    currency: 'DJF',
+    localAmount: 35000.00, // 35,000 DJF
+    status: 'bank_verified',
+    timestamp: '40 min ago',
+    settlementBatchId: 'BATCH-DJ-018',
+    channelDetails: 'D-Money Djibouti Telecom (*777#) Port Cleared',
+    externalRefId: 'DJ-TEL-2026-00918',
+    reconciledAt: '30 min ago',
+    reconciledBy: 'Corridor Settlement Officer',
+    reconciliationBank: 'Banque pour le Commerce et l’Industrie Mer Rouge (BCIMR)',
+    reconciliationNotes: 'Verified against Modjo Dry Port Customs manifest and Djibouti container terminal gate pass.',
+  },
+  // Kenya (KE)
+  {
+    id: 'tx-ke-301',
+    reference: 'SAF-MPESA-88491',
+    tripId: 'TRP-NBO-102',
+    driverId: 'drv-ke-1',
+    driverName: 'Brian Kiprop',
+    passengerName: 'Wanjiku Mwangi',
+    grossFareETB: 1250.00,
+    platformCommissionETB: 187.50,
+    withholdingTaxETB: 25.00,
+    netDriverETB: 1037.50,
+    gateway: 'mpesa_ke',
+    countryCode: 'KE',
+    currency: 'KES',
+    localAmount: 1315.00, // 1,315 KES
+    status: 'settled',
+    timestamp: '1 hour ago',
+    settlementBatchId: 'BATCH-NBO-009',
+    channelDetails: 'Safaricom M-PESA B2C Instant Paybill (254712****)',
+  },
+  // Uganda (UG)
+  {
+    id: 'tx-ug-401',
+    reference: 'MTN-UG-99120',
+    tripId: 'TRP-KLA-551',
+    driverId: 'drv-ug-1',
+    driverName: 'Ronald Okello',
+    passengerName: 'Grace Namubiru',
+    grossFareETB: 890.00,
+    platformCommissionETB: 133.50,
+    withholdingTaxETB: 17.80,
+    netDriverETB: 738.70,
+    gateway: 'mtn_ug',
+    countryCode: 'UG',
+    currency: 'UGX',
+    localAmount: 26970.00, // 26,970 UGX
+    status: 'settled',
+    timestamp: '2 hours ago',
+    settlementBatchId: 'BATCH-KLA-004',
+    channelDetails: 'MTN Mobile Money Open API (256772****)',
+  },
+  // Rwanda (RW)
+  {
+    id: 'tx-rw-501',
+    reference: 'MTN-RW-44182',
+    tripId: 'TRP-KGL-209',
+    driverId: 'drv-rw-1',
+    driverName: 'Jean-Pierre Habimana',
+    passengerName: 'Diane Uwase',
+    grossFareETB: 940.00,
+    platformCommissionETB: 141.00,
+    withholdingTaxETB: 18.80,
+    netDriverETB: 780.20,
+    gateway: 'mtn_rw',
+    countryCode: 'RW',
+    currency: 'RWF',
+    localAmount: 10217.00, // 10,217 RWF
+    status: 'settled',
+    timestamp: '3 hours ago',
+    settlementBatchId: 'BATCH-KGL-002',
+    channelDetails: 'MTN MoMo Rwanda Merchant Collection',
+  },
+  // Tanzania (TZ)
+  {
+    id: 'tx-tz-601',
+    reference: 'VOD-TZ-11928',
+    tripId: 'DLV-DAR-401',
+    driverId: 'drv-tz-1',
+    driverName: 'Juma Mwinyi',
+    passengerName: 'Kilimanjaro Freight Forwarders',
+    grossFareETB: 18200.00,
+    platformCommissionETB: 2730.00,
+    withholdingTaxETB: 364.00,
+    netDriverETB: 15106.00,
+    gateway: 'mpesa_tz',
+    countryCode: 'TZ',
+    currency: 'TZS',
+    localAmount: 395650.00, // 395,650 TZS
+    status: 'bank_verified',
+    timestamp: '3 hours ago',
+    settlementBatchId: 'BATCH-DAR-012',
+    channelDetails: 'Vodacom M-Pesa Tanzania B2C Port Payout',
+    externalRefId: 'TZ-CRDB-2026-9921',
+    reconciledAt: '2 hours ago',
+    reconciledBy: 'Maritime Port Auditor',
+    reconciliationBank: 'CRDB Bank Tanzania',
+  },
+  // Somalia (SO)
+  {
+    id: 'tx-so-701',
+    reference: 'EVC-SO-99281',
+    tripId: 'DLV-MGQ-088',
+    driverId: 'drv-so-1',
+    driverName: 'Abdirahman Warsame',
+    passengerName: 'Somali Logistics Clearing Agency',
+    grossFareETB: 37500.00,
+    platformCommissionETB: 5625.00,
+    withholdingTaxETB: 750.00,
+    netDriverETB: 31125.00,
+    gateway: 'evc_plus_so',
+    countryCode: 'SO',
+    currency: 'USD',
+    localAmount: 300.00, // $300 USD
+    status: 'settled',
+    timestamp: '4 hours ago',
+    settlementBatchId: 'BATCH-MGQ-005',
+    channelDetails: 'Hormuud EVC Plus (*712#) USD Mobile Wallet',
+  },
+  // South Sudan (SS)
+  {
+    id: 'tx-ss-801',
+    reference: 'MGR-SS-77129',
+    tripId: 'DLV-JUB-014',
+    driverId: 'drv-ss-1',
+    driverName: 'Peter Deng',
+    passengerName: 'South Sudan Relief & Supply Co',
+    grossFareETB: 14200.00,
+    platformCommissionETB: 2130.00,
+    withholdingTaxETB: 284.00,
+    netDriverETB: 11786.00,
+    gateway: 'mgurush_ss',
+    countryCode: 'SS',
+    currency: 'SSP',
+    localAmount: 355000.00, // 355,000 SSP
+    status: 'settled',
+    timestamp: '5 hours ago',
+    settlementBatchId: 'BATCH-JUB-001',
+    channelDetails: 'm-GURUSH Mobile Money Juba Cross-Border Payout',
+  },
+  // Additional East Africa Corridor Cross-Border Transactions
+  {
+    id: 'tx-et-dj-corridor-1',
+    reference: 'ETH-DJ-CB-2026-991',
+    tripId: 'CORR-MODJO-DORALEH-44',
+    driverId: 'drv-et-88',
+    driverName: 'Tewodros Kassaye',
+    passengerName: 'East Africa Multimodal Logistics SC',
+    grossFareETB: 48500.00,
+    platformCommissionETB: 7275.00,
+    withholdingTaxETB: 970.00,
+    netDriverETB: 40255.00,
+    gateway: 'cbe_birr',
+    countryCode: 'ET',
+    currency: 'ETB',
+    localAmount: 48500.00,
+    status: 'bank_verified',
+    timestamp: '1 hour ago',
+    settlementBatchId: 'BATCH-CORR-ETDJ-08',
+    channelDetails: 'CBE Birr Cross-Border Clearing · Galafi Customs Gateway',
+    externalRefId: 'CBE-RTGS-MODJO-4412',
+    reconciledAt: '45 min ago',
+    reconciledBy: 'Freight Customs Auditor',
+    reconciliationBank: 'Commercial Bank of Ethiopia',
+    reconciliationNotes: 'Verified with Ethiopian Customs Commission and Port of Djibouti transit declaration.',
+  },
+  {
+    id: 'tx-ke-et-corridor-2',
+    reference: 'KE-ET-MOYALE-109',
+    tripId: 'CORR-NBO-MOYALE-12',
+    driverId: 'drv-ke-2',
+    driverName: 'Ezekiel Omwamba',
+    passengerName: 'Horn of Africa Trading Hub Ltd',
+    grossFareETB: 28600.00,
+    platformCommissionETB: 4290.00,
+    withholdingTaxETB: 572.00,
+    netDriverETB: 23738.00,
+    gateway: 'mpesa_ke',
+    countryCode: 'KE',
+    currency: 'KES',
+    localAmount: 30105.00,
+    status: 'bank_verified',
+    timestamp: '2 hours ago',
+    settlementBatchId: 'BATCH-CORR-KEMOYALE-03',
+    channelDetails: 'Safaricom M-PESA B2C Bulk Disbursement · Moyale OSBP',
+    externalRefId: 'KRA-ETIMS-2026-8812',
+    reconciledAt: '1 hour ago',
+    reconciledBy: 'Regional Treasury Lead',
+    reconciliationBank: 'Equity Bank Kenya',
+    reconciliationNotes: 'Matched with Kenya Revenue Authority (KRA) eTIMS clearing sheet at Moyale border post.',
+  },
+  {
+    id: 'tx-ug-ke-corridor-3',
+    reference: 'UG-KE-MALABA-771',
+    tripId: 'CORR-KLA-MALABA-301',
+    driverId: 'drv-ug-2',
+    driverName: 'Moses Kiggundu',
+    passengerName: 'Great Lakes Agri-Transit Cooperative',
+    grossFareETB: 32400.00,
+    platformCommissionETB: 4860.00,
+    withholdingTaxETB: 648.00,
+    netDriverETB: 26892.00,
+    gateway: 'mtn_ug',
+    countryCode: 'UG',
+    currency: 'UGX',
+    localAmount: 981818.00,
+    status: 'settled',
+    timestamp: '3 hours ago',
+    settlementBatchId: 'BATCH-CORR-UGMALABA-05',
+    channelDetails: 'MTN MoMo Northern Corridor Transit Clearing · Malaba Border',
+  },
+  {
+    id: 'tx-tz-rw-corridor-4',
+    reference: 'TZ-RW-RUSUMO-552',
+    tripId: 'CORR-DAR-RUSUMO-88',
+    driverId: 'drv-tz-2',
+    driverName: 'Rashid Bakari',
+    passengerName: 'Rwanda Mines & Mineral Freight Ltd',
+    grossFareETB: 41200.00,
+    platformCommissionETB: 6180.00,
+    withholdingTaxETB: 824.00,
+    netDriverETB: 34196.00,
+    gateway: 'mpesa_tz',
+    countryCode: 'TZ',
+    currency: 'TZS',
+    localAmount: 895652.00,
+    status: 'bank_verified',
+    timestamp: '4 hours ago',
+    settlementBatchId: 'BATCH-CORR-TZRUSUMO-02',
+    channelDetails: 'Vodacom M-Pesa Tanzania Central Corridor Transit Settlement',
+    externalRefId: 'TRA-VFD-2026-00918',
+    reconciledAt: '3 hours ago',
+    reconciledBy: 'Maritime Port Auditor',
+    reconciliationBank: 'National Microfinance Bank (NMB Tanzania)',
+    reconciliationNotes: 'Verified against TRA customs bond and Rusumo OSBP biometric weighbridge check.',
+  },
+  {
+    id: 'tx-so-et-corridor-5',
+    reference: 'SO-ET-BERBERA-331',
+    tripId: 'CORR-JIJIGA-BERBERA-19',
+    driverId: 'drv-so-2',
+    driverName: 'Guled Jama',
+    passengerName: 'Red Sea Livestock Exporters',
+    grossFareETB: 31250.00,
+    platformCommissionETB: 4687.50,
+    withholdingTaxETB: 625.00,
+    netDriverETB: 25937.50,
+    gateway: 'evc_plus_so',
+    countryCode: 'SO',
+    currency: 'USD',
+    localAmount: 250.00,
+    status: 'settled',
+    timestamp: '5 hours ago',
+    settlementBatchId: 'BATCH-CORR-SOBERBERA-01',
+    channelDetails: 'Hormuud EVC Plus USD Gateway · Tog Wajaale Clearance',
+  },
+  {
+    id: 'tx-ss-ug-corridor-6',
+    reference: 'SS-UG-NIMULE-402',
+    tripId: 'CORR-JUBA-NIMULE-07',
+    driverId: 'drv-ss-2',
+    driverName: 'Gatluak Koang',
+    passengerName: 'South Sudan Petroleum & Goods Transporters',
+    grossFareETB: 26800.00,
+    platformCommissionETB: 4020.00,
+    withholdingTaxETB: 536.00,
+    netDriverETB: 22244.00,
+    gateway: 'mgurush_ss',
+    countryCode: 'SS',
+    currency: 'SSP',
+    localAmount: 670000.00,
+    status: 'settled',
+    timestamp: '6 hours ago',
+    settlementBatchId: 'BATCH-CORR-SSNIMULE-01',
+    channelDetails: 'm-GURUSH Cross-Border Transit Settlement · Nimule Customs Post',
+  },
+  {
+    id: 'tx-rw-kgl-ride-7',
+    reference: 'RW-KGL-MOMO-8821',
+    tripId: 'TRP-KGL-772',
+    driverId: 'drv-rw-2',
+    driverName: 'Emmanuel Nshimiyimana',
+    passengerName: 'Alice Mukamana',
     grossFareETB: 620.00,
     platformCommissionETB: 93.00,
     withholdingTaxETB: 12.40,
     netDriverETB: 514.60,
-    gateway: 'chapa',
+    gateway: 'airtel_rw',
+    countryCode: 'RW',
+    currency: 'RWF',
+    localAmount: 6739.00,
     status: 'settled',
-    timestamp: '45 min ago',
-    settlementBatchId: 'BATCH-AA-040',
-    channelDetails: 'Visa / Mastercard via Chapa API',
+    timestamp: '6 hours ago',
+    settlementBatchId: 'BATCH-KGL-003',
+    channelDetails: 'Airtel Money Rwanda Instant Ride Fare Debit',
   },
   {
-    id: 'tx-104',
-    reference: 'CSH-REC-11209',
-    tripId: 'TRP9279',
-    driverId: 'drv-3',
-    driverName: 'Dawit Haile',
-    passengerName: 'Yared Mulugeta',
-    grossFareETB: 220.00,
-    platformCommissionETB: 33.00,
-    withholdingTaxETB: 4.40,
-    netDriverETB: 182.60,
-    gateway: 'cash',
+    id: 'tx-ke-nbo-ride-8',
+    reference: 'KE-AIR-NBO-4419',
+    tripId: 'TRP-NBO-889',
+    driverId: 'drv-ke-3',
+    driverName: 'Faith Chebet',
+    passengerName: 'Dennis Ochieng',
+    grossFareETB: 780.00,
+    platformCommissionETB: 117.00,
+    withholdingTaxETB: 15.60,
+    netDriverETB: 647.40,
+    gateway: 'airtel_ke',
+    countryCode: 'KE',
+    currency: 'KES',
+    localAmount: 821.00,
     status: 'settled',
-    timestamp: '1 hour ago',
-    channelDetails: 'Cash collected by driver (Commission debited from wallet)',
-  },
-  {
-    id: 'tx-105',
-    reference: 'TB-ET-2026-88094',
-    tripId: 'TRP9275',
-    driverId: 'drv-1',
-    driverName: 'Abebe Kebede',
-    passengerName: 'Meron Assefa',
-    grossFareETB: 410.00,
-    platformCommissionETB: 61.50,
-    withholdingTaxETB: 8.20,
-    netDriverETB: 340.30,
-    gateway: 'telebirr',
-    status: 'settled',
-    timestamp: '2 hours ago',
-    settlementBatchId: 'BATCH-AA-040',
-    channelDetails: 'Telebirr Mobile App SuperApp Pay',
-  },
-  {
-    id: 'tx-106',
-    reference: 'CBE-BIRR-448911',
-    tripId: 'TRP9272',
-    driverId: 'drv-5',
-    driverName: 'Sara Mengistu',
-    passengerName: 'Abel Tefera',
-    grossFareETB: 290.00,
-    platformCommissionETB: 43.50,
-    withholdingTaxETB: 5.80,
-    netDriverETB: 240.70,
-    gateway: 'cbe_birr',
-    status: 'settled',
-    timestamp: '3 hours ago',
-    settlementBatchId: 'BATCH-AA-039',
-    channelDetails: 'CBE Mobile Banking Direct Debit',
+    timestamp: '7 hours ago',
+    settlementBatchId: 'BATCH-NBO-010',
+    channelDetails: 'Airtel Money Kenya Ride Fare Clearing',
   },
 ];
 
@@ -120,6 +533,8 @@ export const INITIAL_WALLETS: DriverWallet[] = [
     totalCommissionPaidETB: 6035.00,
     preferredPayoutMethod: 'telebirr',
     payoutAccount: '0911234567',
+    countryCode: 'ET',
+    currency: 'ETB',
     lastPayoutDate: '2 days ago',
   },
   {
@@ -132,48 +547,112 @@ export const INITIAL_WALLETS: DriverWallet[] = [
     totalCommissionPaidETB: 7438.00,
     preferredPayoutMethod: 'cbe_birr',
     payoutAccount: '1000189283748',
+    countryCode: 'ET',
+    currency: 'ETB',
     lastPayoutDate: 'Yesterday',
   },
   {
-    driverId: 'drv-3',
-    driverName: 'Dawit Haile',
-    phone: '+251 93 345 6789',
-    availableBalanceETB: 2340.25,
-    pendingPayoutETB: 182.60,
-    totalEarnedETB: 28400.00,
-    totalCommissionPaidETB: 5011.00,
-    preferredPayoutMethod: 'telebirr',
-    payoutAccount: '0933456789',
-    lastPayoutDate: '4 days ago',
-  },
-  {
-    driverId: 'drv-4',
-    driverName: 'Ephrem Getachew',
-    phone: '+251 94 456 7890',
-    availableBalanceETB: 8940.00,
-    pendingPayoutETB: 514.60,
-    totalEarnedETB: 59300.00,
-    totalCommissionPaidETB: 10464.00,
-    preferredPayoutMethod: 'cbe_birr',
-    payoutAccount: '1000293847583',
+    driverId: 'drv-dj-1',
+    driverName: 'Mohamed Abdillahi',
+    phone: '+253 77 12 34 56',
+    availableBalanceETB: 20335.00,
+    pendingPayoutETB: 20335.00,
+    totalEarnedETB: 88500.00,
+    totalCommissionPaidETB: 13275.00,
+    preferredPayoutMethod: 'dmoney_dj',
+    payoutAccount: '+253 77 12 34 56 (D-Money)',
+    countryCode: 'DJ',
+    currency: 'DJF',
     lastPayoutDate: '3 days ago',
   },
   {
-    driverId: 'drv-5',
-    driverName: 'Sara Mengistu',
-    phone: '+251 95 567 8901',
-    availableBalanceETB: 3410.80,
-    pendingPayoutETB: 240.70,
-    totalEarnedETB: 21900.00,
-    totalCommissionPaidETB: 3865.00,
-    preferredPayoutMethod: 'telebirr',
-    payoutAccount: '0955678901',
+    driverId: 'drv-ke-1',
+    driverName: 'Brian Kiprop',
+    phone: '+254 71 234 5678',
+    availableBalanceETB: 8420.00,
+    pendingPayoutETB: 1037.50,
+    totalEarnedETB: 54100.00,
+    totalCommissionPaidETB: 8115.00,
+    preferredPayoutMethod: 'mpesa_ke',
+    payoutAccount: '254712345678 (M-PESA)',
+    countryCode: 'KE',
+    currency: 'KES',
+    lastPayoutDate: 'Yesterday',
+  },
+  {
+    driverId: 'drv-ug-1',
+    driverName: 'Ronald Okello',
+    phone: '+256 77 234 5678',
+    availableBalanceETB: 5610.00,
+    pendingPayoutETB: 738.70,
+    totalEarnedETB: 39800.00,
+    totalCommissionPaidETB: 5970.00,
+    preferredPayoutMethod: 'mtn_ug',
+    payoutAccount: '256772345678 (MTN MoMo)',
+    countryCode: 'UG',
+    currency: 'UGX',
+    lastPayoutDate: '4 days ago',
+  },
+  {
+    driverId: 'drv-rw-1',
+    driverName: 'Jean-Pierre Habimana',
+    phone: '+250 78 123 4567',
+    availableBalanceETB: 6240.00,
+    pendingPayoutETB: 780.20,
+    totalEarnedETB: 41200.00,
+    totalCommissionPaidETB: 6180.00,
+    preferredPayoutMethod: 'mtn_rw',
+    payoutAccount: '250781234567 (MoMo Rwanda)',
+    countryCode: 'RW',
+    currency: 'RWF',
     lastPayoutDate: 'Today, 08:30',
+  },
+  {
+    driverId: 'drv-tz-1',
+    driverName: 'Juma Mwinyi',
+    phone: '+255 75 123 4567',
+    availableBalanceETB: 15106.00,
+    pendingPayoutETB: 15106.00,
+    totalEarnedETB: 78400.00,
+    totalCommissionPaidETB: 11760.00,
+    preferredPayoutMethod: 'mpesa_tz',
+    payoutAccount: '255751234567 (M-Pesa TZ)',
+    countryCode: 'TZ',
+    currency: 'TZS',
+    lastPayoutDate: '3 days ago',
+  },
+  {
+    driverId: 'drv-so-1',
+    driverName: 'Abdirahman Warsame',
+    phone: '+252 61 512 3456',
+    availableBalanceETB: 31125.00,
+    pendingPayoutETB: 31125.00,
+    totalEarnedETB: 95400.00,
+    totalCommissionPaidETB: 14310.00,
+    preferredPayoutMethod: 'evc_plus_so',
+    payoutAccount: '252615123456 (EVC Plus)',
+    countryCode: 'SO',
+    currency: 'USD',
+    lastPayoutDate: '1 day ago',
+  },
+  {
+    driverId: 'drv-ss-1',
+    driverName: 'Peter Deng',
+    phone: '+211 92 123 4567',
+    availableBalanceETB: 11786.00,
+    pendingPayoutETB: 11786.00,
+    totalEarnedETB: 48900.00,
+    totalCommissionPaidETB: 7335.00,
+    preferredPayoutMethod: 'mgurush_ss',
+    payoutAccount: '211921234567 (m-GURUSH)',
+    countryCode: 'SS',
+    currency: 'SSP',
+    lastPayoutDate: '5 days ago',
   },
 ];
 
-export const COMMISSION_RATE = 0.15; // 15% Afronala Take Rate
-export const WITHHOLDING_TAX_RATE = 0.02; // 2% Ethiopian Turnover Withholding Tax
+export const COMMISSION_RATE = 0.15; // 15% Afronala Platform Take Rate
+export const WITHHOLDING_TAX_RATE = 0.02; // 2% Statutory Withholding Tax
 
 export function calculateFareSplit(
   grossFareETB: number,
@@ -215,19 +694,35 @@ class PaymentSettlementService {
     passengerName: string,
     grossFareETB: number,
     gateway: PaymentGateway,
-    customCommissionRate?: number
+    customCommissionRate?: number,
+    countryCode: EastAfricaCountryCode = 'ET'
   ): PaymentTransaction {
     const split = calculateFareSplit(grossFareETB, customCommissionRate ?? COMMISSION_RATE);
     const prefixMap: Record<PaymentGateway, string> = {
       telebirr: 'TB-ET-2026-',
       cbe_birr: 'CBE-BIRR-',
       chapa: 'CHP-CHG-',
+      mpesa_ke: 'SAF-MPESA-',
+      airtel_ke: 'AIR-KE-',
+      mtn_ug: 'MTN-UG-',
+      airtel_ug: 'AIR-UG-',
+      mtn_rw: 'MTN-RW-',
+      airtel_rw: 'AIR-RW-',
+      mpesa_tz: 'VOD-TZ-',
+      tigo_tz: 'TIG-TZ-',
+      dmoney_dj: 'DJ-DMONEY-',
+      evc_plus_so: 'EVC-SO-',
+      zaad_so: 'ZAD-SO-',
+      mgurush_ss: 'MGR-SS-',
       cash: 'CSH-REC-',
     };
 
+    const hub = EAST_AFRICA_HUBS[countryCode] || EAST_AFRICA_HUBS.ET;
+    const localAmount = Math.round((grossFareETB / hub.exchangeRateToETB) * 100) / 100;
+
     const newTx: PaymentTransaction = {
       id: `tx-${Date.now()}`,
-      reference: `${prefixMap[gateway]}${Math.floor(10000 + Math.random() * 90000)}`,
+      reference: `${prefixMap[gateway] || 'TX-'}${Math.floor(10000 + Math.random() * 90000)}`,
       tripId,
       driverId,
       driverName,
@@ -237,17 +732,13 @@ class PaymentSettlementService {
       withholdingTaxETB: split.withholdingTaxETB,
       netDriverETB: split.netDriverETB,
       gateway,
+      countryCode,
+      currency: hub.currency,
+      localAmount,
       status: 'settled',
       timestamp: 'Just now',
-      settlementBatchId: `BATCH-AA-042`,
-      channelDetails:
-        gateway === 'telebirr'
-          ? 'Telebirr USSD Push *127#'
-          : gateway === 'cbe_birr'
-          ? 'Commercial Bank of Ethiopia Direct Debit'
-          : gateway === 'chapa'
-          ? 'Chapa Payment Gateway Webhook'
-          : 'Cash settled in-cab; Afronala commission deducted from balance',
+      settlementBatchId: `BATCH-${countryCode}-042`,
+      channelDetails: `${hub.countryName} Settlement Hub: ${gateway.toUpperCase()} (${hub.currency})`,
     };
 
     this.transactions = [newTx, ...this.transactions];
@@ -256,10 +747,8 @@ class PaymentSettlementService {
     const existingWallet = this.wallets.find((w) => w.driverId === driverId);
     if (existingWallet) {
       if (gateway === 'cash') {
-        // Driver collected cash; commission is subtracted from wallet balance
         existingWallet.availableBalanceETB -= split.platformCommissionETB;
       } else {
-        // Digital payment; net driver earnings added to wallet balance
         existingWallet.availableBalanceETB += split.netDriverETB;
       }
       existingWallet.totalEarnedETB += split.grossFareETB;
@@ -269,7 +758,10 @@ class PaymentSettlementService {
     return newTx;
   }
 
-  disbursePayout(driverId: string, amountETB: number): { success: boolean; message: string; txRef?: string } {
+  disbursePayout(
+    driverId: string,
+    amountETB: number
+  ): { success: boolean; message: string; txRef?: string } {
     const wallet = this.wallets.find((w) => w.driverId === driverId);
     if (!wallet) return { success: false, message: 'Driver wallet not found.' };
     if (wallet.availableBalanceETB < amountETB) {
@@ -279,23 +771,31 @@ class PaymentSettlementService {
     wallet.availableBalanceETB -= amountETB;
     wallet.lastPayoutDate = 'Just now';
 
-    const txRef =
-      wallet.preferredPayoutMethod === 'telebirr'
-        ? `TB-PAYOUT-${Math.floor(100000 + Math.random() * 900000)}`
-        : `CBE-XFER-${Math.floor(100000 + Math.random() * 900000)}`;
+    const countryCode = wallet.countryCode || 'ET';
+    const hub = EAST_AFRICA_HUBS[countryCode] || EAST_AFRICA_HUBS.ET;
+
+    const txRef = `${countryCode}-DISB-${Math.floor(100000 + Math.random() * 900000)}`;
 
     return {
       success: true,
-      message: `Disbursed ETB ${amountETB.toLocaleString()} to ${wallet.driverName} via ${
-        wallet.preferredPayoutMethod === 'telebirr' ? 'Telebirr' : 'CBE Birr'
-      } (${wallet.payoutAccount})`,
+      message: `Disbursed ETB ${amountETB.toLocaleString()} (${hub.countryName}) to ${wallet.driverName} via ${
+        wallet.preferredPayoutMethod
+      } [${wallet.payoutAccount}]`,
       txRef,
     };
   }
 
-  simulateWebhook(gateway: PaymentGateway, amountETB: number, passenger: string, driverName: string) {
+  simulateWebhook(
+    gateway: PaymentGateway,
+    amountETB: number,
+    passenger: string,
+    driverName: string,
+    countryCode: EastAfricaCountryCode = 'ET'
+  ) {
     const tripId = `TRP${Math.floor(1000 + Math.random() * 9000)}`;
-    const driver = this.wallets.find((w) => w.driverName.toLowerCase().includes(driverName.toLowerCase())) || this.wallets[0];
+    const driver =
+      this.wallets.find((w) => w.driverName.toLowerCase().includes(driverName.toLowerCase())) ||
+      this.wallets[0];
 
     return this.processSettlement(
       tripId,
@@ -303,7 +803,9 @@ class PaymentSettlementService {
       driver.driverName,
       passenger,
       amountETB,
-      gateway
+      gateway,
+      COMMISSION_RATE,
+      countryCode
     );
   }
 
@@ -312,7 +814,7 @@ class PaymentSettlementService {
     externalRefId: string,
     reconciliationNotes?: string,
     reconciledBy: string = 'Finance Auditor',
-    reconciliationBank: string = 'Commercial Bank of Ethiopia'
+    reconciliationBank: string = 'Central Clearing Bank'
   ): { success: boolean; message: string; transaction?: PaymentTransaction } {
     const tx = this.transactions.find((t) => t.id === txId);
     if (!tx) return { success: false, message: 'Transaction not found.' };
@@ -326,7 +828,7 @@ class PaymentSettlementService {
 
     return {
       success: true,
-      message: `Transaction ${tx.reference} marked as 'Bank Verified' with external reference ID: ${externalRefId}.`,
+      message: `Transaction ${tx.reference} bank-verified with External Reference: ${externalRefId}.`,
       transaction: tx,
     };
   }

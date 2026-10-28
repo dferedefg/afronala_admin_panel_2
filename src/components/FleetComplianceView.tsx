@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   DriverDocumentComplianceRecord,
   DriverDocumentType,
+  EastAfricaCountryCode,
   FleetTripCompliance,
   PermissionAction,
   ToastMessage,
@@ -9,6 +10,9 @@ import {
 import { back4AppService } from '../services/back4app';
 import {
   auditTripCompliance,
+  CountryRegulatoryAuthorityInfo,
+  DOCUMENT_SPECIFICATIONS,
+  EAST_AFRICA_REGULATORY_AUTHORITIES,
   EXPIRY_WARNING_WINDOW_DAYS,
   fleetComplianceService,
   offsetIsoDateFromToday,
@@ -27,10 +31,13 @@ import {
   Car,
   CheckCircle2,
   Clock,
+  Compass,
   Download,
   FileCheck2,
   FileText,
   Fuel,
+  Globe2,
+  Info,
   Leaf,
   Plus,
   RefreshCw,
@@ -49,7 +56,7 @@ interface FleetComplianceViewProps {
   onNotify?: (title: string, message?: string, type?: ToastMessage['type']) => void;
 }
 
-type ComplianceWorkspaceSection = 'driver_scoring' | 'trip_tariff';
+type ComplianceWorkspaceSection = 'driver_scoring' | 'trip_tariff' | 'cross_border_directives';
 type DocFilterMode = 'all' | 'expiring_30d' | 'expired' | 'compliant';
 type FleetModuleFilter = 'all' | 'ride' | 'truck';
 
@@ -59,6 +66,7 @@ export const FleetComplianceView: React.FC<FleetComplianceViewProps> = ({
   onNotify,
 }) => {
   const [activeSection, setActiveSection] = useState<ComplianceWorkspaceSection>('driver_scoring');
+  const [selectedCountry, setSelectedCountry] = useState<EastAfricaCountryCode>('ALL');
 
   // Automated Driver Document Compliance State (Back4App-backed)
   const [driverRecords, setDriverRecords] = useState<DriverDocumentComplianceRecord[]>([]);
@@ -82,21 +90,21 @@ export const FleetComplianceView: React.FC<FleetComplianceViewProps> = ({
   const [records, setRecords] = useState<FleetTripCompliance[]>(() =>
     fleetComplianceService.getRecords()
   );
-  const [summary, setSummary] = useState(() => fleetComplianceService.getSummary());
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'compliant' | 'tariff_exceeded'>('all');
 
   // New Trip Audit Modal State
   const [isAuditModalOpen, setIsAuditModalOpen] = useState(false);
+  const [auditCountry, setAuditCountry] = useState<Exclude<EastAfricaCountryCode, 'ALL'>>('ET');
   const [newTripId, setNewTripId] = useState(`TRP${Math.floor(1000 + Math.random() * 9000)}`);
   const [newVehicleType, setNewVehicleType] = useState<'sedan' | 'minibus' | 'cargo_truck'>('sedan');
   const [newPlate, setNewPlate] = useState('AA-2-88192');
   const [newModel, setNewModel] = useState('Toyota Vitz');
   const [newDriver, setNewDriver] = useState('Abebe Kebede');
-  const [newDistanceKm, setNewDistanceKm] = useState(12.5);
-  const [newDurationMin, setNewDurationMin] = useState(28);
-  const [newActualFareETB, setNewActualFareETB] = useState(420);
-  const [newCorridor, setNewCorridor] = useState('Bole Medhanealem → Gotera Interchange');
+  const [newDistanceKm, setNewDistanceKm] = useState(14.5);
+  const [newDurationMin, setNewDurationMin] = useState(32);
+  const [newActualFare, setNewActualFare] = useState(480);
+  const [newCorridor, setNewCorridor] = useState('Bole Medhanealem → Meskel Square');
 
   const loadDriverCompliance = useCallback(async (showSpinner = true) => {
     if (showSpinner) setIsLoadingDocs(true);
@@ -112,15 +120,20 @@ export const FleetComplianceView: React.FC<FleetComplianceViewProps> = ({
     loadDriverCompliance(true);
   }, [loadDriverCompliance]);
 
-  const docSummary = useMemo(() => summarizeDriverCompliance(driverRecords), [driverRecords]);
+  // Current Country Authority Info (falls back to Ethiopia if 'ALL' is selected)
+  const activeCountryInfo: CountryRegulatoryAuthorityInfo = useMemo(() => {
+    if (selectedCountry === 'ALL') {
+      return EAST_AFRICA_REGULATORY_AUTHORITIES.ET;
+    }
+    return EAST_AFRICA_REGULATORY_AUTHORITIES[selectedCountry] || EAST_AFRICA_REGULATORY_AUTHORITIES.ET;
+  }, [selectedCountry]);
 
-  const flaggedWithin30dList = useMemo(
-    () => driverRecords.filter((r) => r.flaggedWithin30Days),
-    [driverRecords]
-  );
-
+  // Filter driver records by selected country, risk state, module, and search
   const filteredDriverRecords = useMemo(() => {
     return driverRecords.filter((rec) => {
+      if (selectedCountry !== 'ALL' && rec.countryCode !== selectedCountry) {
+        return false;
+      }
       if (moduleFilter !== 'all' && rec.module !== moduleFilter) return false;
       if (docFilter === 'expiring_30d' && !rec.flaggedWithin30Days) return false;
       if (docFilter === 'expired' && !rec.hasExpiredDocument) return false;
@@ -138,10 +151,24 @@ export const FleetComplianceView: React.FC<FleetComplianceViewProps> = ({
         rec.vehiclePlate.toLowerCase().includes(q) ||
         rec.vehicleModel.toLowerCase().includes(q) ||
         rec.phone.toLowerCase().includes(q) ||
+        (rec.countryName && rec.countryName.toLowerCase().includes(q)) ||
+        (rec.countryCode && rec.countryCode.toLowerCase().includes(q)) ||
         rec.documents.some((d) => d.documentNumber.toLowerCase().includes(q))
       );
     });
-  }, [driverRecords, moduleFilter, docFilter, docSearchQuery]);
+  }, [driverRecords, selectedCountry, moduleFilter, docFilter, docSearchQuery]);
+
+  const docSummary = useMemo(() => {
+    const list = selectedCountry === 'ALL'
+      ? driverRecords
+      : driverRecords.filter((r) => r.countryCode === selectedCountry);
+    return summarizeDriverCompliance(list);
+  }, [driverRecords, selectedCountry]);
+
+  const flaggedWithin30dList = useMemo(
+    () => filteredDriverRecords.filter((r) => r.flaggedWithin30Days),
+    [filteredDriverRecords]
+  );
 
   const selectedDriver = useMemo(
     () => driverRecords.find((d) => d.driverId === selectedDriverId) || null,
@@ -220,8 +247,8 @@ export const FleetComplianceView: React.FC<FleetComplianceViewProps> = ({
       onNotify?.(
         'Renewal Notice Dispatched',
         targets.length === 1
-          ? `30-day document expiry alert sent to ${targets[0].driverName}.`
-          : `Sent renewal reminders to ${targets.length} flagged drivers.`,
+          ? `30-day credential renewal alert sent to ${targets[0].driverName}.`
+          : `Sent renewal notices to ${targets.length} flagged drivers across regional hubs.`,
         'info'
       );
     } finally {
@@ -231,11 +258,11 @@ export const FleetComplianceView: React.FC<FleetComplianceViewProps> = ({
 
   const handleExportDriverComplianceCSV = () => {
     const headers =
-      'DriverName,Phone,Module,VehiclePlate,VehicleModel,SourceClass,ComplianceScore,RiskTier,FlaggedWithin30Days,NearestExpiryLabel,NearestExpiryDate,NearestExpiryDays,LicenseExpiry,BolaExpiry,InsuranceExpiry,TinTaxExpiry\n';
+      'Country,CountryCode,DriverName,Phone,Module,VehiclePlate,VehicleModel,SourceClass,ComplianceScore,RiskTier,FlaggedWithin30Days,NearestExpiryLabel,NearestExpiryDate,NearestExpiryDays,LicenseExpiry,InspectionExpiry,InsuranceExpiry,TaxClearanceExpiry\n';
     const rows = filteredDriverRecords
       .map((r) => {
         const byType = Object.fromEntries(r.documents.map((d) => [d.docType, d.expiresAt]));
-        return `"${r.driverName}","${r.phone}","${r.module}","${r.vehiclePlate}","${r.vehicleModel}","${r.sourceClass}",${r.complianceScore},"${r.riskTier}",${r.flaggedWithin30Days},"${r.nearestExpiryLabel}","${r.nearestExpiryDate}",${r.nearestExpiryDays},"${byType.commercial_license || ''}","${byType.bola_inspection || ''}","${byType.third_party_insurance || ''}","${byType.tin_clearance || ''}"`;
+        return `"${r.countryName || 'Ethiopia'}","${r.countryCode || 'ET'}","${r.driverName}","${r.phone}","${r.module}","${r.vehiclePlate}","${r.vehicleModel}","${r.sourceClass}",${r.complianceScore},"${r.riskTier}",${r.flaggedWithin30Days},"${r.nearestExpiryLabel}","${r.nearestExpiryDate}",${r.nearestExpiryDays},"${byType.commercial_license || ''}","${byType.bola_inspection || ''}","${byType.third_party_insurance || ''}","${byType.tin_clearance || ''}"`;
       })
       .join('\n');
 
@@ -243,12 +270,12 @@ export const FleetComplianceView: React.FC<FleetComplianceViewProps> = ({
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `afronala_driver_compliance_scores_${Date.now()}.csv`;
+    a.download = `afronala_driver_compliance_${selectedCountry.toLowerCase()}_${Date.now()}.csv`;
     a.click();
     URL.revokeObjectURL(url);
     onNotify?.(
       'Compliance CSV Downloaded',
-      `Exported ${filteredDriverRecords.length} driver compliance records.`,
+      `Exported ${filteredDriverRecords.length} driver compliance records for ${selectedCountry === 'ALL' ? 'East Africa Region' : activeCountryInfo.countryName}.`,
       'success'
     );
   };
@@ -268,10 +295,11 @@ export const FleetComplianceView: React.FC<FleetComplianceViewProps> = ({
         truck: 'Freight & Logistics',
       };
 
+      const scopeTag = selectedCountry === 'ALL' ? 'All East Africa Hubs' : activeCountryInfo.countryName;
       const { auditRef } = exportDriverComplianceReportPdf({
         records: filteredDriverRecords,
         allRecordsCount: driverRecords.length,
-        userRole,
+        userRole: `${userRole} (${scopeTag})`,
         docFilterLabel: docFilterLabels[docFilter],
         moduleFilterLabel: moduleLabels[moduleFilter],
         searchQuery: docSearchQuery,
@@ -279,7 +307,7 @@ export const FleetComplianceView: React.FC<FleetComplianceViewProps> = ({
 
       onNotify?.(
         'Audit PDF Exported',
-        `Generated ${auditRef} (${filteredDriverRecords.length} driver records) for offline filing.`,
+        `Generated ${auditRef} (${filteredDriverRecords.length} driver records) for ${scopeTag}.`,
         'success'
       );
     } finally {
@@ -293,7 +321,7 @@ export const FleetComplianceView: React.FC<FleetComplianceViewProps> = ({
       const { auditRef } = exportSingleDriverCompliancePdf(record, userRole);
       onNotify?.(
         'Driver Dossier PDF Exported',
-        `Saved statutory verification sheet (${auditRef}) for ${record.driverName}.`,
+        `Saved statutory verification sheet (${auditRef}) for ${record.driverName} (${record.countryName || 'Ethiopia'}).`,
         'success'
       );
     } finally {
@@ -302,15 +330,90 @@ export const FleetComplianceView: React.FC<FleetComplianceViewProps> = ({
   };
 
   // Filtered Trip Fuel & Tariff Records
-  const filteredRecords = records.filter((r) => {
-    const matchesStatus = statusFilter === 'all' || r.complianceStatus === statusFilter;
-    const matchesSearch =
-      r.tripId.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      r.vehiclePlate.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      r.driverName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      r.routeCorridor.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesStatus && matchesSearch;
-  });
+  const filteredRecords = useMemo(() => {
+    return records.filter((r) => {
+      if (selectedCountry !== 'ALL' && r.countryCode !== selectedCountry) {
+        return false;
+      }
+      const matchesStatus = statusFilter === 'all' || r.complianceStatus === statusFilter;
+      const matchesSearch =
+        r.tripId.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        r.vehiclePlate.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        r.driverName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        r.routeCorridor.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (r.regulatoryAuthority && r.regulatoryAuthority.toLowerCase().includes(searchQuery.toLowerCase()));
+      return matchesStatus && matchesSearch;
+    });
+  }, [records, selectedCountry, statusFilter, searchQuery]);
+
+  const tripSummary = useMemo(() => {
+    const list = filteredRecords;
+    const totalTrips = list.length;
+    const compliantCount = list.filter((r) => r.complianceStatus === 'compliant').length;
+    const violationsCount = list.filter((r) => r.complianceStatus === 'tariff_exceeded').length;
+    const totalFuelLiters = list.reduce((acc, r) => acc + r.estimatedFuelLiters, 0);
+    const totalFuelCostETB = list.reduce((acc, r) => acc + r.fuelCostETB, 0);
+    const totalCo2Kg = list.reduce((acc, r) => acc + r.co2Kg, 0);
+
+    return {
+      totalTrips,
+      complianceRate: totalTrips > 0 ? Math.round((compliantCount / totalTrips) * 100) : 100,
+      violationsCount,
+      totalFuelLiters: Math.round(totalFuelLiters * 10) / 10,
+      totalFuelCostETB: Math.round(totalFuelCostETB),
+      totalCo2Kg: Math.round(totalCo2Kg * 10) / 10,
+    };
+  }, [filteredRecords]);
+
+  // When opening audit modal, pre-select audit country to match current tab or default
+  const handleOpenAuditModal = () => {
+    const initialCountry = selectedCountry === 'ALL' ? 'ET' : selectedCountry;
+    setAuditCountry(initialCountry);
+    const info = EAST_AFRICA_REGULATORY_AUTHORITIES[initialCountry];
+    setNewTripId(`TRP-${initialCountry}-${Math.floor(1000 + Math.random() * 9000)}`);
+    setNewCorridor(info.defaultCorridors[0] || 'Urban Central Logistics Corridor');
+    setIsAuditModalOpen(true);
+  };
+
+  const handleAuditCountryChange = (cCode: Exclude<EastAfricaCountryCode, 'ALL'>) => {
+    setAuditCountry(cCode);
+    const info = EAST_AFRICA_REGULATORY_AUTHORITIES[cCode];
+    setNewTripId(`TRP-${cCode}-${Math.floor(1000 + Math.random() * 9000)}`);
+    setNewCorridor(info.defaultCorridors[0] || 'Trade Corridor');
+    if (cCode === 'KE') {
+      setNewPlate('KDA-219P');
+      setNewDriver('James Mwangi');
+      setNewActualFare(info.standards[newVehicleType].baseFare + newDistanceKm * info.standards[newVehicleType].standardRatePerKm);
+    } else if (cCode === 'UG') {
+      setNewPlate('UBA-331K');
+      setNewDriver('John Okello');
+      setNewActualFare(info.standards[newVehicleType].baseFare + newDistanceKm * info.standards[newVehicleType].standardRatePerKm);
+    } else if (cCode === 'RW') {
+      setNewPlate('RAD-442B');
+      setNewDriver('Jean-Paul Habimana');
+      setNewActualFare(info.standards[newVehicleType].baseFare + newDistanceKm * info.standards[newVehicleType].standardRatePerKm);
+    } else if (cCode === 'TZ') {
+      setNewPlate('T-381-DKS');
+      setNewDriver('Juma Rashid');
+      setNewActualFare(info.standards[newVehicleType].baseFare + newDistanceKm * info.standards[newVehicleType].standardRatePerKm);
+    } else if (cCode === 'DJ') {
+      setNewPlate('DJ-1922-A');
+      setNewDriver('Mohamed Farah');
+      setNewActualFare(info.standards[newVehicleType].baseFare + newDistanceKm * info.standards[newVehicleType].standardRatePerKm);
+    } else if (cCode === 'SO') {
+      setNewPlate('MOG-4419');
+      setNewDriver('Hassan Warsame');
+      setNewActualFare(info.standards[newVehicleType].baseFare + newDistanceKm * info.standards[newVehicleType].standardRatePerKm);
+    } else if (cCode === 'SS') {
+      setNewPlate('SSD-1192-A');
+      setNewDriver('Deng Garang');
+      setNewActualFare(info.standards[newVehicleType].baseFare + newDistanceKm * info.standards[newVehicleType].standardRatePerKm);
+    } else {
+      setNewPlate('AA-2-88192');
+      setNewDriver('Abebe Kebede');
+      setNewActualFare(info.standards[newVehicleType].baseFare + newDistanceKm * info.standards[newVehicleType].standardRatePerKm);
+    }
+  };
 
   const handleRunAudit = () => {
     const newRecord = auditTripCompliance(
@@ -321,36 +424,39 @@ export const FleetComplianceView: React.FC<FleetComplianceViewProps> = ({
       newDriver,
       newDistanceKm,
       newDurationMin,
-      newActualFareETB,
-      newCorridor
+      newActualFare,
+      newCorridor,
+      auditCountry
     );
     fleetComplianceService.addRecord(newRecord);
     setRecords(fleetComplianceService.getRecords());
-    setSummary(fleetComplianceService.getSummary());
     setIsAuditModalOpen(false);
-    setNewTripId(`TRP${Math.floor(1000 + Math.random() * 9000)}`);
-    onNotify?.('Trip Tariff Audited', `Certified ${newRecord.tripId} against municipal tariff cap.`, 'success');
+    onNotify?.(
+      'Trip Tariff Certified',
+      `Audited ${newRecord.tripId} under ${newRecord.regulatoryAuthority} regulations.`,
+      'success'
+    );
   };
 
   const handleExportTripCSV = () => {
     const headers =
-      'TripID,VehiclePlate,Model,Type,Driver,DistanceKm,DurationMin,Corridor,FuelLiters,FuelCostETB,CO2Kg,ActualFareETB,LegalMaxETB,Status,Date\n';
+      'TripID,Country,CountryCode,RegulatoryAuthority,VehiclePlate,Model,Type,Driver,DistanceKm,DurationMin,Corridor,FuelLiters,FuelCostLocal,FuelCostETB,CO2Kg,ActualFareLocal,ActualFareETB,LegalMaxLocal,LegalMaxETB,Currency,Status,Date\n';
     const rows = filteredRecords
       .map(
         (r) =>
-          `"${r.tripId}","${r.vehiclePlate}","${r.vehicleModel}","${r.vehicleType}","${r.driverName}",${r.distanceKm},${r.durationMin},"${r.routeCorridor}",${r.estimatedFuelLiters},${r.fuelCostETB},${r.co2Kg},${r.actualFareETB},${r.legalMaxFareETB},"${r.complianceStatus}","${r.date}"`
+          `"${r.tripId}","${r.countryCode || 'ET'}","${r.countryCode || 'ET'}","${r.regulatoryAuthority || 'FTA'}","${r.vehiclePlate}","${r.vehicleModel}","${r.vehicleType}","${r.driverName}",${r.distanceKm},${r.durationMin},"${r.routeCorridor}",${r.estimatedFuelLiters},${r.fuelCostLocal ?? r.fuelCostETB},${r.fuelCostETB},${r.co2Kg},${r.actualFareLocal ?? r.actualFareETB},${r.actualFareETB},${r.legalMaxFareLocal ?? r.legalMaxFareETB},${r.legalMaxFareETB},"${r.currency || 'ETB'}","${r.complianceStatus}","${r.date}"`
       )
       .join('\n');
     const blob = new Blob([headers + rows], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `afronala_fleet_compliance_audit_${Date.now()}.csv`;
+    a.download = `afronala_fleet_compliance_${selectedCountry.toLowerCase()}_${Date.now()}.csv`;
     a.click();
     URL.revokeObjectURL(url);
     onNotify?.(
       'Tariff CSV Downloaded',
-      `Exported ${filteredRecords.length} trip tariff audit records.`,
+      `Exported ${filteredRecords.length} trip tariff records for ${selectedCountry === 'ALL' ? 'East Africa' : activeCountryInfo.countryName}.`,
       'success'
     );
   };
@@ -358,16 +464,17 @@ export const FleetComplianceView: React.FC<FleetComplianceViewProps> = ({
   const handleExportTripPDF = () => {
     setIsExportingPdf(true);
     try {
+      const scopeLabel = selectedCountry === 'ALL' ? 'East Africa Region' : activeCountryInfo.countryName;
       const { auditRef } = exportTripTariffCompliancePdf({
         records: filteredRecords,
-        userRole,
+        userRole: `${userRole} (${scopeLabel})`,
         statusFilterLabel: statusFilter === 'all' ? 'All Audited Trips' : 'Tariff Violations Only',
         searchQuery,
-        summary,
+        summary: tripSummary,
       });
       onNotify?.(
         'Tariff Audit PDF Exported',
-        `Generated ${auditRef} (${filteredRecords.length} trips) for offline auditing.`,
+        `Generated ${auditRef} (${filteredRecords.length} trips) for ${scopeLabel}.`,
         'success'
       );
     } finally {
@@ -375,20 +482,36 @@ export const FleetComplianceView: React.FC<FleetComplianceViewProps> = ({
     }
   };
 
+  const countriesList: { code: EastAfricaCountryCode; label: string; flag: string }[] = [
+    { code: 'ALL', label: 'All East Africa', flag: '🌍' },
+    { code: 'ET', label: 'Ethiopia (FTA/Bola)', flag: '🇪🇹' },
+    { code: 'KE', label: 'Kenya (NTSA/EPRA)', flag: '🇰🇪' },
+    { code: 'UG', label: 'Uganda (MoWT/UNBS)', flag: '🇺🇬' },
+    { code: 'RW', label: 'Rwanda (RURA/RNP)', flag: '🇷🇼' },
+    { code: 'TZ', label: 'Tanzania (LATRA/EWURA)', flag: '🇹🇿' },
+    { code: 'DJ', label: 'Djibouti (DTT/Port)', flag: '🇩🇯' },
+    { code: 'SO', label: 'Somalia (MoTCA)', flag: '🇸🇴' },
+    { code: 'SS', label: 'South Sudan (MoTR)', flag: '🇸🇸' },
+  ];
+
   return (
     <div className="space-y-6">
       {/* Top Header */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-3 border-b border-slate-200 dark:border-slate-800">
         <div>
-          <div className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-400">
+          <div className="flex flex-wrap items-center gap-2 text-xs text-slate-600 dark:text-slate-400">
             <span>Fleet Operations</span>
             <span aria-hidden="true">·</span>
-            <span>Regulatory Governance</span>
+            <span>Cross-Border Regulatory Governance</span>
             <span aria-hidden="true">·</span>
-            <span>Addis Ababa Transport Bureau</span>
+            <span className="font-semibold text-slate-800 dark:text-slate-200">
+              {selectedCountry === 'ALL'
+                ? 'East Africa 8-Nation Transport Regulatory Standards'
+                : `${activeCountryInfo.flag} ${activeCountryInfo.authorityName}`}
+            </span>
           </div>
           <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 dark:text-white mt-1">
-            Automated Driver Compliance &amp; Regulatory Audit
+            Fleet Fuel Efficiency &amp; Tariff Regulatory Compliance
           </h1>
         </div>
 
@@ -420,14 +543,14 @@ export const FleetComplianceView: React.FC<FleetComplianceViewProps> = ({
                 <span>{isExportingPdf ? 'Generating PDF...' : 'Export Audit PDF'}</span>
               </button>
             </>
-          ) : (
+          ) : activeSection === 'trip_tariff' ? (
             <>
               <button
-                onClick={() => setIsAuditModalOpen(true)}
+                onClick={handleOpenAuditModal}
                 className="px-3.5 py-2 text-xs font-semibold rounded-lg border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-800 dark:text-slate-200 transition-colors flex items-center gap-1.5 whitespace-nowrap shrink-0"
               >
                 <Plus className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400" />
-                <span>Audit Trip Tariff</span>
+                <span>Audit Corridor Trip</span>
               </button>
               <button
                 onClick={handleExportTripCSV}
@@ -445,7 +568,81 @@ export const FleetComplianceView: React.FC<FleetComplianceViewProps> = ({
                 <span>{isExportingPdf ? 'Generating PDF...' : 'Export Audit PDF'}</span>
               </button>
             </>
+          ) : (
+            <button
+              onClick={() => setActiveSection('trip_tariff')}
+              className="px-3.5 py-2 text-xs font-semibold rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white shadow-xs transition-colors flex items-center gap-1.5 whitespace-nowrap shrink-0"
+            >
+              <Scale className="w-3.5 h-3.5" />
+              <span>Audit Corridors</span>
+            </button>
           )}
+        </div>
+      </div>
+
+      {/* East Africa 8-Nation Selector Pill Bar */}
+      <div className="space-y-2">
+        <div className="flex items-center justify-between text-xs text-slate-600 dark:text-slate-400 font-medium">
+          <span className="flex items-center gap-1.5">
+            <Globe2 className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400" />
+            <span>Select Regulatory Jurisdiction (8 East African Nations):</span>
+          </span>
+          <span className="font-mono tabular-nums text-[11px]">
+            Active Pump Benchmark: {activeCountryInfo.pumpPricePerLiter} {activeCountryInfo.currency}/L · {activeCountryInfo.shortAuthority}
+          </span>
+        </div>
+
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-thin">
+          {countriesList.map((c) => {
+            const isSelected = selectedCountry === c.code;
+            return (
+              <button
+                key={c.code}
+                onClick={() => setSelectedCountry(c.code)}
+                className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors whitespace-nowrap shrink-0 flex items-center gap-1.5 border ${
+                  isSelected
+                    ? 'bg-slate-900 text-white border-slate-900 dark:bg-cyan-600 dark:border-cyan-600 shadow-xs'
+                    : 'bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800'
+                }`}
+              >
+                <span>{c.flag}</span>
+                <span>{c.label}</span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Regulatory Jurisdiction Context Banner */}
+      <div className="p-3.5 sm:p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-900/60 flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs">
+        <div className="flex items-start sm:items-center gap-2.5">
+          <span className="text-xl shrink-0">{activeCountryInfo.flag}</span>
+          <div>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="font-bold text-slate-900 dark:text-white">
+                {selectedCountry === 'ALL'
+                  ? 'East Africa Inter-State Transport Corridor Standards'
+                  : `${activeCountryInfo.authorityName} · ${activeCountryInfo.directiveCode}`}
+              </span>
+              <span className="px-2 py-0.5 rounded-md bg-cyan-100 dark:bg-cyan-950 text-cyan-800 dark:text-cyan-300 font-mono text-[11px]">
+                {activeCountryInfo.emissionsStandard}
+              </span>
+            </div>
+            <p className="text-slate-600 dark:text-slate-400 mt-0.5">
+              Statutory Inspection: {activeCountryInfo.inspectionLabel} · Fuel Formula: {activeCountryInfo.fuelBenchmarkSource}
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-3 shrink-0 font-mono text-[11px] tabular-nums text-slate-700 dark:text-slate-300">
+          <div className="flex items-center gap-1">
+            <Fuel className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+            <span>
+              {activeCountryInfo.currency} {activeCountryInfo.pumpPricePerLiter.toFixed(2)}/L
+            </span>
+          </div>
+          <span aria-hidden="true">·</span>
+          <span>1 {activeCountryInfo.currency} ≈ {activeCountryInfo.exchangeRateToETB} ETB</span>
         </div>
       </div>
 
@@ -462,7 +659,7 @@ export const FleetComplianceView: React.FC<FleetComplianceViewProps> = ({
           >
             <FileCheck2 className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400" />
             <span>
-              Driver Document Scoring ({docSummary.flaggedWithin30dDrivers} Flagged ≤ {EXPIRY_WARNING_WINDOW_DAYS}d)
+              Driver Credential Scoring ({docSummary.flaggedWithin30dDrivers} Flagged ≤ {EXPIRY_WARNING_WINDOW_DAYS}d)
             </span>
           </button>
           <button
@@ -474,16 +671,28 @@ export const FleetComplianceView: React.FC<FleetComplianceViewProps> = ({
             }`}
           >
             <Scale className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400" />
-            <span>Trip Fuel &amp; Municipal Tariff Audit ({summary.totalTrips})</span>
+            <span>Trip Fuel &amp; Tariff Regulatory Audit ({tripSummary.totalTrips})</span>
+          </button>
+          <button
+            onClick={() => setActiveSection('cross_border_directives')}
+            className={`px-3.5 py-2 text-xs font-semibold rounded-md transition-colors whitespace-nowrap shrink-0 flex items-center gap-2 ${
+              activeSection === 'cross_border_directives'
+                ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs'
+                : 'text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
+            }`}
+          >
+            <Compass className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400" />
+            <span>Cross-Border Directives &amp; Benchmarks</span>
           </button>
         </div>
 
         <p className="text-xs text-slate-600 dark:text-slate-400 font-mono tabular-nums">
-          Window threshold: ≤ {EXPIRY_WARNING_WINDOW_DAYS} days · Source: Back4App Driver &amp; DriverProfile
+          Scope: {selectedCountry === 'ALL' ? '8 East African Corridors' : activeCountryInfo.countryName} · Back4App Live Telematics
         </p>
       </div>
 
-      {activeSection === 'driver_scoring' ? (
+      {/* SECTION 1: Automated Driver Document Compliance Scoring */}
+      {activeSection === 'driver_scoring' && (
         <div className="space-y-6">
           {/* 4-Column Automated Compliance KPI Strip */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -500,7 +709,7 @@ export const FleetComplianceView: React.FC<FleetComplianceViewProps> = ({
                   <span className="text-sm font-normal text-slate-600 dark:text-slate-400">/ 100</span>
                 </p>
                 <p className="text-xs text-slate-600 dark:text-slate-400 mt-1 tabular-nums">
-                  Weighted across {docSummary.totalDrivers} active &amp; pending drivers
+                  Weighted across {docSummary.totalDrivers} drivers in {selectedCountry === 'ALL' ? 'all 8 hubs' : activeCountryInfo.countryName}
                 </p>
               </div>
             </div>
@@ -517,7 +726,7 @@ export const FleetComplianceView: React.FC<FleetComplianceViewProps> = ({
                   {docSummary.flaggedWithin30dDrivers}
                 </p>
                 <p className="text-xs text-slate-600 dark:text-slate-400 mt-1 tabular-nums">
-                  {docSummary.expiringDocumentsTotal} credentials inside 30-day renewal window
+                  {docSummary.expiringDocumentsTotal} credentials inside renewal window
                 </p>
               </div>
             </div>
@@ -536,7 +745,7 @@ export const FleetComplianceView: React.FC<FleetComplianceViewProps> = ({
                 <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">
                   {docSummary.expiredDrivers === 0
                     ? 'Zero overdue credentials'
-                    : 'Requires renewal before dispatch activation'}
+                    : 'Dispatch suspension enforced pending renewal'}
                 </p>
               </div>
             </div>
@@ -553,13 +762,13 @@ export const FleetComplianceView: React.FC<FleetComplianceViewProps> = ({
                   {docSummary.fullyCompliantDrivers}
                 </p>
                 <p className="text-xs text-slate-600 dark:text-slate-400 mt-1 tabular-nums">
-                  All 4 statutory documents valid &gt; 30 days
+                  All statutory transport credentials verified &gt; 30d
                 </p>
               </div>
             </div>
           </div>
 
-          {/* 30-Day Expiration Action Banner (Single-elevation, hairline border, no thick left bar) */}
+          {/* 30-Day Expiration Action Watchlist Banner */}
           {flaggedWithin30dList.length > 0 && (
             <div className="p-4 sm:p-5 rounded-xl border border-amber-300 dark:border-amber-800/70 bg-amber-50/80 dark:bg-amber-950/25 flex flex-col md:flex-row md:items-center justify-between gap-4">
               <div className="flex items-start gap-3">
@@ -569,11 +778,11 @@ export const FleetComplianceView: React.FC<FleetComplianceViewProps> = ({
                     Automated 30-Day Expiration Watchlist Active ({flaggedWithin30dList.length} Drivers Flagged)
                   </h2>
                   <p className="text-xs text-slate-700 dark:text-slate-300 mt-0.5">
-                    Drivers with Commercial Licenses, Bola Inspections, 3rd-Party Insurance, or TIN Tax Clearances expiring within {EXPIRY_WARNING_WINDOW_DAYS} days receive automated score deductions.
+                    Statutory transport licenses, roadworthiness inspections, third-party liability policies, or national tax clearances expiring within {EXPIRY_WARNING_WINDOW_DAYS} days receive automated score deductions.
                     {flaggedWithin30dList[0] && (
                       <span className="font-mono tabular-nums">
                         {' '}
-                        Nearest upcoming: {flaggedWithin30dList[0].driverName} ({flaggedWithin30dList[0].nearestExpiryLabel} in{' '}
+                        Nearest upcoming: {flaggedWithin30dList[0].driverName} [{flaggedWithin30dList[0].countryCode || 'ET'}] ({flaggedWithin30dList[0].nearestExpiryLabel} in{' '}
                         {Math.max(0, flaggedWithin30dList[0].nearestExpiryDays)}d).
                       </span>
                     )}
@@ -602,15 +811,18 @@ export const FleetComplianceView: React.FC<FleetComplianceViewProps> = ({
             </div>
           )}
 
-          {/* Main Automated Driver Compliance Scoring Table */}
+          {/* Driver Scoring Table */}
           <div className="p-5 sm:p-6 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 space-y-4">
             <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-3">
               <div>
-                <h2 className="text-base font-bold text-slate-900 dark:text-white">
-                  Driver Credential Scoring &amp; 30-Day Expiry Matrix
+                <h2 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                  <span>Driver Credential Scoring &amp; Statutory Expiry Matrix</span>
+                  <span className="px-2 py-0.5 rounded-full text-[11px] bg-slate-100 dark:bg-slate-800 font-normal text-slate-600 dark:text-slate-400">
+                    {filteredDriverRecords.length} records
+                  </span>
                 </h2>
                 <p className="text-xs text-slate-600 dark:text-slate-400 mt-0.5">
-                  Automated 100-point scoring across License (30), Bola (25), Insurance (25), and TIN Tax (20)
+                  Automated 100-point regulatory scoring across Commercial License (30), Inspection (25), Liability Insurance (25), and Tax Clearance (20)
                 </p>
               </div>
 
@@ -619,10 +831,10 @@ export const FleetComplianceView: React.FC<FleetComplianceViewProps> = ({
                   <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500 dark:text-slate-400" />
                   <input
                     type="text"
-                    placeholder="Search driver, plate, or doc ID..."
+                    placeholder="Search driver, plate, country..."
                     value={docSearchQuery}
                     onChange={(e) => setDocSearchQuery(e.target.value)}
-                    className="pl-8 pr-3 py-1.5 rounded-lg text-xs border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white placeholder:text-slate-500 dark:placeholder:text-slate-400 focus:outline-hidden focus:ring-2 focus:ring-cyan-500 w-56"
+                    className="pl-8 pr-3 py-1.5 rounded-lg text-xs border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white placeholder:text-slate-500 dark:placeholder:text-slate-400 focus:outline-hidden focus:ring-2 focus:ring-cyan-500 w-52"
                   />
                 </div>
 
@@ -630,7 +842,7 @@ export const FleetComplianceView: React.FC<FleetComplianceViewProps> = ({
                 <div className="flex items-center gap-1 p-1 bg-slate-100 dark:bg-slate-800 rounded-lg">
                   {(
                     [
-                      { id: 'all', label: `All (${driverRecords.length})` },
+                      { id: 'all', label: `All (${filteredDriverRecords.length})` },
                       {
                         id: 'expiring_30d',
                         label: `Flagged ≤ 30d (${docSummary.flaggedWithin30dDrivers})`,
@@ -683,6 +895,7 @@ export const FleetComplianceView: React.FC<FleetComplianceViewProps> = ({
                 <thead>
                   <tr className="bg-slate-100/90 dark:bg-slate-800/60 border-y border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-200 font-semibold text-[11px]">
                     <th className="py-2.5 pl-3 pr-4">Driver &amp; Fleet Unit</th>
+                    <th className="py-2.5 px-4">Jurisdiction &amp; Authority</th>
                     <th className="py-2.5 px-4">Automated Score</th>
                     <th className="py-2.5 px-4">Credential Expiry Breakdown (30-Day Rule)</th>
                     <th className="py-2.5 px-4 text-right">Nearest Expiration</th>
@@ -696,6 +909,9 @@ export const FleetComplianceView: React.FC<FleetComplianceViewProps> = ({
                         <td className="py-4 pl-3 pr-4">
                           <div className="h-3.5 w-32 bg-slate-200 dark:bg-slate-800 rounded mb-1.5" />
                           <div className="h-3 w-44 bg-slate-100 dark:bg-slate-800/70 rounded" />
+                        </td>
+                        <td className="py-4 px-4">
+                          <div className="h-3.5 w-24 bg-slate-200 dark:bg-slate-800 rounded mb-1" />
                         </td>
                         <td className="py-4 px-4">
                           <div className="h-4 w-20 bg-slate-200 dark:bg-slate-800 rounded mb-1.5" />
@@ -714,22 +930,23 @@ export const FleetComplianceView: React.FC<FleetComplianceViewProps> = ({
                     ))
                   ) : filteredDriverRecords.length === 0 ? (
                     <tr>
-                      <td colSpan={5} className="py-10 text-center">
+                      <td colSpan={6} className="py-10 text-center">
                         <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">
                           No driver compliance records match the current filter
                         </p>
                         <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">
-                          Adjust your search query or reset the 30-day risk filter to view the complete fleet roster.
+                          Adjust your country selector, query or reset filters to view regional fleet rosters.
                         </p>
                         <button
                           onClick={() => {
+                            setSelectedCountry('ALL');
                             setDocFilter('all');
                             setModuleFilter('all');
                             setDocSearchQuery('');
                           }}
                           className="mt-3 px-3.5 py-2 text-xs font-semibold rounded-lg border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
                         >
-                          Reset Filters
+                          Reset Filters &amp; View All East Africa
                         </button>
                       </td>
                     </tr>
@@ -749,16 +966,24 @@ export const FleetComplianceView: React.FC<FleetComplianceViewProps> = ({
                           ? 'bg-amber-600 dark:bg-amber-500'
                           : 'bg-rose-600 dark:bg-rose-500';
 
+                      const cCode = (rec.countryCode || 'ET') as Exclude<EastAfricaCountryCode, 'ALL'>;
+                      const countryMeta = EAST_AFRICA_REGULATORY_AUTHORITIES[cCode] || EAST_AFRICA_REGULATORY_AUTHORITIES.ET;
+
                       return (
                         <tr
                           key={rec.driverId}
                           className="hover:bg-slate-50/90 dark:hover:bg-slate-800/40 transition-colors"
                         >
-                          {/* Driver & Fleet Unit (Unboxed metadata with · separators) */}
+                          {/* Driver & Fleet Unit */}
                           <td className="py-3.5 pl-3 pr-4 align-top">
-                            <p className="font-semibold text-slate-900 dark:text-white">
-                              {rec.driverName}
-                            </p>
+                            <div className="flex items-center gap-2">
+                              <span className="font-semibold text-slate-900 dark:text-white">
+                                {rec.driverName}
+                              </span>
+                              <span className="text-sm shrink-0" title={countryMeta.countryName}>
+                                {countryMeta.flag}
+                              </span>
+                            </div>
                             <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-slate-600 dark:text-slate-400 mt-0.5 font-mono tabular-nums">
                               <span>{rec.vehiclePlate}</span>
                               <span aria-hidden="true">·</span>
@@ -772,9 +997,20 @@ export const FleetComplianceView: React.FC<FleetComplianceViewProps> = ({
                               <span className="font-mono tabular-nums">{rec.phone}</span>
                               <span aria-hidden="true">·</span>
                               <span>{rec.driverStatus}</span>
-                              <span aria-hidden="true">·</span>
-                              <span className="font-mono">{rec.sourceClass}</span>
                             </div>
+                          </td>
+
+                          {/* Country & Regulatory Authority */}
+                          <td className="py-3.5 px-4 align-top">
+                            <p className="font-semibold text-slate-900 dark:text-white text-xs">
+                              {countryMeta.shortAuthority}
+                            </p>
+                            <p className="text-[11px] text-slate-600 dark:text-slate-400 mt-0.5">
+                              {countryMeta.inspectionAuthority}
+                            </p>
+                            <span className="inline-block mt-1 text-[10px] px-1.5 py-0.5 rounded-sm bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-mono">
+                              {countryMeta.countryName} ({countryMeta.currency})
+                            </span>
                           </td>
 
                           {/* Automated Score & Risk State */}
@@ -892,7 +1128,7 @@ export const FleetComplianceView: React.FC<FleetComplianceViewProps> = ({
                                   disabled={isSyncingAction}
                                   className="px-2.5 py-1.5 text-xs font-semibold rounded-lg border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors whitespace-nowrap shrink-0 disabled:opacity-50"
                                 >
-                                  {rec.complianceNoticeSentAt ? 'Resend Alert' : 'Send Alert'}
+                                  {rec.complianceNoticeSentAt ? 'Resend Notice' : 'Send Alert'}
                                 </button>
                               )}
                               <button
@@ -912,8 +1148,10 @@ export const FleetComplianceView: React.FC<FleetComplianceViewProps> = ({
             </div>
           </div>
         </div>
-      ) : (
-        /* Trip Fuel & Municipal Tariff Audit Section */
+      )}
+
+      {/* SECTION 2: Trip Fuel Efficiency & Municipal Tariff Audit */}
+      {activeSection === 'trip_tariff' && (
         <div className="space-y-6">
           {/* KPI Stats Strip */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -926,12 +1164,12 @@ export const FleetComplianceView: React.FC<FleetComplianceViewProps> = ({
               </div>
               <div className="mt-3">
                 <p className="text-2xl font-bold font-mono tracking-tight text-emerald-700 dark:text-emerald-400 tabular-nums">
-                  {summary.complianceRate}%
+                  {tripSummary.complianceRate}%
                 </p>
                 <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">
-                  {summary.violationsCount === 0
+                  {tripSummary.violationsCount === 0
                     ? 'Zero tariff ceiling breaches'
-                    : `${summary.violationsCount} trip fare violation flagged`}
+                    : `${tripSummary.violationsCount} trip fare violation(s) flagged`}
                 </p>
               </div>
             </div>
@@ -945,10 +1183,10 @@ export const FleetComplianceView: React.FC<FleetComplianceViewProps> = ({
               </div>
               <div className="mt-3">
                 <p className="text-2xl font-bold font-mono tracking-tight text-slate-900 dark:text-white tabular-nums">
-                  {summary.totalFuelLiters} L
+                  {tripSummary.totalFuelLiters} L
                 </p>
                 <p className="text-xs text-slate-600 dark:text-slate-400 mt-1 tabular-nums">
-                  Pump cost: ETB {summary.totalFuelCostETB.toLocaleString()} (@ {PUMP_PRICE_ETB_PER_LITER} ETB/L)
+                  Total cost: ETB {tripSummary.totalFuelCostETB.toLocaleString()} equivalent
                 </p>
               </div>
             </div>
@@ -962,7 +1200,7 @@ export const FleetComplianceView: React.FC<FleetComplianceViewProps> = ({
               </div>
               <div className="mt-3">
                 <p className="text-2xl font-bold font-mono tracking-tight text-slate-900 dark:text-white tabular-nums">
-                  {summary.totalCo2Kg} kg
+                  {tripSummary.totalCo2Kg} kg
                 </p>
                 <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">
                   UNEP African transport benchmark
@@ -979,28 +1217,31 @@ export const FleetComplianceView: React.FC<FleetComplianceViewProps> = ({
               </div>
               <div className="mt-3">
                 <p className="text-2xl font-bold font-mono tracking-tight text-slate-900 dark:text-white tabular-nums">
-                  {summary.totalTrips}
+                  {tripSummary.totalTrips}
                 </p>
                 <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">
-                  Monitored urban &amp; regional routes
+                  {selectedCountry === 'ALL' ? 'Cross-border corridors & urban hubs' : `${activeCountryInfo.countryName} transit`}
                 </p>
               </div>
             </div>
           </div>
 
-          {/* Regulatory Standards Card (Hairline dividers, zero nested bordered boxes) */}
+          {/* Statutory Regulatory Standards Card */}
           <div className="p-5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-4 border-b border-slate-200 dark:border-slate-800">
               <div>
-                <h3 className="text-sm font-bold text-slate-900 dark:text-white">
-                  Official Addis Ababa City Transport Bureau Regulatory Limits
-                </h3>
-                <p className="text-xs text-slate-600 dark:text-slate-400">
-                  Authorized municipal tariff caps and fuel benchmark formulas
+                <div className="flex items-center gap-2">
+                  <span className="text-lg">{activeCountryInfo.flag}</span>
+                  <h3 className="text-sm font-bold text-slate-900 dark:text-white">
+                    {activeCountryInfo.authorityName} — Statutory Vehicle Tariff Caps
+                  </h3>
+                </div>
+                <p className="text-xs text-slate-600 dark:text-slate-400 mt-0.5">
+                  Regulated municipal base fares, per-kilometer ceiling rates, and benchmark consumption
                 </p>
               </div>
               <span className="text-xs font-mono text-slate-700 dark:text-slate-300">
-                Directive 2026/04 · Municipal Tariff Schedule
+                {activeCountryInfo.directiveCode}
               </span>
             </div>
 
@@ -1011,9 +1252,15 @@ export const FleetComplianceView: React.FC<FleetComplianceViewProps> = ({
                   <span>Metered Sedan Taxi</span>
                 </div>
                 <div className="mt-2 space-y-1 text-slate-700 dark:text-slate-300 font-mono text-[11px] tabular-nums">
-                  <p>Base Fare: ETB {VEHICLE_FUEL_STANDARDS.sedan.baseFareETB}.00</p>
-                  <p>Max Per-Km Cap: ETB {VEHICLE_FUEL_STANDARDS.sedan.maxRatePerKmETB}.00 / km</p>
-                  <p className="text-slate-600 dark:text-slate-400">Consumption: ~7.2 L / 100km</p>
+                  <p>
+                    Base Fare: {activeCountryInfo.currency} {activeCountryInfo.standards.sedan.baseFare.toFixed(2)}
+                  </p>
+                  <p>
+                    Max Rate Cap: {activeCountryInfo.currency} {activeCountryInfo.standards.sedan.maxRatePerKm.toFixed(2)} / km
+                  </p>
+                  <p className="text-slate-600 dark:text-slate-400">
+                    Standard: {activeCountryInfo.currency} {activeCountryInfo.standards.sedan.standardRatePerKm.toFixed(2)}/km · ~7.2 L / 100km
+                  </p>
                 </div>
               </div>
 
@@ -1023,9 +1270,15 @@ export const FleetComplianceView: React.FC<FleetComplianceViewProps> = ({
                   <span>Minibus / HiAce Shuttle</span>
                 </div>
                 <div className="mt-2 space-y-1 text-slate-700 dark:text-slate-300 font-mono text-[11px] tabular-nums">
-                  <p>Base Fare: ETB {VEHICLE_FUEL_STANDARDS.minibus.baseFareETB}.00</p>
-                  <p>Max Per-Km Cap: ETB {VEHICLE_FUEL_STANDARDS.minibus.maxRatePerKmETB}.00 / km</p>
-                  <p className="text-slate-600 dark:text-slate-400">Consumption: ~11.5 L / 100km</p>
+                  <p>
+                    Base Fare: {activeCountryInfo.currency} {activeCountryInfo.standards.minibus.baseFare.toFixed(2)}
+                  </p>
+                  <p>
+                    Max Rate Cap: {activeCountryInfo.currency} {activeCountryInfo.standards.minibus.maxRatePerKm.toFixed(2)} / km
+                  </p>
+                  <p className="text-slate-600 dark:text-slate-400">
+                    Standard: {activeCountryInfo.currency} {activeCountryInfo.standards.minibus.standardRatePerKm.toFixed(2)}/km · ~11.5 L / 100km
+                  </p>
                 </div>
               </div>
 
@@ -1035,9 +1288,15 @@ export const FleetComplianceView: React.FC<FleetComplianceViewProps> = ({
                   <span>Freight Cargo Truck</span>
                 </div>
                 <div className="mt-2 space-y-1 text-slate-700 dark:text-slate-300 font-mono text-[11px] tabular-nums">
-                  <p>Base Fare: ETB {VEHICLE_FUEL_STANDARDS.cargo_truck.baseFareETB}.00</p>
-                  <p>Max Per-Km Cap: ETB {VEHICLE_FUEL_STANDARDS.cargo_truck.maxRatePerKmETB}.00 / km</p>
-                  <p className="text-slate-600 dark:text-slate-400">Consumption: ~21.0 L / 100km</p>
+                  <p>
+                    Base Fare: {activeCountryInfo.currency} {activeCountryInfo.standards.cargo_truck.baseFare.toFixed(2)}
+                  </p>
+                  <p>
+                    Max Rate Cap: {activeCountryInfo.currency} {activeCountryInfo.standards.cargo_truck.maxRatePerKm.toFixed(2)} / km
+                  </p>
+                  <p className="text-slate-600 dark:text-slate-400">
+                    Standard: {activeCountryInfo.currency} {activeCountryInfo.standards.cargo_truck.standardRatePerKm.toFixed(2)}/km · ~21.0 L / 100km
+                  </p>
                 </div>
               </div>
             </div>
@@ -1047,11 +1306,14 @@ export const FleetComplianceView: React.FC<FleetComplianceViewProps> = ({
           <div className="p-5 sm:p-6 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 space-y-4">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
-                <h2 className="text-base font-bold text-slate-900 dark:text-white">
-                  Audit Log &amp; Trip Telematics
+                <h2 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                  <span>Audit Log &amp; Trip Telematics</span>
+                  <span className="px-2 py-0.5 rounded-full text-[11px] bg-slate-100 dark:bg-slate-800 font-normal text-slate-600 dark:text-slate-400">
+                    {filteredRecords.length} records
+                  </span>
                 </h2>
                 <p className="text-xs text-slate-600 dark:text-slate-400 mt-0.5">
-                  Trip-by-trip fuel burn, CO2 emission, and regulatory fare ceiling check
+                  Trip-by-trip fuel burn, CO2 footprint, and regulatory fare ceiling audit across East African trade corridors
                 </p>
               </div>
 
@@ -1060,7 +1322,7 @@ export const FleetComplianceView: React.FC<FleetComplianceViewProps> = ({
                   <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500 dark:text-slate-400" />
                   <input
                     type="text"
-                    placeholder="Search trip, plate or driver..."
+                    placeholder="Search trip, plate, corridor..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     className="pl-8 pr-3 py-1.5 rounded-lg text-xs border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-cyan-500 w-52"
@@ -1086,7 +1348,7 @@ export const FleetComplianceView: React.FC<FleetComplianceViewProps> = ({
                         : 'text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
                     }`}
                   >
-                    Violations
+                    Violations Only
                   </button>
                 </div>
               </div>
@@ -1103,64 +1365,118 @@ export const FleetComplianceView: React.FC<FleetComplianceViewProps> = ({
                     <th className="py-2.5 px-4 text-right">CO2 Footprint</th>
                     <th className="py-2.5 px-4 text-right">Actual Fare</th>
                     <th className="py-2.5 px-4 text-right">Legal Max</th>
-                    <th className="py-2.5 pl-4 pr-3 text-right">Compliance</th>
+                    <th className="py-2.5 pl-4 pr-3 text-right">Regulatory Standing</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
-                  {filteredRecords.map((r) => (
-                    <tr
-                      key={r.id}
-                      className="hover:bg-slate-50/90 dark:hover:bg-slate-800/40 transition-colors"
-                    >
-                      <td className="py-3.5 pl-3 pr-4">
-                        <p className="font-mono font-semibold text-slate-900 dark:text-white">
-                          {r.tripId}
+                  {filteredRecords.length === 0 ? (
+                    <tr>
+                      <td colSpan={8} className="py-10 text-center">
+                        <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">
+                          No trip audit records match the current filter
                         </p>
-                        <p className="text-[11px] text-slate-600 dark:text-slate-400">
-                          {r.vehiclePlate} · {r.vehicleModel}
+                        <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">
+                          Try switching countries or click &ldquo;Audit Corridor Trip&rdquo; to certify a new journey.
                         </p>
-                        <p className="text-[11px] text-slate-600 dark:text-slate-400">
-                          Driver: {r.driverName}
-                        </p>
-                      </td>
-                      <td className="py-3.5 px-4">
-                        <p className="font-medium text-slate-800 dark:text-slate-200">
-                          {r.routeCorridor}
-                        </p>
-                        <p className="text-[11px] text-slate-600 dark:text-slate-400 font-mono tabular-nums">
-                          {r.distanceKm} km · {r.durationMin} mins · {r.date}
-                        </p>
-                      </td>
-                      <td className="py-3.5 px-4 text-right font-mono text-slate-800 dark:text-slate-200 tabular-nums">
-                        {r.estimatedFuelLiters} L
-                      </td>
-                      <td className="py-3.5 px-4 text-right font-mono text-slate-800 dark:text-slate-200 tabular-nums">
-                        ETB {r.fuelCostETB.toFixed(2)}
-                      </td>
-                      <td className="py-3.5 px-4 text-right font-mono text-slate-700 dark:text-slate-300 tabular-nums">
-                        {r.co2Kg} kg
-                      </td>
-                      <td className="py-3.5 px-4 text-right font-mono font-semibold text-slate-900 dark:text-white tabular-nums">
-                        ETB {r.actualFareETB.toFixed(2)}
-                      </td>
-                      <td className="py-3.5 px-4 text-right font-mono text-slate-600 dark:text-slate-400 tabular-nums">
-                        ETB {r.legalMaxFareETB.toFixed(2)}
-                      </td>
-                      <td className="py-3.5 pl-4 pr-3 text-right">
-                        {r.complianceStatus === 'compliant' ? (
-                          <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 dark:text-emerald-400">
-                            <CheckCircle2 className="w-3.5 h-3.5" />
-                            <span>Compliant</span>
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-rose-700 dark:text-rose-400">
-                            <AlertTriangle className="w-3.5 h-3.5" />
-                            <span>Ceiling Exceeded</span>
-                          </span>
-                        )}
                       </td>
                     </tr>
-                  ))}
+                  ) : (
+                    filteredRecords.map((r) => {
+                      const cur = r.currency || 'ETB';
+                      const cCode = (r.countryCode || 'ET') as Exclude<EastAfricaCountryCode, 'ALL'>;
+                      const countryMeta = EAST_AFRICA_REGULATORY_AUTHORITIES[cCode] || EAST_AFRICA_REGULATORY_AUTHORITIES.ET;
+
+                      return (
+                        <tr
+                          key={r.id}
+                          className="hover:bg-slate-50/90 dark:hover:bg-slate-800/40 transition-colors"
+                        >
+                          <td className="py-3.5 pl-3 pr-4">
+                            <div className="flex items-center gap-1.5 font-mono font-semibold text-slate-900 dark:text-white">
+                              <span>{countryMeta.flag}</span>
+                              <span>{r.tripId}</span>
+                              <span className="text-[10px] font-sans font-normal px-1 rounded-sm bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400">
+                                {r.countryCode || 'ET'}
+                              </span>
+                            </div>
+                            <p className="text-[11px] text-slate-600 dark:text-slate-400">
+                              {r.vehiclePlate} · {r.vehicleModel}
+                            </p>
+                            <p className="text-[11px] text-slate-600 dark:text-slate-400">
+                              Driver: {r.driverName}
+                            </p>
+                          </td>
+                          <td className="py-3.5 px-4">
+                            <p className="font-medium text-slate-800 dark:text-slate-200">
+                              {r.routeCorridor}
+                            </p>
+                            <p className="text-[11px] text-slate-600 dark:text-slate-400 font-mono tabular-nums">
+                              {r.distanceKm} km · {r.durationMin} mins · {r.date}
+                            </p>
+                          </td>
+                          <td className="py-3.5 px-4 text-right font-mono text-slate-800 dark:text-slate-200 tabular-nums">
+                            {r.estimatedFuelLiters} L
+                          </td>
+                          <td className="py-3.5 px-4 text-right font-mono text-slate-800 dark:text-slate-200 tabular-nums">
+                            <div>
+                              {cur} {(r.fuelCostLocal ?? r.fuelCostETB).toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 })}
+                            </div>
+                            {cur !== 'ETB' && (
+                              <div className="text-[10px] text-slate-600 dark:text-slate-400">
+                                ≈ ETB {r.fuelCostETB.toFixed(0)}
+                              </div>
+                            )}
+                          </td>
+                          <td className="py-3.5 px-4 text-right font-mono text-slate-700 dark:text-slate-300 tabular-nums">
+                            {r.co2Kg} kg
+                          </td>
+                          <td className="py-3.5 px-4 text-right font-mono font-semibold text-slate-900 dark:text-white tabular-nums">
+                            <div>
+                              {cur} {(r.actualFareLocal ?? r.actualFareETB).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </div>
+                            {cur !== 'ETB' && (
+                              <div className="text-[10px] font-normal text-slate-600 dark:text-slate-400">
+                                ≈ ETB {r.actualFareETB.toFixed(0)}
+                              </div>
+                            )}
+                          </td>
+                          <td className="py-3.5 px-4 text-right font-mono text-slate-600 dark:text-slate-400 tabular-nums">
+                            <div>
+                              {cur} {(r.legalMaxFareLocal ?? r.legalMaxFareETB).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </div>
+                            {cur !== 'ETB' && (
+                              <div className="text-[10px] text-slate-600 dark:text-slate-400">
+                                ≈ ETB {r.legalMaxFareETB.toFixed(0)}
+                              </div>
+                            )}
+                          </td>
+                          <td className="py-3.5 pl-4 pr-3 text-right">
+                            {r.complianceStatus === 'compliant' ? (
+                              <div>
+                                <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 dark:text-emerald-400">
+                                  <CheckCircle2 className="w-3.5 h-3.5" />
+                                  <span>Compliant</span>
+                                </span>
+                                <p className="text-[10px] text-slate-600 dark:text-slate-400 truncate max-w-[140px] ml-auto">
+                                  {r.regulatoryAuthority || 'FTA'}
+                                </p>
+                              </div>
+                            ) : (
+                              <div>
+                                <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-rose-700 dark:text-rose-400">
+                                  <AlertTriangle className="w-3.5 h-3.5" />
+                                  <span>Ceiling Exceeded</span>
+                                </span>
+                                <p className="text-[10px] text-rose-700 dark:text-rose-400 truncate max-w-[140px] ml-auto">
+                                  Breach flagged
+                                </p>
+                              </div>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
                 </tbody>
               </table>
             </div>
@@ -1168,7 +1484,73 @@ export const FleetComplianceView: React.FC<FleetComplianceViewProps> = ({
         </div>
       )}
 
-      {/* Driver Automated Score Breakdown & Credential Renewal Modal */}
+      {/* SECTION 3: Cross-Border Directives & Comparative Benchmarks */}
+      {activeSection === 'cross_border_directives' && (
+        <div className="space-y-6">
+          <div className="p-5 sm:p-6 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 space-y-5">
+            <div>
+              <h2 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                <Compass className="w-4 h-4 text-cyan-600 dark:text-cyan-400" />
+                <span>East Africa 8-Nation Statutory Transport Authorities &amp; Directives</span>
+              </h2>
+              <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">
+                Comparative matrix of regulated fuel price caps, mandatory vehicle roadworthiness inspection bodies, emissions baselines, and legal fare structures.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              {(Object.keys(EAST_AFRICA_REGULATORY_AUTHORITIES) as Exclude<EastAfricaCountryCode, 'ALL'>[]).map((key) => {
+                const info = EAST_AFRICA_REGULATORY_AUTHORITIES[key];
+                return (
+                  <div
+                    key={key}
+                    className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-800/50 space-y-3"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xl">{info.flag}</span>
+                        <div>
+                          <p className="font-bold text-slate-900 dark:text-white text-xs">{info.countryName}</p>
+                          <p className="text-[10px] font-mono text-slate-600 dark:text-slate-400">{info.currency} ({info.currencySymbol})</p>
+                        </div>
+                      </div>
+                      <span className="text-[11px] font-mono font-bold text-slate-800 dark:text-slate-200">
+                        {info.shortAuthority}
+                      </span>
+                    </div>
+
+                    <div className="space-y-1.5 text-[11px] text-slate-700 dark:text-slate-300">
+                      <div>
+                        <span className="text-slate-600 dark:text-slate-400">Statutory Body: </span>
+                        <span className="font-medium">{info.authorityName}</span>
+                      </div>
+                      <div>
+                        <span className="text-slate-600 dark:text-slate-400">Inspection: </span>
+                        <span className="font-medium">{info.inspectionLabel}</span>
+                      </div>
+                      <div>
+                        <span className="text-slate-600 dark:text-slate-400">Pump Cap: </span>
+                        <span className="font-mono font-semibold text-slate-900 dark:text-white">
+                          {info.pumpPricePerLiter.toFixed(2)} {info.currency}/L
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-slate-600 dark:text-slate-400">Emissions: </span>
+                        <span className="font-medium text-emerald-700 dark:text-emerald-400">{info.emissionsStandard}</span>
+                      </div>
+                      <div className="pt-2 border-t border-slate-200 dark:border-slate-700 text-[10px] text-slate-600 dark:text-slate-400 font-mono">
+                        {info.directiveCode}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Driver Credential Inspector & Renewal Modal */}
       {selectedDriver && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
           <div className="w-full max-w-2xl p-6 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xl space-y-5 max-h-[90vh] overflow-y-auto">
@@ -1179,10 +1561,12 @@ export const FleetComplianceView: React.FC<FleetComplianceViewProps> = ({
                   <span aria-hidden="true">·</span>
                   <span className="font-sans">{selectedDriver.vehicleModel}</span>
                   <span aria-hidden="true">·</span>
-                  <span>Back4App {selectedDriver.sourceClass}</span>
+                  <span>{selectedDriver.countryName || 'Ethiopia'}</span>
+                  <span aria-hidden="true">·</span>
+                  <span>{selectedDriver.regulatoryAuthority || 'FTA'}</span>
                 </div>
                 <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white mt-0.5">
-                  {selectedDriver.driverName} — Automated Compliance Audit
+                  {selectedDriver.driverName} — Statutory Compliance Dossier
                 </h3>
               </div>
 
@@ -1231,7 +1615,7 @@ export const FleetComplianceView: React.FC<FleetComplianceViewProps> = ({
               </div>
             </div>
 
-            {/* 4 Statutory Credentials Renewal List */}
+            {/* Statutory Credentials Renewal List */}
             <div className="divide-y divide-slate-200 dark:divide-slate-800">
               {selectedDriver.documents.map((doc) => {
                 const isFlagged = doc.expiryState === 'expiring_within_30d';
@@ -1335,14 +1719,19 @@ export const FleetComplianceView: React.FC<FleetComplianceViewProps> = ({
         </div>
       )}
 
-      {/* Run Trip Tariff Audit Modal */}
+      {/* Audit Trip Tariff & Fuel Modal */}
       {isAuditModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
-          <div className="w-full max-w-md p-6 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xl space-y-4">
+          <div className="w-full max-w-lg p-6 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xl space-y-4 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-slate-800">
-              <h3 className="text-base font-bold text-slate-900 dark:text-white">
-                Audit Trip Tariff &amp; Fuel
-              </h3>
+              <div>
+                <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                  Audit Trip Tariff &amp; Fuel Compliance
+                </h3>
+                <p className="text-xs text-slate-600 dark:text-slate-400">
+                  Cross-verify telematics against {EAST_AFRICA_REGULATORY_AUTHORITIES[auditCountry].shortAuthority} statutory price ceilings
+                </p>
+              </div>
               <button
                 onClick={() => setIsAuditModalOpen(false)}
                 className="text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200"
@@ -1352,16 +1741,37 @@ export const FleetComplianceView: React.FC<FleetComplianceViewProps> = ({
             </div>
 
             <div className="space-y-3 text-xs">
-              <div>
-                <label className="block text-slate-700 dark:text-slate-300 font-semibold mb-1">
-                  Trip Reference ID:
-                </label>
-                <input
-                  type="text"
-                  value={newTripId}
-                  onChange={(e) => setNewTripId(e.target.value)}
-                  className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-mono"
-                />
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-slate-700 dark:text-slate-300 font-semibold mb-1">
+                    Regulatory Jurisdiction:
+                  </label>
+                  <select
+                    value={auditCountry}
+                    onChange={(e) => handleAuditCountryChange(e.target.value as Exclude<EastAfricaCountryCode, 'ALL'>)}
+                    className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-medium"
+                  >
+                    <option value="ET">🇪🇹 Ethiopia (FTA / AACTB)</option>
+                    <option value="KE">🇰🇪 Kenya (NTSA / EPRA)</option>
+                    <option value="UG">🇺🇬 Uganda (MoWT / UNBS)</option>
+                    <option value="RW">🇷🇼 Rwanda (RURA / RNP)</option>
+                    <option value="TZ">🇹🇿 Tanzania (LATRA / EWURA)</option>
+                    <option value="DJ">🇩🇯 Djibouti (DTT / Port)</option>
+                    <option value="SO">🇸🇴 Somalia (MoTCA)</option>
+                    <option value="SS">🇸🇸 South Sudan (MoTR)</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-slate-700 dark:text-slate-300 font-semibold mb-1">
+                    Trip Reference ID:
+                  </label>
+                  <input
+                    type="text"
+                    value={newTripId}
+                    onChange={(e) => setNewTripId(e.target.value)}
+                    className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-mono"
+                  />
+                </div>
               </div>
 
               <div className="grid grid-cols-2 gap-2">
@@ -1371,12 +1781,17 @@ export const FleetComplianceView: React.FC<FleetComplianceViewProps> = ({
                   </label>
                   <select
                     value={newVehicleType}
-                    onChange={(e) => setNewVehicleType(e.target.value as 'sedan' | 'minibus' | 'cargo_truck')}
+                    onChange={(e) => {
+                      const vt = e.target.value as 'sedan' | 'minibus' | 'cargo_truck';
+                      setNewVehicleType(vt);
+                      const std = EAST_AFRICA_REGULATORY_AUTHORITIES[auditCountry].standards[vt];
+                      setNewActualFare(std.baseFare + newDistanceKm * std.standardRatePerKm);
+                    }}
                     className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
                   >
                     <option value="sedan">Sedan Taxi</option>
                     <option value="minibus">Minibus Shuttle</option>
-                    <option value="cargo_truck">Cargo Truck</option>
+                    <option value="cargo_truck">Cargo Freight Truck</option>
                   </select>
                 </div>
                 <div>
@@ -1425,7 +1840,12 @@ export const FleetComplianceView: React.FC<FleetComplianceViewProps> = ({
                   <input
                     type="number"
                     value={newDistanceKm}
-                    onChange={(e) => setNewDistanceKm(parseFloat(e.target.value) || 0)}
+                    onChange={(e) => {
+                      const km = parseFloat(e.target.value) || 0;
+                      setNewDistanceKm(km);
+                      const std = EAST_AFRICA_REGULATORY_AUTHORITIES[auditCountry].standards[newVehicleType];
+                      setNewActualFare(std.baseFare + km * std.standardRatePerKm);
+                    }}
                     className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-mono tabular-nums"
                   />
                 </div>
@@ -1442,12 +1862,12 @@ export const FleetComplianceView: React.FC<FleetComplianceViewProps> = ({
                 </div>
                 <div>
                   <label className="block text-slate-700 dark:text-slate-300 font-semibold mb-1">
-                    Fare (ETB):
+                    Fare ({EAST_AFRICA_REGULATORY_AUTHORITIES[auditCountry].currency}):
                   </label>
                   <input
                     type="number"
-                    value={newActualFareETB}
-                    onChange={(e) => setNewActualFareETB(parseFloat(e.target.value) || 0)}
+                    value={newActualFare}
+                    onChange={(e) => setNewActualFare(parseFloat(e.target.value) || 0)}
                     className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-mono tabular-nums"
                   />
                 </div>
@@ -1455,15 +1875,63 @@ export const FleetComplianceView: React.FC<FleetComplianceViewProps> = ({
 
               <div>
                 <label className="block text-slate-700 dark:text-slate-300 font-semibold mb-1">
-                  Corridor Description:
+                  Corridor Description / Route:
                 </label>
-                <input
-                  type="text"
-                  value={newCorridor}
-                  onChange={(e) => setNewCorridor(e.target.value)}
-                  className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
-                />
+                <div className="space-y-1.5">
+                  <input
+                    type="text"
+                    value={newCorridor}
+                    onChange={(e) => setNewCorridor(e.target.value)}
+                    className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
+                  />
+                  <div className="flex flex-wrap items-center gap-1">
+                    <span className="text-[10px] text-slate-500">Presets:</span>
+                    {EAST_AFRICA_REGULATORY_AUTHORITIES[auditCountry].defaultCorridors.slice(0, 3).map((preset) => (
+                      <button
+                        key={preset}
+                        type="button"
+                        onClick={() => setNewCorridor(preset)}
+                        className="text-[10px] px-2 py-0.5 rounded-sm bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
+                      >
+                        {preset.split('→')[0].trim()}
+                      </button>
+                    ))}
+                  </div>
+                </div>
               </div>
+
+              {/* Dynamic Telematics Preview Box */}
+              {(() => {
+                const std = EAST_AFRICA_REGULATORY_AUTHORITIES[auditCountry].standards[newVehicleType];
+                const fuelEst = Math.round(((newDistanceKm / 100) * std.baseLitersPer100Km * 1.1) * 100) / 100;
+                const co2Est = Math.round(fuelEst * std.co2KgPerLiter * 100) / 100;
+                const legalMax = Math.round((std.baseFare + newDistanceKm * std.maxRatePerKm) * 100) / 100;
+                const isOver = newActualFare > legalMax;
+                const cur = EAST_AFRICA_REGULATORY_AUTHORITIES[auditCountry].currency;
+
+                return (
+                  <div className="p-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60 font-mono text-[11px] space-y-1">
+                    <div className="flex justify-between">
+                      <span className="text-slate-600 dark:text-slate-400">Est. Fuel Burn &amp; CO2:</span>
+                      <span className="font-semibold text-slate-800 dark:text-slate-200">
+                        {fuelEst} L · {co2Est} kg CO2
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-600 dark:text-slate-400">Statutory Max Fare Cap:</span>
+                      <span className="font-semibold text-slate-800 dark:text-slate-200">
+                        {cur} {legalMax.toFixed(2)}
+                      </span>
+                    </div>
+                    <div className="flex justify-between pt-1 border-t border-slate-200 dark:border-slate-700">
+                      <span className="text-slate-600 dark:text-slate-400">Compliance Audit:</span>
+                      <span className={`font-bold ${isOver ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
+                        {isOver ? `VIOLATION (+${cur} ${(newActualFare - legalMax).toFixed(2)})` : 'COMPLIANT'}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
 
             <div className="flex items-center justify-end gap-2 pt-2">

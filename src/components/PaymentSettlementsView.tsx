@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import {
   DriverWallet,
+  EastAfricaCountryCode,
   PaymentGateway,
   PaymentTransaction,
   PermissionAction,
@@ -9,6 +10,8 @@ import {
   paymentSettlementService,
   COMMISSION_RATE,
   WITHHOLDING_TAX_RATE,
+  EAST_AFRICA_HUBS,
+  RegionalSettlementHub,
 } from '../services/payments';
 import { hasPermission } from '../services/rbac';
 import {
@@ -34,6 +37,9 @@ import {
   Sparkles,
   Info,
   FileCheck,
+  Globe,
+  ArrowRight,
+  Check,
 } from 'lucide-react';
 
 interface DriverRecentTrip {
@@ -43,34 +49,59 @@ interface DriverRecentTrip {
   grossFareETB: number;
   gateway: PaymentGateway;
   timestamp: string;
+  countryCode?: EastAfricaCountryCode;
 }
 
 const DRIVER_SAMPLE_TRIPS: Record<string, DriverRecentTrip[]> = {
   'drv-1': [
-    { tripId: 'TRP9281', route: 'Bole Medhanialem → Piassa Churchill Rd', passenger: 'Selamawit Bekele', grossFareETB: 340, gateway: 'telebirr', timestamp: '10 min ago' },
-    { tripId: 'TRP9275', route: 'Kazanchis UNECA → Bole Int’l Airport T2', passenger: 'Meron Assefa', grossFareETB: 410, gateway: 'telebirr', timestamp: '2 hours ago' },
-    { tripId: 'TRP9261', route: 'CMC Michael → Mexico Square', passenger: 'Tewodros Kassahun', grossFareETB: 380, gateway: 'cbe_birr', timestamp: 'Yesterday, 17:40' },
-    { tripId: 'TRP9254', route: 'Sarbet OAU → Megenagna Square', passenger: 'Hanna Yohannes', grossFareETB: 290, gateway: 'telebirr', timestamp: 'Yesterday, 14:15' },
+    { tripId: 'TRP9281', route: 'Bole Medhanialem → Piassa Churchill Rd', passenger: 'Selamawit Bekele', grossFareETB: 340, gateway: 'telebirr', timestamp: '10 min ago', countryCode: 'ET' },
+    { tripId: 'TRP9275', route: 'Kazanchis UNECA → Bole Int’l Airport T2', passenger: 'Meron Assefa', grossFareETB: 410, gateway: 'telebirr', timestamp: '2 hours ago', countryCode: 'ET' },
+    { tripId: 'TRP9261', route: 'CMC Michael → Mexico Square', passenger: 'Tewodros Kassahun', grossFareETB: 380, gateway: 'cbe_birr', timestamp: 'Yesterday, 17:40', countryCode: 'ET' },
+    { tripId: 'TRP9254', route: 'Sarbet OAU → Megenagna Square', passenger: 'Hanna Yohannes', grossFareETB: 290, gateway: 'telebirr', timestamp: 'Yesterday, 14:15', countryCode: 'ET' },
   ],
   'drv-2': [
-    { tripId: 'TRP9283', route: 'Gerji Imperial → 4 Kilo University Gate', passenger: 'Kidus Yohannes', grossFareETB: 480, gateway: 'cbe_birr', timestamp: '25 min ago' },
-    { tripId: 'TRP9270', route: 'Bole Atlas → Tor Hailoch Hospital', passenger: 'Bethlehem Girma', grossFareETB: 350, gateway: 'cbe_birr', timestamp: '3 hours ago' },
-    { tripId: 'TRP9258', route: 'Gurd Shola → Piassa De Gaulle', passenger: 'Solomon Worku', grossFareETB: 310, gateway: 'telebirr', timestamp: 'Yesterday, 18:20' },
+    { tripId: 'TRP9283', route: 'Gerji Imperial → 4 Kilo University Gate', passenger: 'Kidus Yohannes', grossFareETB: 480, gateway: 'cbe_birr', timestamp: '25 min ago', countryCode: 'ET' },
+    { tripId: 'TRP9270', route: 'Bole Atlas → Tor Hailoch Hospital', passenger: 'Bethlehem Girma', grossFareETB: 350, gateway: 'cbe_birr', timestamp: '3 hours ago', countryCode: 'ET' },
+    { tripId: 'TRP9258', route: 'Gurd Shola → Piassa De Gaulle', passenger: 'Solomon Worku', grossFareETB: 310, gateway: 'telebirr', timestamp: 'Yesterday, 18:20', countryCode: 'ET' },
   ],
   'drv-3': [
-    { tripId: 'TRP9279', route: 'Lideta Mercato → Gotera Interchange', passenger: 'Yared Mulugeta', grossFareETB: 220, gateway: 'cash', timestamp: '1 hour ago' },
-    { tripId: 'TRP9266', route: 'Kera Slaughterhouse → Bole Bulbula', passenger: 'Daniel Berhanu', grossFareETB: 390, gateway: 'telebirr', timestamp: '4 hours ago' },
-    { tripId: 'TRP9250', route: 'Ayat Zone 3 → Saris Abo Church', passenger: 'Hiwot Tadesse', grossFareETB: 440, gateway: 'telebirr', timestamp: 'Yesterday, 11:30' },
+    { tripId: 'TRP9279', route: 'Lideta Mercato → Gotera Interchange', passenger: 'Yared Mulugeta', grossFareETB: 220, gateway: 'cash', timestamp: '1 hour ago', countryCode: 'ET' },
+    { tripId: 'TRP9266', route: 'Kera Slaughterhouse → Bole Bulbula', passenger: 'Daniel Berhanu', grossFareETB: 390, gateway: 'telebirr', timestamp: '4 hours ago', countryCode: 'ET' },
+    { tripId: 'TRP9250', route: 'Ayat Zone 3 → Saris Abo Church', passenger: 'Hiwot Tadesse', grossFareETB: 440, gateway: 'telebirr', timestamp: 'Yesterday, 11:30', countryCode: 'ET' },
   ],
   'drv-4': [
-    { tripId: 'TRP9280', route: 'Kality Freight Dry Port → Akaki Customs', passenger: 'Blen Tesfaye (Logistics)', grossFareETB: 620, gateway: 'chapa', timestamp: '45 min ago' },
-    { tripId: 'TRP9269', route: 'Sebeta Industrial Park → Meskel Sq Depot', passenger: 'Hailemariam Desalegn', grossFareETB: 850, gateway: 'cbe_birr', timestamp: '3 hours ago' },
-    { tripId: 'TRP9252', route: 'Bole Lemi National Park → Piassa', passenger: 'Senait Wolde', grossFareETB: 540, gateway: 'cbe_birr', timestamp: 'Yesterday, 16:00' },
+    { tripId: 'TRP9280', route: 'Kality Freight Dry Port → Akaki Customs', passenger: 'Blen Tesfaye (Logistics)', grossFareETB: 620, gateway: 'chapa', timestamp: '45 min ago', countryCode: 'ET' },
+    { tripId: 'TRP9269', route: 'Sebeta Industrial Park → Meskel Sq Depot', passenger: 'Hailemariam Desalegn', grossFareETB: 850, gateway: 'cbe_birr', timestamp: '3 hours ago', countryCode: 'ET' },
+    { tripId: 'TRP9252', route: 'Bole Lemi National Park → Piassa', passenger: 'Senait Wolde', grossFareETB: 540, gateway: 'cbe_birr', timestamp: 'Yesterday, 16:00', countryCode: 'ET' },
   ],
   'drv-5': [
-    { tripId: 'TRP9272', route: 'Old Airport Golf Club → Kazanchis Elilly', passenger: 'Abel Tefera', grossFareETB: 290, gateway: 'cbe_birr', timestamp: '3 hours ago' },
-    { tripId: 'TRP9264', route: 'Summit Condominium → Bole Rwanda', passenger: 'Liya Kebede', grossFareETB: 370, gateway: 'telebirr', timestamp: '5 hours ago' },
-    { tripId: 'TRP9248', route: 'Sidist Kilo Science → Mexico Stadium', passenger: 'Eskinder Nega', grossFareETB: 260, gateway: 'telebirr', timestamp: 'Yesterday, 09:15' },
+    { tripId: 'TRP9272', route: 'Old Airport Golf Club → Kazanchis Elilly', passenger: 'Abel Tefera', grossFareETB: 290, gateway: 'cbe_birr', timestamp: '3 hours ago', countryCode: 'ET' },
+    { tripId: 'TRP9264', route: 'Summit Condominium → Bole Rwanda', passenger: 'Liya Kebede', grossFareETB: 370, gateway: 'telebirr', timestamp: '5 hours ago', countryCode: 'ET' },
+    { tripId: 'TRP9248', route: 'Sidist Kilo Science → Mexico Stadium', passenger: 'Eskinder Nega', grossFareETB: 260, gateway: 'telebirr', timestamp: 'Yesterday, 09:15', countryCode: 'ET' },
+  ],
+  'drv-dj-1': [
+    { tripId: 'DLV7721', route: 'Modjo Dry Port ⇄ Doraleh Multi-Purpose Port', passenger: 'Djibouti Multimodal Transit SA', grossFareETB: 24500, gateway: 'dmoney_dj', timestamp: '40 min ago', countryCode: 'DJ' },
+    { tripId: 'DLV7710', route: 'Galafi Border Post → PK12 Logistics Zone', passenger: 'Red Sea Cargo Logistics', grossFareETB: 18200, gateway: 'dmoney_dj', timestamp: 'Yesterday, 14:00', countryCode: 'DJ' },
+  ],
+  'drv-ke-1': [
+    { tripId: 'TRP-NBO-102', route: 'Westlands Commercial Hub → Upper Hill', passenger: 'Wanjiku Mwangi', grossFareETB: 1250, gateway: 'mpesa_ke', timestamp: '1 hour ago', countryCode: 'KE' },
+    { tripId: 'TRP-NBO-098', route: 'JKIA Airport Terminal 1A → Kilimani', passenger: 'David Otieno', grossFareETB: 1680, gateway: 'mpesa_ke', timestamp: 'Yesterday, 18:30', countryCode: 'KE' },
+  ],
+  'drv-ug-1': [
+    { tripId: 'TRP-KLA-551', route: 'Kololo Business Park → Entebbe Rd Express', passenger: 'Grace Namubiru', grossFareETB: 890, gateway: 'mtn_ug', timestamp: '2 hours ago', countryCode: 'UG' },
+    { tripId: 'TRP-KLA-542', route: 'Nakawa Industrial Area → Ntinda Central', passenger: 'Samuel Kateregga', grossFareETB: 720, gateway: 'mtn_ug', timestamp: 'Yesterday, 16:15', countryCode: 'UG' },
+  ],
+  'drv-rw-1': [
+    { tripId: 'TRP-KGL-311', route: 'Kigali Heights → Kigali Special Economic Zone', passenger: 'Aline Umutoni', grossFareETB: 920, gateway: 'mtn_rw', timestamp: '3 hours ago', countryCode: 'RW' },
+  ],
+  'drv-tz-1': [
+    { tripId: 'TRP-DAR-804', route: 'Dar es Salaam Port Terminal 2 → Kariakoo Market', passenger: 'Baraka Mushi', grossFareETB: 1420, gateway: 'mpesa_tz', timestamp: '4 hours ago', countryCode: 'TZ' },
+  ],
+  'drv-so-1': [
+    { tripId: 'TRP-MGQ-201', route: 'Aden Adde Int Airport → Bakara Commercial Hub', passenger: 'Farhan Nur', grossFareETB: 1850, gateway: 'evc_plus_so', timestamp: '5 hours ago', countryCode: 'SO' },
+  ],
+  'drv-ss-1': [
+    { tripId: 'TRP-JUB-091', route: 'Juba River Port → Custom Market Transit', passenger: 'Emmanuel Lado', grossFareETB: 1100, gateway: 'mgurush_ss', timestamp: '6 hours ago', countryCode: 'SS' },
   ],
 };
 
@@ -92,6 +123,7 @@ export const PaymentSettlementsView: React.FC<PaymentSettlementsViewProps> = ({
     }
     return canManageFinance;
   };
+
   const [transactions, setTransactions] = useState<PaymentTransaction[]>(() =>
     paymentSettlementService.getTransactions()
   );
@@ -99,6 +131,8 @@ export const PaymentSettlementsView: React.FC<PaymentSettlementsViewProps> = ({
     paymentSettlementService.getWallets()
   );
 
+  // Regional Settlement Hub Filter (East Africa)
+  const [selectedCountry, setSelectedCountry] = useState<EastAfricaCountryCode | 'ALL'>('ALL');
   const [activeGatewayFilter, setActiveGatewayFilter] = useState<'all' | PaymentGateway>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedWalletForPayout, setSelectedWalletForPayout] = useState<DriverWallet | null>(null);
@@ -115,27 +149,73 @@ export const PaymentSettlementsView: React.FC<PaymentSettlementsViewProps> = ({
 
   // Webhook Simulator State
   const [isWebhookModalOpen, setIsWebhookModalOpen] = useState(false);
+  const [simCountry, setSimCountry] = useState<EastAfricaCountryCode>('ET');
   const [simGateway, setSimGateway] = useState<PaymentGateway>('telebirr');
   const [simAmount, setSimAmount] = useState<number>(380);
   const [simPassenger, setSimPassenger] = useState('Kidist Tilahun');
   const [simDriver, setSimDriver] = useState('Abebe Kebede');
 
-  // Calculations
-  const grossGMV = transactions.reduce((acc, tx) => acc + tx.grossFareETB, 0);
-  const totalCommission = transactions.reduce((acc, tx) => acc + tx.platformCommissionETB, 0);
-  const totalTaxWithheld = transactions.reduce((acc, tx) => acc + tx.withholdingTaxETB, 0);
-  const totalNetDriverPaid = transactions.reduce((acc, tx) => acc + tx.netDriverETB, 0);
+  // Country details lookup
+  const activeHubInfo: RegionalSettlementHub | null =
+    selectedCountry !== 'ALL' ? EAST_AFRICA_HUBS[selectedCountry] || null : null;
 
-  // Filter transactions
+  // Filtered transactions by country & gateway & search
   const filteredTransactions = transactions.filter((tx) => {
+    const matchesCountry = selectedCountry === 'ALL' || (tx.countryCode || 'ET') === selectedCountry;
     const matchesGateway = activeGatewayFilter === 'all' || tx.gateway === activeGatewayFilter;
     const matchesSearch =
       tx.reference.toLowerCase().includes(searchQuery.toLowerCase()) ||
       tx.tripId.toLowerCase().includes(searchQuery.toLowerCase()) ||
       tx.driverName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      tx.passengerName.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesGateway && matchesSearch;
+      tx.passengerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (tx.currency && tx.currency.toLowerCase().includes(searchQuery.toLowerCase())) ||
+      (tx.countryCode && tx.countryCode.toLowerCase().includes(searchQuery.toLowerCase()));
+    return matchesCountry && matchesGateway && matchesSearch;
   });
+
+  // Filtered wallets by country
+  const filteredWallets = wallets.filter((w) => {
+    if (selectedCountry === 'ALL') return true;
+    return (w.countryCode || 'ET') === selectedCountry;
+  });
+
+  // Dynamic KPI calculations for filtered scope
+  const grossGMV = filteredTransactions.reduce((acc, tx) => acc + tx.grossFareETB, 0);
+  const totalCommission = filteredTransactions.reduce((acc, tx) => acc + tx.platformCommissionETB, 0);
+  const totalTaxWithheld = filteredTransactions.reduce((acc, tx) => acc + tx.withholdingTaxETB, 0);
+  const totalNetDriverPaid = filteredTransactions.reduce((acc, tx) => acc + tx.netDriverETB, 0);
+
+  // Available gateways for current country selection
+  const availableGateways = React.useMemo(() => {
+    if (selectedCountry === 'ALL') {
+      return [
+        { id: 'all' as const, label: 'All Channels' },
+        { id: 'telebirr' as const, label: 'Telebirr (ET)' },
+        { id: 'cbe_birr' as const, label: 'CBE Birr (ET)' },
+        { id: 'chapa' as const, label: 'Chapa (ET)' },
+        { id: 'dmoney_dj' as const, label: 'D-Money (DJ)' },
+        { id: 'mpesa_ke' as const, label: 'M-PESA (KE)' },
+        { id: 'airtel_ke' as const, label: 'Airtel (KE)' },
+        { id: 'mtn_ug' as const, label: 'MTN MoMo (UG)' },
+        { id: 'mtn_rw' as const, label: 'MTN MoMo (RW)' },
+        { id: 'mpesa_tz' as const, label: 'M-Pesa (TZ)' },
+        { id: 'evc_plus_so' as const, label: 'EVC Plus (SO)' },
+        { id: 'mgurush_ss' as const, label: 'm-GURUSH (SS)' },
+        { id: 'cash' as const, label: 'Cash Receipt' },
+      ];
+    }
+    const hub = EAST_AFRICA_HUBS[selectedCountry];
+    if (!hub) return [{ id: 'all' as const, label: 'All Channels' }];
+    return [
+      { id: 'all' as const, label: 'All Hub Channels' },
+      ...hub.gateways.map((g) => ({ id: g.id, label: g.name })),
+    ];
+  }, [selectedCountry]);
+
+  const handleCountryChange = (cCode: EastAfricaCountryCode | 'ALL') => {
+    setSelectedCountry(cCode);
+    setActiveGatewayFilter('all');
+  };
 
   const handleOpenPayout = (wallet: DriverWallet) => {
     if (!checkFinanceAuthority(`Disburse wallet payout to ${wallet.driverName}`)) return;
@@ -162,7 +242,7 @@ export const PaymentSettlementsView: React.FC<PaymentSettlementsViewProps> = ({
 
   const handleTriggerWebhook = () => {
     if (!checkFinanceAuthority('Ingest settlement webhook transaction')) return;
-    paymentSettlementService.simulateWebhook(simGateway, simAmount, simPassenger, simDriver);
+    paymentSettlementService.simulateWebhook(simGateway, simAmount, simPassenger, simDriver, simCountry);
     setTransactions(paymentSettlementService.getTransactions());
     setWallets(paymentSettlementService.getWallets());
     setIsWebhookModalOpen(false);
@@ -171,13 +251,16 @@ export const PaymentSettlementsView: React.FC<PaymentSettlementsViewProps> = ({
   const handleOpenSplitSimulator = (driverId?: string) => {
     if (driverId) {
       setSplitDriverId(driverId);
+    } else {
+      const currentList = filteredWallets.length > 0 ? filteredWallets : wallets;
+      setSplitDriverId(currentList[0]?.driverId || 'drv-1');
     }
     setIsSplitModalOpen(true);
   };
 
   const selectedSplitDriver = wallets.find((w) => w.driverId === splitDriverId) || wallets[0];
 
-  // Resolve trips for selected driver: merge ledger transactions with verified sample trips
+  // Resolve trips for selected driver
   const driverLiveTxs = transactions.filter(
     (tx) => tx.driverId === selectedSplitDriver?.driverId || tx.driverName === selectedSplitDriver?.driverName
   );
@@ -187,11 +270,12 @@ export const PaymentSettlementsView: React.FC<PaymentSettlementsViewProps> = ({
   const combinedRecentTrips: DriverRecentTrip[] = [
     ...driverLiveTxs.map((tx) => ({
       tripId: tx.tripId,
-      route: tx.channelDetails || 'Addis Standard Ride Corridor',
+      route: tx.channelDetails || 'Regional Express Transit Corridor',
       passenger: tx.passengerName,
       grossFareETB: tx.grossFareETB,
       gateway: tx.gateway,
       timestamp: tx.timestamp,
+      countryCode: tx.countryCode,
     })),
     ...fallbackTrips.filter((ft) => !driverLiveTxs.some((tx) => tx.tripId === ft.tripId)),
   ];
@@ -219,21 +303,23 @@ export const PaymentSettlementsView: React.FC<PaymentSettlementsViewProps> = ({
     if (!checkFinanceAuthority('Commit commission split to settlement ledger')) return;
     if (!selectedSplitDriver) return;
     const simTripId = `TRP-SIM-${Math.floor(1000 + Math.random() * 9000)}`;
+    const driverCountry = selectedSplitDriver.countryCode || 'ET';
     const newTx = paymentSettlementService.processSettlement(
       simTripId,
       selectedSplitDriver.driverId,
       selectedSplitDriver.driverName,
-      'Settlement Commission Audit Batch',
+      'Regional Settlement Commission Audit',
       totalSimulatedGross,
       selectedSplitDriver.preferredPayoutMethod,
-      splitCommissionPercent / 100
+      splitCommissionPercent / 100,
+      driverCountry
     );
 
     setTransactions(paymentSettlementService.getTransactions());
     setWallets(paymentSettlementService.getWallets());
     setIsSplitModalOpen(false);
     setPayoutNotification({
-      message: `Commission Split Committed: ETB ${simDriverNetPayout.toFixed(2)} credited to ${selectedSplitDriver.driverName} (Platform Take: ETB ${simPlatformCommission.toFixed(2)} at ${splitCommissionPercent}%, Withholding Tax: ETB ${simTaxWithheld.toFixed(2)})`,
+      message: `Commission Split Committed: ETB ${simDriverNetPayout.toFixed(2)} credited to ${selectedSplitDriver.driverName} (${driverCountry}) (Platform: ETB ${simPlatformCommission.toFixed(2)}, Tax: ETB ${simTaxWithheld.toFixed(2)})`,
       ref: newTx.reference,
     });
   };
@@ -252,19 +338,26 @@ export const PaymentSettlementsView: React.FC<PaymentSettlementsViewProps> = ({
     const targetTx = tx || filteredTransactions[0] || transactions[0];
     setSelectedTxForReconciliation(targetTx || null);
     if (targetTx) {
+      const cCode = targetTx.countryCode || 'ET';
       setReconcileExternalRef(
         targetTx.externalRefId ||
-          `${targetTx.gateway === 'cbe_birr' ? 'CBE-CORE-' : targetTx.gateway === 'telebirr' ? 'TB-ENT-' : 'ETHSWITCH-'}${Math.floor(
+          `${cCode === 'DJ' ? 'DJ-BCIMR-' : cCode === 'KE' ? 'CBK-RTGS-' : cCode === 'UG' ? 'BOU-MOMO-' : targetTx.gateway === 'cbe_birr' ? 'CBE-CORE-' : 'NBE-RTGS-'}${Math.floor(
             100000 + Math.random() * 900000
           )}`
       );
       setReconcileBankRail(
         targetTx.reconciliationBank ||
-          (targetTx.gateway === 'cbe_birr'
+          (cCode === 'DJ'
+            ? 'Banque pour le Commerce et l’Industrie Mer Rouge (BCIMR)'
+            : cCode === 'KE'
+            ? 'Central Bank of Kenya RTGS / Safaricom'
+            : cCode === 'UG'
+            ? 'Bank of Uganda Interbank Rail'
+            : cCode === 'RW'
+            ? 'National Bank of Rwanda / BNR Switch'
+            : targetTx.gateway === 'cbe_birr'
             ? 'Commercial Bank of Ethiopia'
-            : targetTx.gateway === 'telebirr'
-            ? 'Telebirr Enterprise Settlement'
-            : 'EthSwitch RTGS Interbank')
+            : 'Telebirr Enterprise Settlement')
       );
       setReconcileNotes(targetTx.reconciliationNotes || '');
       setReconcileAuditor(targetTx.reconciledBy || 'Senior Finance Auditor');
@@ -276,7 +369,7 @@ export const PaymentSettlementsView: React.FC<PaymentSettlementsViewProps> = ({
   const handleExecuteReconciliation = () => {
     if (!selectedTxForReconciliation) return;
     if (!reconcileExternalRef.trim()) {
-      setReconcileError('Please provide an external reference ID (e.g. CBE-CORE-892140).');
+      setReconcileError('Please provide an external reference clearing ID.');
       return;
     }
 
@@ -300,14 +393,16 @@ export const PaymentSettlementsView: React.FC<PaymentSettlementsViewProps> = ({
   };
 
   const handleExportCSV = () => {
-    // Export currently filtered driver settlement records
     const headers = [
       'Transaction ID',
+      'Country Hub',
       'Date',
       'Trip ID',
       'Driver Name',
       'Passenger Name',
       'Gross Fare (ETB)',
+      'Local Amount',
+      'Currency',
       'Platform Commission (ETB)',
       'Withholding Tax (ETB)',
       'Net Payout (ETB)',
@@ -320,11 +415,14 @@ export const PaymentSettlementsView: React.FC<PaymentSettlementsViewProps> = ({
       .map((tx) =>
         [
           `"${tx.id}"`,
+          `"${tx.countryCode || 'ET'}"`,
           `"${tx.timestamp}"`,
           `"${tx.tripId}"`,
           `"${tx.driverName.replace(/"/g, '""')}"`,
           `"${tx.passengerName.replace(/"/g, '""')}"`,
           tx.grossFareETB.toFixed(2),
+          (tx.localAmount || tx.grossFareETB).toFixed(2),
+          `"${tx.currency || 'ETB'}"`,
           tx.platformCommissionETB.toFixed(2),
           tx.withholdingTaxETB.toFixed(2),
           tx.netDriverETB.toFixed(2),
@@ -340,7 +438,7 @@ export const PaymentSettlementsView: React.FC<PaymentSettlementsViewProps> = ({
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `driver_settlements_export_${Date.now()}.csv`;
+    a.download = `east_africa_settlements_${selectedCountry.toLowerCase()}_${Date.now()}.csv`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -349,20 +447,26 @@ export const PaymentSettlementsView: React.FC<PaymentSettlementsViewProps> = ({
 
   return (
     <div className="space-y-6">
-      {/* View Header with 3-Zone Clean Contract */}
+      {/* View Header with Multi-Country Context */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-slate-200 dark:border-slate-800">
         <div>
           <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
-            <span>Finance &amp; Ledger</span>
+            <span>Treasury &amp; Financial Clearing</span>
             <span aria-hidden="true">·</span>
-            <span>Ethiopian Digital Payments</span>
+            <span className="flex items-center gap-1 font-medium text-cyan-600 dark:text-cyan-400">
+              <Globe className="w-3.5 h-3.5" />
+              <span>East Africa Cross-Border Clearing Hub (8 Nations)</span>
+            </span>
             <span aria-hidden="true">·</span>
             <span className={canManageFinance ? 'text-emerald-600 dark:text-emerald-400 font-medium' : 'text-amber-600 dark:text-amber-400 font-medium'}>
               {canManageFinance ? `Treasury Authority (${userRole})` : `Read-Only Audit (${userRole})`}
             </span>
           </div>
-          <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 dark:text-white mt-1">
-            Payment Settlement & Driver Wallet Hub
+          <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 dark:text-white mt-1 flex items-center gap-2.5">
+            <span>Payment Settlements &amp; Regional Hub</span>
+            <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30">
+              Active Interbank Rails
+            </span>
           </h1>
         </div>
 
@@ -383,7 +487,10 @@ export const PaymentSettlementsView: React.FC<PaymentSettlementsViewProps> = ({
             <span>Manual Reconciliation</span>
           </button>
           <button
-            onClick={() => setIsWebhookModalOpen(true)}
+            onClick={() => {
+              setSimCountry(selectedCountry === 'ALL' ? 'ET' : selectedCountry);
+              setIsWebhookModalOpen(true);
+            }}
             className="px-3.5 py-2 text-xs font-semibold rounded-lg border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 transition-colors flex items-center gap-1.5 whitespace-nowrap shrink-0"
           >
             <Zap className="w-3.5 h-3.5 text-amber-500" />
@@ -392,12 +499,127 @@ export const PaymentSettlementsView: React.FC<PaymentSettlementsViewProps> = ({
           <button
             onClick={handleExportCSV}
             className="px-3.5 py-2 text-xs font-semibold rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white shadow-sm transition-colors flex items-center gap-1.5 whitespace-nowrap shrink-0"
-            title={`Download CSV of ${filteredTransactions.length} filtered driver settlement records`}
+            title={`Download CSV of ${filteredTransactions.length} settlement records`}
           >
             <Download className="w-3.5 h-3.5" />
             <span>Download CSV</span>
           </button>
         </div>
+      </div>
+
+      {/* East Africa Regional Settlement Hub Selector Bar */}
+      <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xs space-y-3">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <Globe className="w-4 h-4 text-cyan-600 dark:text-cyan-400" />
+            <span className="text-xs font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider">
+              East Africa Regional Settlement Hubs &amp; Corridors
+            </span>
+          </div>
+          <span className="text-[11px] text-slate-500 dark:text-slate-400">
+            Bilateral freight clearing, cross-border corridors &amp; domestic mobile rails
+          </span>
+        </div>
+
+        <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-thin">
+          <button
+            onClick={() => handleCountryChange('ALL')}
+            className={`px-3 py-2 rounded-lg text-xs font-semibold transition-all shrink-0 flex items-center gap-2 border ${
+              selectedCountry === 'ALL'
+                ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900 border-slate-900 dark:border-white shadow-sm'
+                : 'bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700/80'
+            }`}
+          >
+            <span className="text-sm">🌍</span>
+            <span>All East Africa Hubs</span>
+            <span className={`px-1.5 py-0.2 rounded text-[10px] font-mono ${selectedCountry === 'ALL' ? 'bg-white/20 dark:bg-black/20 text-white dark:text-slate-900' : 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300'}`}>
+              8 Nations
+            </span>
+          </button>
+
+          {(Object.keys(EAST_AFRICA_HUBS) as EastAfricaCountryCode[]).map((cCode) => {
+            const hub = EAST_AFRICA_HUBS[cCode];
+            const isSelected = selectedCountry === cCode;
+            return (
+              <button
+                key={cCode}
+                onClick={() => handleCountryChange(cCode)}
+                className={`px-3 py-2 rounded-lg text-xs font-semibold transition-all shrink-0 flex items-center gap-2 border ${
+                  isSelected
+                    ? 'bg-cyan-600 text-white border-cyan-600 shadow-sm ring-2 ring-cyan-500/20'
+                    : 'bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700/80'
+                }`}
+              >
+                <span className="text-base leading-none">{hub.flag}</span>
+                <span>{hub.countryName}</span>
+                <span className={`px-1.5 py-0.2 rounded text-[10px] font-mono uppercase ${isSelected ? 'bg-white/20 text-white' : 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-400'}`}>
+                  {hub.currency}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Selected Hub Detail Banner */}
+        {activeHubInfo ? (
+          <div className="mt-2 p-3.5 rounded-lg bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs">
+            <div className="flex items-center gap-3">
+              <span className="text-3xl">{activeHubInfo.flag}</span>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h3 className="font-bold text-slate-900 dark:text-white text-sm">
+                    {activeHubInfo.countryName} Settlement Hub
+                  </h3>
+                  <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-cyan-100 dark:bg-cyan-950 text-cyan-800 dark:text-cyan-300 border border-cyan-500/30">
+                    Regulator: {activeHubInfo.regulator}
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-600 dark:text-slate-400 mt-0.5">
+                  <span className="font-semibold text-slate-700 dark:text-slate-300">Corridor Note:</span> {activeHubInfo.settlementCorridorNote}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-4 shrink-0 pt-2 md:pt-0 border-t md:border-t-0 border-slate-200 dark:border-slate-700">
+              <div>
+                <span className="text-[10px] text-slate-500 dark:text-slate-400 uppercase tracking-wider block">Base Currency</span>
+                <span className="font-mono font-bold text-slate-900 dark:text-white">
+                  {activeHubInfo.currency} ({activeHubInfo.currencySymbol})
+                </span>
+              </div>
+              <div className="h-6 w-px bg-slate-200 dark:bg-slate-700" />
+              <div>
+                <span className="text-[10px] text-slate-500 dark:text-slate-400 uppercase tracking-wider block">ETB Peg / Rate</span>
+                <span className="font-mono font-bold text-emerald-600 dark:text-emerald-400">
+                  1 {activeHubInfo.currency} = {activeHubInfo.exchangeRateToETB} ETB
+                </span>
+              </div>
+              <div className="h-6 w-px bg-slate-200 dark:bg-slate-700" />
+              <div>
+                <span className="text-[10px] text-slate-500 dark:text-slate-400 uppercase tracking-wider block">Gateways</span>
+                <div className="flex items-center gap-1 mt-0.5">
+                  {activeHubInfo.gateways.map((gw) => (
+                    <span key={gw.id} className="px-1.5 py-0.2 rounded text-[10px] font-medium bg-slate-200 dark:bg-slate-700 text-slate-800 dark:text-slate-200">
+                      {gw.name}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="mt-2 p-3 rounded-lg bg-cyan-50/50 dark:bg-cyan-950/20 border border-cyan-200/60 dark:border-cyan-900/50 flex flex-wrap items-center justify-between gap-2 text-xs">
+            <div className="flex items-center gap-2 text-cyan-800 dark:text-cyan-300">
+              <Sparkles className="w-4 h-4 text-cyan-600 shrink-0" />
+              <span>
+                <strong>Unified Cross-Border Clearing:</strong> Showing consolidated transactions across Ethiopia, Kenya, Uganda, Rwanda, Tanzania, Djibouti, Somalia, and South Sudan.
+              </span>
+            </div>
+            <div className="text-[11px] font-mono text-cyan-700 dark:text-cyan-400">
+              Key Focus: Modjo–Djibouti Port Container Corridor &amp; Moyale Cross-Border Freight
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Payout Success Toast Banner */}
@@ -426,7 +648,9 @@ export const PaymentSettlementsView: React.FC<PaymentSettlementsViewProps> = ({
         {/* Gross GMV */}
         <div className="p-5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xs">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Gross Volume (GMV)</span>
+            <span className="text-xs font-medium text-slate-500 dark:text-slate-400">
+              Gross Volume (GMV) {selectedCountry !== 'ALL' && `[${selectedCountry}]`}
+            </span>
             <div className="w-8 h-8 rounded-lg bg-cyan-50 dark:bg-cyan-950/60 flex items-center justify-center text-cyan-600 dark:text-cyan-400">
               <TrendingUp className="w-4 h-4" />
             </div>
@@ -435,7 +659,9 @@ export const PaymentSettlementsView: React.FC<PaymentSettlementsViewProps> = ({
             <p className="text-2xl font-bold font-mono tracking-tight text-slate-900 dark:text-white tabular-nums">
               ETB {grossGMV.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </p>
-            <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">Across all ride & freight transactions</p>
+            <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
+              {filteredTransactions.length} settled trips &amp; freight manifests
+            </p>
           </div>
         </div>
 
@@ -458,7 +684,7 @@ export const PaymentSettlementsView: React.FC<PaymentSettlementsViewProps> = ({
         {/* 2% Withholding Tax */}
         <div className="p-5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xs">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Turnover Tax Withheld (2%)</span>
+            <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Statutory Tax Withheld (2%)</span>
             <div className="w-8 h-8 rounded-lg bg-purple-50 dark:bg-purple-950/60 flex items-center justify-center text-purple-600 dark:text-purple-400">
               <ShieldCheck className="w-4 h-4" />
             </div>
@@ -467,7 +693,9 @@ export const PaymentSettlementsView: React.FC<PaymentSettlementsViewProps> = ({
             <p className="text-2xl font-bold font-mono tracking-tight text-purple-600 dark:text-purple-400 tabular-nums">
               ETB {totalTaxWithheld.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </p>
-            <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">Ethiopian Ministry of Revenues remittance</p>
+            <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
+              {activeHubInfo ? `${activeHubInfo.regulator} remittance` : 'Regional Revenue Authorities'}
+            </p>
           </div>
         </div>
 
@@ -483,7 +711,7 @@ export const PaymentSettlementsView: React.FC<PaymentSettlementsViewProps> = ({
             <p className="text-2xl font-bold font-mono tracking-tight text-slate-900 dark:text-white tabular-nums">
               ETB {totalNetDriverPaid.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </p>
-            <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">Total driver wallet balances</p>
+            <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">Disbursable to regional drivers</p>
           </div>
         </div>
       </div>
@@ -492,9 +720,16 @@ export const PaymentSettlementsView: React.FC<PaymentSettlementsViewProps> = ({
       <div className="p-6 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xs">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
           <div>
-            <h2 className="text-base font-bold text-slate-900 dark:text-white">Driver Digital Wallets & Disbursements</h2>
+            <h2 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+              <span>Driver Digital Wallets &amp; Regional Disbursements</span>
+              {selectedCountry !== 'ALL' && (
+                <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-cyan-100 dark:bg-cyan-950 text-cyan-800 dark:text-cyan-300">
+                  {EAST_AFRICA_HUBS[selectedCountry]?.flag} {EAST_AFRICA_HUBS[selectedCountry]?.countryName}
+                </span>
+              )}
+            </h2>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-              Instant mobile money transfers to Telebirr and Commercial Bank of Ethiopia (CBE Birr)
+              Instant mobile disbursements across Telebirr, CBE Birr, Safaricom M-PESA, MTN MoMo, D-Money, EVC Plus &amp; m-GURUSH
             </p>
           </div>
           <button
@@ -511,7 +746,8 @@ export const PaymentSettlementsView: React.FC<PaymentSettlementsViewProps> = ({
             <thead>
               <tr className="bg-slate-100/80 dark:bg-slate-800/50 border-y border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 font-semibold text-[11px]">
                 <th className="py-2.5 pl-3 pr-4">Driver Profile</th>
-                <th className="py-2.5 px-4">Payout Rail</th>
+                <th className="py-2.5 px-4">Regional Hub</th>
+                <th className="py-2.5 px-4">Payout Rail &amp; Account</th>
                 <th className="py-2.5 px-4 text-right">Available Balance</th>
                 <th className="py-2.5 px-4 text-right">Lifetime Earnings</th>
                 <th className="py-2.5 px-4">Last Payout</th>
@@ -519,63 +755,97 @@ export const PaymentSettlementsView: React.FC<PaymentSettlementsViewProps> = ({
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200/70 dark:divide-slate-800">
-              {wallets.map((wallet) => (
-                <tr key={wallet.driverId} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors">
-                  <td className="py-3.5 pl-3 pr-4">
-                    <div className="flex items-center gap-2.5">
-                      <div className="w-8 h-8 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center font-bold text-slate-800 dark:text-slate-200 text-xs">
-                        {wallet.driverName[0]}
-                      </div>
-                      <div>
-                        <p className="font-semibold text-slate-900 dark:text-white">{wallet.driverName}</p>
-                        <p className="text-[11px] text-slate-600 dark:text-slate-400 font-mono">{wallet.phone}</p>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="py-3.5 px-4">
-                    <div className="flex items-center gap-1.5">
-                      {wallet.preferredPayoutMethod === 'telebirr' ? (
-                        <Smartphone className="w-3.5 h-3.5 text-cyan-700 dark:text-cyan-400" />
-                      ) : (
-                        <Building className="w-3.5 h-3.5 text-purple-700 dark:text-purple-400" />
-                      )}
-                      <span className="font-medium text-slate-800 dark:text-slate-200">
-                        {wallet.preferredPayoutMethod === 'telebirr' ? 'Telebirr Mobile' : 'CBE Birr'}
-                      </span>
-                      <span className="text-slate-600 dark:text-slate-400 font-mono text-[11px]">({wallet.payoutAccount})</span>
-                    </div>
-                  </td>
-                  <td className="py-3.5 px-4 text-right font-mono font-bold text-emerald-700 dark:text-emerald-400 tabular-nums text-sm">
-                    ETB {wallet.availableBalanceETB.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                  </td>
-                  <td className="py-3.5 px-4 text-right font-mono text-slate-700 dark:text-slate-300 tabular-nums">
-                    ETB {wallet.totalEarnedETB.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                  </td>
-                  <td className="py-3.5 px-4 text-slate-600 dark:text-slate-400 text-[11px] font-mono">
-                    {wallet.lastPayoutDate || 'Pending'}
-                  </td>
-                  <td className="py-3.5 pl-4 text-right">
-                    <div className="flex items-center justify-end gap-1.5">
-                      <button
-                        onClick={() => handleOpenSplitSimulator(wallet.driverId)}
-                        className="px-2.5 py-1.5 rounded-lg text-xs font-medium border border-cyan-500/30 bg-cyan-50 dark:bg-cyan-950/30 hover:bg-cyan-100 dark:hover:bg-cyan-900/50 text-cyan-700 dark:text-cyan-300 transition-colors flex items-center gap-1"
-                        title={`Simulate commission split for ${wallet.driverName}`}
-                      >
-                        <Sliders className="w-3 h-3 text-cyan-600 dark:text-cyan-400" />
-                        <span>Simulate Split</span>
-                      </button>
-                      <button
-                        onClick={() => handleOpenPayout(wallet)}
-                        disabled={wallet.availableBalanceETB <= 0}
-                        className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 disabled:cursor-not-allowed text-white transition-colors flex items-center gap-1"
-                      >
-                        <Send className="w-3 h-3" />
-                        <span>Disburse</span>
-                      </button>
-                    </div>
+              {filteredWallets.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="py-8 text-center text-slate-400 text-xs">
+                    No active drivers registered in this regional hub yet.
                   </td>
                 </tr>
-              ))}
+              ) : (
+                filteredWallets.map((wallet) => {
+                  const cCode = wallet.countryCode || 'ET';
+                  const hub = EAST_AFRICA_HUBS[cCode] || EAST_AFRICA_HUBS.ET;
+                  const localBalance = wallet.currency && wallet.currency !== 'ETB'
+                    ? (wallet.availableBalanceETB / hub.exchangeRateToETB).toFixed(2)
+                    : null;
+
+                  return (
+                    <tr key={wallet.driverId} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors">
+                      <td className="py-3.5 pl-3 pr-4">
+                        <div className="flex items-center gap-2.5">
+                          <div className="w-8 h-8 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center font-bold text-slate-800 dark:text-slate-200 text-xs">
+                            {wallet.driverName[0]}
+                          </div>
+                          <div>
+                            <p className="font-semibold text-slate-900 dark:text-white flex items-center gap-1.5">
+                              <span>{wallet.driverName}</span>
+                            </p>
+                            <p className="text-[11px] text-slate-600 dark:text-slate-400 font-mono">{wallet.phone}</p>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="py-3.5 px-4">
+                        <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] font-medium bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200">
+                          <span>{hub.flag}</span>
+                          <span>{hub.countryName}</span>
+                          <span className="text-[10px] text-slate-400">({hub.currency})</span>
+                        </span>
+                      </td>
+                      <td className="py-3.5 px-4">
+                        <div className="flex items-center gap-1.5">
+                          {wallet.preferredPayoutMethod.includes('birr') || wallet.preferredPayoutMethod.includes('cbe') ? (
+                            <Building className="w-3.5 h-3.5 text-blue-700 dark:text-blue-400" />
+                          ) : (
+                            <Smartphone className="w-3.5 h-3.5 text-cyan-700 dark:text-cyan-400" />
+                          )}
+                          <span className="font-medium capitalize text-slate-800 dark:text-slate-200">
+                            {wallet.preferredPayoutMethod.replace('_', ' ').replace('ke', 'Kenya').replace('ug', 'Uganda').replace('rw', 'Rwanda').replace('tz', 'Tanzania').replace('dj', 'Djibouti').replace('so', 'Somalia').replace('ss', 'South Sudan')}
+                          </span>
+                        </div>
+                        <p className="text-slate-500 dark:text-slate-400 font-mono text-[11px] truncate max-w-[190px]">
+                          {wallet.payoutAccount}
+                        </p>
+                      </td>
+                      <td className="py-3.5 px-4 text-right">
+                        <p className="font-mono font-bold text-emerald-700 dark:text-emerald-400 tabular-nums text-sm">
+                          ETB {wallet.availableBalanceETB.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </p>
+                        {localBalance && (
+                          <p className="text-[11px] text-slate-500 dark:text-slate-400 font-mono tabular-nums">
+                            ≈ {hub.currency} {parseFloat(localBalance).toLocaleString()}
+                          </p>
+                        )}
+                      </td>
+                      <td className="py-3.5 px-4 text-right font-mono text-slate-700 dark:text-slate-300 tabular-nums">
+                        ETB {wallet.totalEarnedETB.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </td>
+                      <td className="py-3.5 px-4 text-slate-600 dark:text-slate-400 text-[11px] font-mono">
+                        {wallet.lastPayoutDate || 'Pending'}
+                      </td>
+                      <td className="py-3.5 pl-4 text-right">
+                        <div className="flex items-center justify-end gap-1.5">
+                          <button
+                            onClick={() => handleOpenSplitSimulator(wallet.driverId)}
+                            className="px-2.5 py-1.5 rounded-lg text-xs font-medium border border-cyan-500/30 bg-cyan-50 dark:bg-cyan-950/30 hover:bg-cyan-100 dark:hover:bg-cyan-900/50 text-cyan-700 dark:text-cyan-300 transition-colors flex items-center gap-1"
+                            title={`Simulate commission split for ${wallet.driverName}`}
+                          >
+                            <Sliders className="w-3 h-3 text-cyan-600 dark:text-cyan-400" />
+                            <span>Split</span>
+                          </button>
+                          <button
+                            onClick={() => handleOpenPayout(wallet)}
+                            disabled={wallet.availableBalanceETB <= 0}
+                            className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 disabled:cursor-not-allowed text-white transition-colors flex items-center gap-1"
+                          >
+                            <Send className="w-3 h-3" />
+                            <span>Disburse</span>
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
             </tbody>
           </table>
         </div>
@@ -585,9 +855,14 @@ export const PaymentSettlementsView: React.FC<PaymentSettlementsViewProps> = ({
       <div className="p-6 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xs space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
-            <h2 className="text-base font-bold text-slate-900 dark:text-white">Transaction Clearing Ledger</h2>
+            <h2 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+              <span>Transaction Clearing Ledger</span>
+              <span className="text-xs font-normal text-slate-500 dark:text-slate-400">
+                ({filteredTransactions.length} records)
+              </span>
+            </h2>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-              Live settlement audit with automated 15% platform fee and 2% withholding tax
+              Live settlement audit with automated 15% platform fee and statutory 2% withholding tax across all East African corridors
             </p>
           </div>
 
@@ -597,26 +872,26 @@ export const PaymentSettlementsView: React.FC<PaymentSettlementsViewProps> = ({
               <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
               <input
                 type="text"
-                placeholder="Search reference, trip or driver..."
+                placeholder="Search ref, trip, driver, currency..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-8 pr-3 py-1.5 rounded-lg text-xs border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-hidden focus:ring-1 focus:ring-cyan-500 w-56"
+                className="pl-8 pr-3 py-1.5 rounded-lg text-xs border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-hidden focus:ring-1 focus:ring-cyan-500 w-60"
               />
             </div>
 
             {/* Segmented Gateway Filter Buttons */}
-            <div className="flex items-center gap-1 p-1 bg-slate-100 dark:bg-slate-800 rounded-lg">
-              {(['all', 'telebirr', 'cbe_birr', 'chapa', 'cash'] as const).map((gw) => (
+            <div className="flex items-center gap-1 p-1 bg-slate-100 dark:bg-slate-800 rounded-lg max-w-full overflow-x-auto">
+              {availableGateways.map((gw) => (
                 <button
-                  key={gw}
-                  onClick={() => setActiveGatewayFilter(gw)}
-                  className={`px-2.5 py-1 text-xs font-medium rounded-md transition-colors capitalize ${
-                    activeGatewayFilter === gw
+                  key={gw.id}
+                  onClick={() => setActiveGatewayFilter(gw.id)}
+                  className={`px-2.5 py-1 text-xs font-medium rounded-md transition-colors whitespace-nowrap ${
+                    activeGatewayFilter === gw.id
                       ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-xs'
                       : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                   }`}
                 >
-                  {gw === 'all' ? 'All Channels' : gw.replace('_', ' ')}
+                  {gw.label}
                 </button>
               ))}
             </div>
@@ -630,16 +905,6 @@ export const PaymentSettlementsView: React.FC<PaymentSettlementsViewProps> = ({
               <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" />
               <span>Manual Reconcile</span>
             </button>
-
-            {/* Download Filtered CSV Button */}
-            <button
-              onClick={handleExportCSV}
-              className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white shadow-xs transition-colors flex items-center gap-1.5 whitespace-nowrap shrink-0"
-              title={`Download CSV for ${filteredTransactions.length} filtered driver settlement records`}
-            >
-              <Download className="w-3.5 h-3.5" />
-              <span>Download CSV ({filteredTransactions.length})</span>
-            </button>
           </div>
         </div>
 
@@ -648,84 +913,122 @@ export const PaymentSettlementsView: React.FC<PaymentSettlementsViewProps> = ({
           <table className="w-full text-left text-xs">
             <thead>
               <tr className="bg-slate-100/80 dark:bg-slate-800/50 border-y border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 font-semibold text-[11px]">
-                <th className="py-2.5 pl-3 pr-4">Reference &amp; Trip</th>
-                <th className="py-2.5 px-4">Parties</th>
-                <th className="py-2.5 px-4">Channel Rail</th>
-                <th className="py-2.5 px-4 text-right">Gross Fare</th>
-                <th className="py-2.5 px-4 text-right">Commission (15%)</th>
-                <th className="py-2.5 px-4 text-right">Tax (2%)</th>
-                <th className="py-2.5 px-4 text-right">Net Driver</th>
-                <th className="py-2.5 pl-4 pr-3 text-right">Status &amp; Audit</th>
+                <th className="py-2.5 pl-3 pr-2">Hub</th>
+                <th className="py-2.5 px-3">Reference &amp; Trip</th>
+                <th className="py-2.5 px-3">Parties</th>
+                <th className="py-2.5 px-3">Channel Rail</th>
+                <th className="py-2.5 px-3 text-right">Gross Fare</th>
+                <th className="py-2.5 px-3 text-right">Commission (15%)</th>
+                <th className="py-2.5 px-3 text-right">Tax (2%)</th>
+                <th className="py-2.5 px-3 text-right">Net Driver</th>
+                <th className="py-2.5 pl-3 pr-3 text-right">Status &amp; Audit</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200/70 dark:divide-slate-800">
-              {filteredTransactions.map((tx) => (
-                <tr key={tx.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors">
-                  <td className="py-3.5 pl-3 pr-4">
-                    <p className="font-mono font-semibold text-slate-900 dark:text-white">{tx.reference}</p>
-                    <p className="text-[11px] text-slate-600 dark:text-slate-400 font-mono">Trip #{tx.tripId} · {tx.timestamp}</p>
-                  </td>
-                  <td className="py-3.5 px-4">
-                    <p className="font-medium text-slate-900 dark:text-white">{tx.driverName} (Driver)</p>
-                    <p className="text-[11px] text-slate-600 dark:text-slate-400">Passenger: {tx.passengerName}</p>
-                  </td>
-                  <td className="py-3.5 px-4">
-                    <div className="flex items-center gap-1.5">
-                      <span className="font-medium capitalize text-slate-800 dark:text-slate-200">
-                        {tx.gateway.replace('_', ' ')}
-                      </span>
-                    </div>
-                    <p className="text-[11px] text-slate-600 dark:text-slate-400 truncate max-w-[180px]">{tx.channelDetails}</p>
-                  </td>
-                  <td className="py-3.5 px-4 text-right font-mono font-semibold text-slate-900 dark:text-white tabular-nums">
-                    ETB {tx.grossFareETB.toFixed(2)}
-                  </td>
-                  <td className="py-3.5 px-4 text-right font-mono text-emerald-700 dark:text-emerald-400 tabular-nums">
-                    -ETB {tx.platformCommissionETB.toFixed(2)}
-                  </td>
-                  <td className="py-3.5 px-4 text-right font-mono text-purple-700 dark:text-purple-400 tabular-nums">
-                    -ETB {tx.withholdingTaxETB.toFixed(2)}
-                  </td>
-                  <td className="py-3.5 px-4 text-right font-mono font-bold text-blue-700 dark:text-blue-400 tabular-nums">
-                    ETB {tx.netDriverETB.toFixed(2)}
-                  </td>
-                  <td className="py-3.5 pl-4 text-right">
-                    {tx.status === 'bank_verified' ? (
-                      <div className="flex flex-col items-end">
-                        <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-600 dark:text-emerald-400">
-                          <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" />
-                          <span>Bank Verified</span>
-                        </span>
-                        {tx.externalRefId && (
-                          <button
-                            type="button"
-                            onClick={() => handleOpenReconciliationModal(tx)}
-                            className="text-[10px] font-mono text-cyan-600 dark:text-cyan-400 truncate max-w-[130px] hover:underline cursor-pointer"
-                            title={`Audited External Ref: ${tx.externalRefId} (${tx.reconciliationBank || 'Bank'}). Click to view/edit audit record.`}
-                          >
-                            Ref: {tx.externalRefId}
-                          </button>
-                        )}
-                      </div>
-                    ) : (
-                      <div className="flex items-center justify-end gap-1.5">
-                        <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400">
-                          Settled
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => handleOpenReconciliationModal(tx)}
-                          className="px-2 py-0.5 text-[11px] font-medium rounded-md border border-cyan-500/30 bg-cyan-50 dark:bg-cyan-950/40 hover:bg-cyan-100 dark:hover:bg-cyan-900/60 text-cyan-700 dark:text-cyan-300 transition-colors flex items-center gap-1"
-                          title="Open manual reconciliation to mark Bank Verified and attach external reference ID"
-                        >
-                          <FileCheck className="w-3 h-3 text-cyan-500" />
-                          <span>Reconcile</span>
-                        </button>
-                      </div>
-                    )}
+              {filteredTransactions.length === 0 ? (
+                <tr>
+                  <td colSpan={9} className="py-8 text-center text-slate-400 text-xs">
+                    No transactions match the selected filters.
                   </td>
                 </tr>
-              ))}
+              ) : (
+                filteredTransactions.map((tx) => {
+                  const cCode = tx.countryCode || 'ET';
+                  const hub = EAST_AFRICA_HUBS[cCode] || EAST_AFRICA_HUBS.ET;
+
+                  return (
+                    <tr key={tx.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors">
+                      <td className="py-3.5 pl-3 pr-2">
+                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[11px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 border border-slate-200 dark:border-slate-700" title={`${hub.countryName} Hub`}>
+                          <span>{hub.flag}</span>
+                          <span className="font-mono text-[10px]">{cCode}</span>
+                        </span>
+                      </td>
+                      <td className="py-3.5 px-3">
+                        <p className="font-mono font-semibold text-slate-900 dark:text-white">{tx.reference}</p>
+                        <p className="text-[11px] text-slate-600 dark:text-slate-400 font-mono">
+                          Trip #{tx.tripId} · {tx.timestamp}
+                        </p>
+                      </td>
+                      <td className="py-3.5 px-3">
+                        <p className="font-medium text-slate-900 dark:text-white">{tx.driverName} (Driver)</p>
+                        <p className="text-[11px] text-slate-600 dark:text-slate-400">Passenger: {tx.passengerName}</p>
+                      </td>
+                      <td className="py-3.5 px-3">
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-medium capitalize text-slate-800 dark:text-slate-200">
+                            {tx.gateway.replace('_', ' ').replace('ke', 'Kenya').replace('ug', 'Uganda').replace('rw', 'Rwanda').replace('tz', 'Tanzania').replace('dj', 'Djibouti').replace('so', 'Somalia').replace('ss', 'South Sudan')}
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-slate-600 dark:text-slate-400 truncate max-w-[190px]">
+                          {tx.channelDetails}
+                        </p>
+                      </td>
+                      <td className="py-3.5 px-3 text-right">
+                        <p className="font-mono font-semibold text-slate-900 dark:text-white tabular-nums">
+                          ETB {tx.grossFareETB.toFixed(2)}
+                        </p>
+                        {tx.currency && tx.currency !== 'ETB' && tx.localAmount && (
+                          <p className="text-[10px] text-slate-500 dark:text-slate-400 font-mono tabular-nums">
+                            {tx.currency} {tx.localAmount.toLocaleString()}
+                          </p>
+                        )}
+                      </td>
+                      <td className="py-3.5 px-3 text-right font-mono text-emerald-700 dark:text-emerald-400 tabular-nums">
+                        -ETB {tx.platformCommissionETB.toFixed(2)}
+                      </td>
+                      <td className="py-3.5 px-3 text-right font-mono text-purple-700 dark:text-purple-400 tabular-nums">
+                        -ETB {tx.withholdingTaxETB.toFixed(2)}
+                      </td>
+                      <td className="py-3.5 px-3 text-right">
+                        <p className="font-mono font-bold text-blue-700 dark:text-blue-400 tabular-nums">
+                          ETB {tx.netDriverETB.toFixed(2)}
+                        </p>
+                        {tx.currency && tx.currency !== 'ETB' && (
+                          <p className="text-[10px] text-blue-500 dark:text-blue-400 font-mono tabular-nums">
+                            ≈ {tx.currency} {(tx.netDriverETB / hub.exchangeRateToETB).toFixed(0)}
+                          </p>
+                        )}
+                      </td>
+                      <td className="py-3.5 pl-3 pr-3 text-right">
+                        {tx.status === 'bank_verified' ? (
+                          <div className="flex flex-col items-end">
+                            <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-600 dark:text-emerald-400">
+                              <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" />
+                              <span>Bank Verified</span>
+                            </span>
+                            {tx.externalRefId && (
+                              <button
+                                type="button"
+                                onClick={() => handleOpenReconciliationModal(tx)}
+                                className="text-[10px] font-mono text-cyan-600 dark:text-cyan-400 truncate max-w-[130px] hover:underline cursor-pointer"
+                                title={`Audited External Ref: ${tx.externalRefId} (${tx.reconciliationBank || 'Bank'}). Click to view/edit audit record.`}
+                              >
+                                Ref: {tx.externalRefId}
+                              </button>
+                            )}
+                          </div>
+                        ) : (
+                          <div className="flex items-center justify-end gap-1.5">
+                            <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400">
+                              Settled
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => handleOpenReconciliationModal(tx)}
+                              className="px-2 py-0.5 text-[11px] font-medium rounded-md border border-cyan-500/30 bg-cyan-50 dark:bg-cyan-950/40 hover:bg-cyan-100 dark:hover:bg-cyan-900/60 text-cyan-700 dark:text-cyan-300 transition-colors flex items-center gap-1"
+                              title="Open manual reconciliation to mark Bank Verified and attach external reference ID"
+                            >
+                              <FileCheck className="w-3 h-3 text-cyan-500" />
+                              <span>Reconcile</span>
+                            </button>
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
             </tbody>
           </table>
         </div>
@@ -736,7 +1039,12 @@ export const PaymentSettlementsView: React.FC<PaymentSettlementsViewProps> = ({
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
           <div className="w-full max-w-md p-6 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xl space-y-4">
             <div className="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-slate-800">
-              <h3 className="text-base font-bold text-slate-900 dark:text-white">Disburse Driver Earnings</h3>
+              <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                <span>Disburse Driver Earnings</span>
+                <span className="text-sm">
+                  {EAST_AFRICA_HUBS[selectedWalletForPayout.countryCode || 'ET']?.flag}
+                </span>
+              </h3>
               <button
                 onClick={() => setSelectedWalletForPayout(null)}
                 className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
@@ -752,9 +1060,15 @@ export const PaymentSettlementsView: React.FC<PaymentSettlementsViewProps> = ({
                   <span className="font-semibold text-slate-900 dark:text-white">{selectedWalletForPayout.driverName}</span>
                 </div>
                 <div className="flex justify-between">
+                  <span className="text-slate-500 dark:text-slate-400">Settlement Hub:</span>
+                  <span className="font-semibold text-slate-800 dark:text-slate-200">
+                    {EAST_AFRICA_HUBS[selectedWalletForPayout.countryCode || 'ET']?.countryName} ({selectedWalletForPayout.countryCode || 'ET'})
+                  </span>
+                </div>
+                <div className="flex justify-between">
                   <span className="text-slate-500 dark:text-slate-400">Destination Rail:</span>
                   <span className="font-medium capitalize text-cyan-600 dark:text-cyan-400">
-                    {selectedWalletForPayout.preferredPayoutMethod === 'telebirr' ? 'Telebirr Mobile Payout' : 'CBE Direct Transfer'}
+                    {selectedWalletForPayout.preferredPayoutMethod.replace('_', ' ')}
                   </span>
                 </div>
                 <div className="flex justify-between">
@@ -781,6 +1095,15 @@ export const PaymentSettlementsView: React.FC<PaymentSettlementsViewProps> = ({
                   min={50}
                   className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-mono text-sm focus:outline-hidden focus:ring-2 focus:ring-cyan-500"
                 />
+                {selectedWalletForPayout.countryCode && selectedWalletForPayout.countryCode !== 'ET' && (
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
+                    Equivalent local disbursement: ≈ {selectedWalletForPayout.currency}{' '}
+                    {(
+                      parseFloat(payoutAmount || '0') /
+                      (EAST_AFRICA_HUBS[selectedWalletForPayout.countryCode]?.exchangeRateToETB || 1)
+                    ).toFixed(2)}
+                  </p>
+                )}
               </div>
             </div>
 
@@ -802,14 +1125,14 @@ export const PaymentSettlementsView: React.FC<PaymentSettlementsViewProps> = ({
         </div>
       )}
 
-      {/* Webhook Simulator Modal */}
+      {/* Webhook Simulator Modal (Supports all 8 East Africa Hubs) */}
       {isWebhookModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
           <div className="w-full max-w-md p-6 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xl space-y-4">
             <div className="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-slate-800">
               <div className="flex items-center gap-2">
                 <Zap className="w-4 h-4 text-amber-500" />
-                <h3 className="text-base font-bold text-slate-900 dark:text-white">Simulate Payment Webhook</h3>
+                <h3 className="text-base font-bold text-slate-900 dark:text-white">Simulate Regional Webhook</h3>
               </div>
               <button
                 onClick={() => setIsWebhookModalOpen(false)}
@@ -822,6 +1145,37 @@ export const PaymentSettlementsView: React.FC<PaymentSettlementsViewProps> = ({
             <div className="space-y-3 text-xs">
               <div>
                 <label className="block text-slate-700 dark:text-slate-300 font-semibold mb-1">
+                  Regional Settlement Hub:
+                </label>
+                <select
+                  value={simCountry}
+                  onChange={(e) => {
+                    const cCode = e.target.value as EastAfricaCountryCode;
+                    setSimCountry(cCode);
+                    const hub = EAST_AFRICA_HUBS[cCode];
+                    if (hub && hub.gateways.length > 0) {
+                      setSimGateway(hub.gateways[0].id);
+                    }
+                    const matchingDriver = wallets.find((w) => (w.countryCode || 'ET') === cCode);
+                    if (matchingDriver) {
+                      setSimDriver(matchingDriver.driverName);
+                    }
+                  }}
+                  className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
+                >
+                  {(Object.keys(EAST_AFRICA_HUBS) as EastAfricaCountryCode[]).map((cCode) => {
+                    const hub = EAST_AFRICA_HUBS[cCode];
+                    return (
+                      <option key={cCode} value={cCode}>
+                        {hub.flag} {hub.countryName} ({hub.currency})
+                      </option>
+                    );
+                  })}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-slate-700 dark:text-slate-300 font-semibold mb-1">
                   Payment Gateway Rail:
                 </label>
                 <select
@@ -829,16 +1183,18 @@ export const PaymentSettlementsView: React.FC<PaymentSettlementsViewProps> = ({
                   onChange={(e) => setSimGateway(e.target.value as PaymentGateway)}
                   className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
                 >
-                  <option value="telebirr">Telebirr USSD *127# Instant Payment</option>
-                  <option value="cbe_birr">Commercial Bank of Ethiopia (CBE Birr)</option>
-                  <option value="chapa">Chapa Payment Checkout Webhook</option>
+                  {EAST_AFRICA_HUBS[simCountry]?.gateways.map((gw) => (
+                    <option key={gw.id} value={gw.id}>
+                      {gw.name} — {gw.provider} ({gw.settlementSpeed})
+                    </option>
+                  ))}
                   <option value="cash">In-Cab Cash Receipt</option>
                 </select>
               </div>
 
               <div>
                 <label className="block text-slate-700 dark:text-slate-300 font-semibold mb-1">
-                  Gross Fare Amount (ETB):
+                  Gross Fare Amount (ETB Base):
                 </label>
                 <input
                   type="number"
@@ -846,6 +1202,12 @@ export const PaymentSettlementsView: React.FC<PaymentSettlementsViewProps> = ({
                   onChange={(e) => setSimAmount(parseFloat(e.target.value) || 0)}
                   className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-mono"
                 />
+                {simCountry !== 'ET' && (
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
+                    Local currency preview: ≈ {EAST_AFRICA_HUBS[simCountry]?.currency}{' '}
+                    {(simAmount / (EAST_AFRICA_HUBS[simCountry]?.exchangeRateToETB || 1)).toFixed(2)}
+                  </p>
+                )}
               </div>
 
               <div>
@@ -871,7 +1233,7 @@ export const PaymentSettlementsView: React.FC<PaymentSettlementsViewProps> = ({
                 >
                   {wallets.map((w) => (
                     <option key={w.driverId} value={w.driverName}>
-                      {w.driverName} ({w.preferredPayoutMethod})
+                      {w.driverName} [{w.countryCode || 'ET'}] ({w.preferredPayoutMethod})
                     </option>
                   ))}
                 </select>
@@ -909,13 +1271,13 @@ export const PaymentSettlementsView: React.FC<PaymentSettlementsViewProps> = ({
                 </div>
                 <div>
                   <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                    <span>Driver Commission Split Simulator</span>
+                    <span>Regional Commission Split Simulator</span>
                     <span className="px-2 py-0.5 text-[10px] font-semibold rounded-full bg-cyan-100 dark:bg-cyan-950/80 text-cyan-700 dark:text-cyan-300 border border-cyan-500/30">
-                      Live Telemetry
+                      Cross-Border Telemetry
                     </span>
                   </h3>
                   <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                    Simulate Afronala platform fee deduction (15%) vs net driver take-home payout with Ethiopian 2% Turnover Withholding Tax.
+                    Simulate Afronala platform fee deduction (15%) vs net driver take-home payout with statutory 2% Turnover Withholding Tax across all 8 East African Hubs.
                   </p>
                 </div>
               </div>
@@ -935,12 +1297,15 @@ export const PaymentSettlementsView: React.FC<PaymentSettlementsViewProps> = ({
                   Select Driver for Simulation:
                 </label>
                 <span className="text-[11px] text-slate-400">
-                  Showing 5 registered fleet partners
+                  Showing {wallets.length} registered fleet partners across East Africa
                 </span>
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2.5">
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2.5 max-h-48 overflow-y-auto pr-1">
                 {wallets.map((w) => {
                   const isSelected = w.driverId === splitDriverId;
+                  const cCode = w.countryCode || 'ET';
+                  const hub = EAST_AFRICA_HUBS[cCode] || EAST_AFRICA_HUBS.ET;
+
                   return (
                     <button
                       key={w.driverId}
@@ -954,20 +1319,20 @@ export const PaymentSettlementsView: React.FC<PaymentSettlementsViewProps> = ({
                     >
                       <div className="flex items-center gap-2">
                         <div
-                          className={`w-7 h-7 rounded-full flex items-center justify-center font-bold text-xs ${
+                          className={`w-7 h-7 rounded-full flex items-center justify-center font-bold text-xs shrink-0 ${
                             isSelected
                               ? 'bg-cyan-600 text-white'
                               : 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200'
                           }`}
                         >
-                          {w.driverName[0]}
+                          {hub.flag}
                         </div>
                         <div className="truncate flex-1">
                           <p className="font-semibold text-xs text-slate-900 dark:text-white truncate">
                             {w.driverName}
                           </p>
                           <p className="text-[10px] text-slate-500 dark:text-slate-400 truncate">
-                            {w.preferredPayoutMethod === 'telebirr' ? 'Telebirr' : 'CBE Birr'}
+                            {hub.countryName} · {w.preferredPayoutMethod.replace('_', ' ')}
                           </p>
                         </div>
                       </div>
@@ -988,7 +1353,7 @@ export const PaymentSettlementsView: React.FC<PaymentSettlementsViewProps> = ({
               {/* Left Column: Data Source & Forecast Input */}
               <div className="lg:col-span-5 space-y-3">
                 <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
-                  Simulation Scope & Earnings Base:
+                  Simulation Scope &amp; Earnings Base:
                 </label>
                 <div className="flex items-center gap-1.5 p-1 bg-slate-200/70 dark:bg-slate-800 rounded-lg">
                   <button
@@ -1041,415 +1406,164 @@ export const PaymentSettlementsView: React.FC<PaymentSettlementsViewProps> = ({
                       <span className="font-bold text-slate-900 dark:text-white">{combinedRecentTrips.length} trips</span>
                     </div>
                     <div className="flex items-center justify-between text-slate-600 dark:text-slate-400">
-                      <span>Active Settlement Corridor:</span>
-                      <span className="font-mono text-slate-900 dark:text-white">Addis Ababa Metropolitan</span>
+                      <span>Corridor / Country Hub:</span>
+                      <span className="font-mono text-slate-900 dark:text-white">
+                        {EAST_AFRICA_HUBS[selectedSplitDriver.countryCode || 'ET']?.countryName}
+                      </span>
                     </div>
                   </div>
                 )}
               </div>
 
-              {/* Right Column: Platform Commission Tiers & Slider */}
+              {/* Right Column: Rate Sliders */}
               <div className="lg:col-span-7 space-y-3">
-                <div className="flex items-center justify-between">
-                  <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-                    Afronala Platform Fee Rate Tier:
-                  </label>
-                  <span className="text-xs font-mono font-bold text-cyan-600 dark:text-cyan-400 bg-cyan-100 dark:bg-cyan-950/80 px-2 py-0.5 rounded-md border border-cyan-500/30">
-                    {splitCommissionPercent}% Platform Fee
-                  </span>
-                </div>
-
-                {/* Preset Tier Buttons */}
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
-                  {[
-                    { label: 'Standard Base', rate: 15, tag: 'Standard' },
-                    { label: 'EV Green Fleet', rate: 10, tag: '10% Promo' },
-                    { label: 'Express Corridor', rate: 12, tag: '12% Tier' },
-                    { label: 'Freight & Peak', rate: 18, tag: '18% Heavy' },
-                  ].map((tier) => (
-                    <button
-                      key={tier.rate}
-                      type="button"
-                      onClick={() => setSplitCommissionPercent(tier.rate)}
-                      className={`px-2.5 py-1.5 rounded-lg text-left border transition-all ${
-                        splitCommissionPercent === tier.rate
-                          ? 'border-cyan-500 bg-cyan-500/10 dark:bg-cyan-950/60 text-cyan-700 dark:text-cyan-300 font-semibold ring-1 ring-cyan-500'
-                          : 'border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 hover:border-slate-400'
-                      }`}
-                    >
-                      <p className="text-[11px] truncate leading-tight">{tier.label}</p>
-                      <p className="text-xs font-bold font-mono mt-0.5">{tier.rate}%</p>
-                    </button>
-                  ))}
-                </div>
-
-                {/* Interactive Commission Rate Slider */}
-                <div className="space-y-1">
-                  <div className="flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400">
-                    <span>Variable Rate Slider (5% – 25%)</span>
-                    <span className="font-mono">Current: {splitCommissionPercent}%</span>
+                <div>
+                  <div className="flex justify-between items-center mb-1">
+                    <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                      Platform Take Rate (%):
+                    </label>
+                    <span className="text-xs font-mono font-bold text-cyan-600 dark:text-cyan-400">
+                      {splitCommissionPercent}%
+                    </span>
                   </div>
                   <input
                     type="range"
                     min={5}
-                    max={25}
+                    max={30}
                     step={1}
                     value={splitCommissionPercent}
                     onChange={(e) => setSplitCommissionPercent(parseInt(e.target.value, 10))}
-                    className="w-full accent-cyan-500 cursor-pointer"
+                    className="w-full accent-cyan-600 cursor-pointer"
                   />
-                  <div className="flex justify-between text-[10px] text-slate-400 font-mono">
-                    <span>5% (Fleet Discount)</span>
-                    <span>15% (Afronala Base)</span>
-                    <span>25% (Maximum)</span>
+                </div>
+
+                <div>
+                  <div className="flex justify-between items-center mb-1">
+                    <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                      Statutory Withholding Tax (%):
+                    </label>
+                    <span className="text-xs font-mono font-bold text-purple-600 dark:text-purple-400">
+                      {splitTaxPercent}%
+                    </span>
                   </div>
+                  <input
+                    type="range"
+                    min={0}
+                    max={10}
+                    step={0.5}
+                    value={splitTaxPercent}
+                    onChange={(e) => setSplitTaxPercent(parseFloat(e.target.value))}
+                    className="w-full accent-purple-600 cursor-pointer"
+                  />
                 </div>
               </div>
             </div>
 
-            {/* 3. Visual Multi-Segment Proportional Ratio Meter */}
-            <div className="p-4 rounded-xl bg-slate-900 text-white space-y-3 shadow-inner">
-              <div className="flex items-center justify-between text-xs">
-                <span className="font-semibold text-slate-300 flex items-center gap-1.5">
-                  <PieChart className="w-3.5 h-3.5 text-cyan-400" />
-                  <span>Gross Fare Distribution Ratio</span>
-                </span>
-                <span className="text-[11px] font-mono text-slate-400">
-                  Gross Fare Base: ETB {totalSimulatedGross.toFixed(2)}
-                </span>
-              </div>
-
-              {/* Segmented Progress Bar */}
-              <div className="w-full h-4 rounded-full bg-slate-800 overflow-hidden flex border border-slate-700">
-                <div
-                  style={{ width: `${simDriverSharePct}%` }}
-                  className="bg-emerald-500 h-full transition-all duration-300 flex items-center justify-center text-[10px] font-mono font-bold text-emerald-950"
-                  title={`Driver Net Payout: ${simDriverSharePct}%`}
-                >
-                  {parseFloat(simDriverSharePct) > 15 ? `${simDriverSharePct}%` : ''}
-                </div>
-                <div
-                  style={{ width: `${simPlatformSharePct}%` }}
-                  className="bg-cyan-500 h-full transition-all duration-300 flex items-center justify-center text-[10px] font-mono font-bold text-cyan-950"
-                  title={`Afronala Platform Commission: ${simPlatformSharePct}%`}
-                >
-                  {parseFloat(simPlatformSharePct) > 10 ? `${simPlatformSharePct}%` : ''}
-                </div>
-                <div
-                  style={{ width: `${simTaxSharePct}%` }}
-                  className="bg-purple-500 h-full transition-all duration-300"
-                  title={`Turnover Tax Withholding: ${simTaxSharePct}%`}
-                />
-              </div>
-
-              {/* Legend Strip */}
-              <div className="flex flex-wrap items-center justify-between gap-3 text-xs pt-1">
-                <div className="flex items-center gap-1.5">
-                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 inline-block" />
-                  <span className="text-slate-300 font-medium">Net Driver Payout:</span>
-                  <span className="font-mono font-bold text-emerald-400">{simDriverSharePct}%</span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <span className="w-2.5 h-2.5 rounded-full bg-cyan-500 inline-block" />
-                  <span className="text-slate-300 font-medium">Afronala Platform Fee:</span>
-                  <span className="font-mono font-bold text-cyan-400">{simPlatformSharePct}%</span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <span className="w-2.5 h-2.5 rounded-full bg-purple-500 inline-block" />
-                  <span className="text-slate-300 font-medium">Ministry TOT (Withholding Tax):</span>
-                  <span className="font-mono font-bold text-purple-400">{simTaxSharePct}%</span>
-                </div>
-              </div>
-            </div>
-
-            {/* 4. High-Contrast Financial Impact Summary (4 KPI Cards) */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-              {/* Gross GMV */}
-              <div className="p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-800/80">
-                <p className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">Total Gross Fare (GMV)</p>
-                <p className="text-xl font-bold font-mono text-slate-900 dark:text-white tabular-nums mt-1">
-                  ETB {totalSimulatedGross.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            {/* 3. Output Breakdown Card */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="p-4 rounded-xl border border-blue-200 dark:border-blue-900/60 bg-blue-50/50 dark:bg-blue-950/30">
+                <span className="text-xs font-medium text-blue-700 dark:text-blue-300">Net Driver Payout ({simDriverSharePct}%)</span>
+                <p className="text-xl font-bold font-mono text-blue-800 dark:text-blue-200 mt-2">
+                  ETB {simDriverNetPayout.toFixed(2)}
                 </p>
-                <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">100% Total passenger billing</p>
+                <p className="text-[11px] text-blue-600 dark:text-blue-400 mt-1">Disbursed to driver's wallet</p>
               </div>
 
-              {/* Afronala Fee */}
-              <div className="p-3.5 rounded-xl border border-cyan-500/30 bg-cyan-50/50 dark:bg-cyan-950/40">
-                <div className="flex items-center justify-between">
-                  <p className="text-[11px] font-semibold text-cyan-800 dark:text-cyan-300">Afronala Platform Fee</p>
-                  <span className="text-[10px] font-mono px-1.5 py-0.2 rounded-sm bg-cyan-200 dark:bg-cyan-900 text-cyan-800 dark:text-cyan-200 font-bold">
-                    {splitCommissionPercent}%
-                  </span>
-                </div>
-                <p className="text-xl font-bold font-mono text-cyan-600 dark:text-cyan-400 tabular-nums mt-1">
-                  ETB {simPlatformCommission.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              <div className="p-4 rounded-xl border border-emerald-200 dark:border-emerald-900/60 bg-emerald-50/50 dark:bg-emerald-950/30">
+                <span className="text-xs font-medium text-emerald-700 dark:text-emerald-300">Platform Take ({simPlatformSharePct}%)</span>
+                <p className="text-xl font-bold font-mono text-emerald-800 dark:text-emerald-200 mt-2">
+                  ETB {simPlatformCommission.toFixed(2)}
                 </p>
-                <p className="text-[10px] text-cyan-700/80 dark:text-cyan-400/80 mt-0.5">Retained platform operations revenue</p>
+                <p className="text-[11px] text-emerald-600 dark:text-emerald-400 mt-1">Afronala gross operating margin</p>
               </div>
 
-              {/* 2% TOT Tax */}
-              <div className="p-3.5 rounded-xl border border-purple-500/30 bg-purple-50/50 dark:bg-purple-950/40">
-                <div className="flex items-center justify-between">
-                  <p className="text-[11px] font-semibold text-purple-800 dark:text-purple-300">Turnover Withholding Tax</p>
-                  <span className="text-[10px] font-mono px-1.5 py-0.2 rounded-sm bg-purple-200 dark:bg-purple-900 text-purple-800 dark:text-purple-200 font-bold">
-                    2.0%
-                  </span>
-                </div>
-                <p className="text-xl font-bold font-mono text-purple-600 dark:text-purple-400 tabular-nums mt-1">
-                  ETB {simTaxWithheld.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              <div className="p-4 rounded-xl border border-purple-200 dark:border-purple-900/60 bg-purple-50/50 dark:bg-purple-950/30">
+                <span className="text-xs font-medium text-purple-700 dark:text-purple-300">Withholding Tax ({simTaxSharePct}%)</span>
+                <p className="text-xl font-bold font-mono text-purple-800 dark:text-purple-200 mt-2">
+                  ETB {simTaxWithheld.toFixed(2)}
                 </p>
-                <p className="text-[10px] text-purple-700/80 dark:text-purple-400/80 mt-0.5">Ministry of Revenues clearing</p>
-              </div>
-
-              {/* Net Driver Take-Home */}
-              <div className="p-3.5 rounded-xl border border-emerald-500/30 bg-emerald-50/60 dark:bg-emerald-950/50">
-                <div className="flex items-center justify-between">
-                  <p className="text-[11px] font-semibold text-emerald-800 dark:text-emerald-300">Net Driver Payout</p>
-                  <span className="text-[10px] font-mono px-1.5 py-0.2 rounded-sm bg-emerald-200 dark:bg-emerald-900 text-emerald-800 dark:text-emerald-200 font-bold">
-                    {simDriverSharePct}%
-                  </span>
-                </div>
-                <p className="text-xl font-bold font-mono text-emerald-600 dark:text-emerald-400 tabular-nums mt-1">
-                  ETB {simDriverNetPayout.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                </p>
-                <p className="text-[10px] text-emerald-700/80 dark:text-emerald-400/80 mt-0.5">
-                  Direct credit to {selectedSplitDriver.preferredPayoutMethod === 'telebirr' ? 'Telebirr' : 'CBE Birr'}
-                </p>
-              </div>
-            </div>
-
-            {/* 5. Granular Per-Trip Simulation Ledger Table */}
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <h4 className="text-xs font-bold text-slate-800 dark:text-slate-200">
-                  Itemized Trip Commission Split Breakdown ({combinedRecentTrips.length} Rides for {selectedSplitDriver.driverName})
-                </h4>
-                <span className="text-[11px] text-slate-500 font-mono">
-                  Applied Split: {splitCommissionPercent}% Platform · 2% TOT · {simDriverSharePct}% Driver
-                </span>
-              </div>
-
-              <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-800 max-h-56">
-                <table className="w-full text-left text-xs">
-                  <thead className="bg-slate-50 dark:bg-slate-800/80 sticky top-0 border-b border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 font-semibold uppercase tracking-wider text-[10px]">
-                    <tr>
-                      <th className="py-2.5 px-3">Trip ID & Route</th>
-                      <th className="py-2.5 px-3">Passenger</th>
-                      <th className="py-2.5 px-3 text-right">Gross Fare</th>
-                      <th className="py-2.5 px-3 text-right">Afronala Fee ({splitCommissionPercent}%)</th>
-                      <th className="py-2.5 px-3 text-right">TOT Tax (2%)</th>
-                      <th className="py-2.5 px-3 text-right">Net Driver Credit</th>
-                      <th className="py-2.5 px-3">Payment Rail</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800 font-mono">
-                    {combinedRecentTrips.map((trip) => {
-                      const tripPlatformFee = Math.round(trip.grossFareETB * (splitCommissionPercent / 100) * 100) / 100;
-                      const tripTax = Math.round(trip.grossFareETB * (splitTaxPercent / 100) * 100) / 100;
-                      const tripNet = Math.max(0, Math.round((trip.grossFareETB - tripPlatformFee - tripTax) * 100) / 100);
-
-                      return (
-                        <tr key={trip.tripId} className="hover:bg-slate-50/70 dark:hover:bg-slate-800/40">
-                          <td className="py-2.5 px-3 font-sans">
-                            <p className="font-mono font-bold text-slate-900 dark:text-white text-xs">{trip.tripId}</p>
-                            <p className="text-[10px] text-slate-500 dark:text-slate-400 truncate max-w-xs">{trip.route}</p>
-                          </td>
-                          <td className="py-2.5 px-3 font-sans text-slate-700 dark:text-slate-300">
-                            {trip.passenger}
-                          </td>
-                          <td className="py-2.5 px-3 text-right font-bold text-slate-900 dark:text-white">
-                            ETB {trip.grossFareETB.toFixed(2)}
-                          </td>
-                          <td className="py-2.5 px-3 text-right text-cyan-600 dark:text-cyan-400 font-semibold">
-                            -ETB {tripPlatformFee.toFixed(2)}
-                          </td>
-                          <td className="py-2.5 px-3 text-right text-purple-600 dark:text-purple-400">
-                            -ETB {tripTax.toFixed(2)}
-                          </td>
-                          <td className="py-2.5 px-3 text-right font-bold text-emerald-600 dark:text-emerald-400">
-                            +ETB {tripNet.toFixed(2)}
-                          </td>
-                          <td className="py-2.5 px-3 font-sans">
-                            <span className="capitalize text-[11px] text-slate-600 dark:text-slate-300">
-                              {trip.gateway.replace('_', ' ')}
-                            </span>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
+                <p className="text-[11px] text-purple-600 dark:text-purple-400 mt-1">Tax authority escrow clearing</p>
               </div>
             </div>
 
             {/* Modal Actions Footer */}
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 border-t border-slate-200 dark:border-slate-800">
-              <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
-                <Info className="w-4 h-4 text-cyan-500 shrink-0" />
-                <span>
-                  Simulating for <span className="font-semibold text-slate-800 dark:text-slate-200">{selectedSplitDriver.driverName}</span> · Payout Account: {selectedSplitDriver.payoutAccount}
-                </span>
-              </div>
-              <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
-                <button
-                  type="button"
-                  onClick={() => setIsSplitModalOpen(false)}
-                  className="px-4 py-2 text-xs font-semibold rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-                >
-                  Close Preview
-                </button>
-                <button
-                  type="button"
-                  onClick={handleCommitSimulatedSettlement}
-                  className="px-4 py-2 text-xs font-semibold rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white shadow-xs transition-colors flex items-center gap-1.5"
-                >
-                  <CheckCircle2 className="w-3.5 h-3.5" />
-                  <span>Commit Split to Driver Wallet</span>
-                </button>
-              </div>
+            <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-200 dark:border-slate-800">
+              <button
+                type="button"
+                onClick={() => setIsSplitModalOpen(false)}
+                className="px-4 py-2 text-xs font-semibold rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+              >
+                Close Simulator
+              </button>
+              <button
+                type="button"
+                onClick={handleCommitSimulatedSettlement}
+                className="px-4 py-2 text-xs font-semibold rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white shadow-xs transition-colors flex items-center gap-1.5"
+              >
+                <Check className="w-4 h-4" />
+                <span>Commit Audit Batch to Ledger</span>
+              </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Manual Settlement Reconciliation Modal */}
+      {/* Manual Settlement Reconciliation Modal Dialog */}
       {isReconciliationModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-xs overflow-y-auto">
-          <div className="w-full max-w-lg p-5 sm:p-6 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xl space-y-4 my-6 max-h-[92vh] overflow-y-auto">
-            {/* Modal Header */}
-            <div className="flex items-start justify-between pb-3 border-b border-slate-200 dark:border-slate-800">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-emerald-500/10 dark:bg-emerald-950/60 flex items-center justify-center text-emerald-600 dark:text-emerald-400 shrink-0">
-                  <ShieldCheck className="w-5 h-5" />
-                </div>
-                <div>
-                  <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                    <span>Manual Settlement Reconciliation</span>
-                    <span className="px-2 py-0.5 text-[10px] font-semibold rounded-full bg-emerald-100 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30">
-                      Audit Mode
-                    </span>
-                  </h3>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                    Verify banking statement records, mark settlement as &apos;Bank Verified&apos;, and attach external audit reference ID.
-                  </p>
-                </div>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
+          <div className="w-full max-w-lg p-6 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xl space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-slate-800">
+              <div className="flex items-center gap-2">
+                <ShieldCheck className="w-5 h-5 text-emerald-500" />
+                <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                  Manual Bank Settlement Reconciliation
+                </h3>
               </div>
               <button
-                type="button"
                 onClick={() => setIsReconciliationModalOpen(false)}
-                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1 rounded-lg"
-                title="Close modal"
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            {/* Transaction Picker */}
-            <div className="space-y-1">
-              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
-                Select Settlement Record to Audit:
-              </label>
-              <select
-                value={selectedTxForReconciliation?.id || ''}
-                onChange={(e) => {
-                  const found = transactions.find((t) => t.id === e.target.value);
-                  if (found) {
-                    setSelectedTxForReconciliation(found);
-                    setReconcileExternalRef(
-                      found.externalRefId ||
-                        `${found.gateway === 'cbe_birr' ? 'CBE-CORE-' : found.gateway === 'telebirr' ? 'TB-ENT-' : 'ETHSWITCH-'}${Math.floor(
-                          100000 + Math.random() * 900000
-                        )}`
-                    );
-                    setReconcileBankRail(
-                      found.reconciliationBank ||
-                        (found.gateway === 'cbe_birr'
-                          ? 'Commercial Bank of Ethiopia'
-                          : found.gateway === 'telebirr'
-                          ? 'Telebirr Enterprise Settlement'
-                          : 'EthSwitch RTGS Interbank')
-                    );
-                    setReconcileNotes(found.reconciliationNotes || '');
-                  }
-                }}
-                className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-xs font-mono"
-              >
-                {transactions.map((tx) => (
-                  <option key={tx.id} value={tx.id}>
-                    {tx.reference} · #{tx.tripId} · {tx.driverName} (ETB {tx.grossFareETB.toFixed(2)} - {tx.gateway.toUpperCase()})
-                    {tx.status === 'bank_verified' ? ' [Bank Verified]' : ' [Settled]'}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* Current Transaction Overview Card */}
-            {selectedTxForReconciliation && (
-              <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 text-xs space-y-2.5">
-                <div className="flex items-center justify-between">
-                  <span className="text-slate-500 dark:text-slate-400">Driver & Passenger:</span>
-                  <span className="font-semibold text-slate-900 dark:text-white">
-                    {selectedTxForReconciliation.driverName} (Driver) · {selectedTxForReconciliation.passengerName}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-slate-500 dark:text-slate-400">Internal Reference & Rail:</span>
-                  <span className="font-mono text-slate-800 dark:text-slate-200">
-                    {selectedTxForReconciliation.reference} · <span className="capitalize">{selectedTxForReconciliation.gateway.replace('_', ' ')}</span>
-                  </span>
-                </div>
-
-                {/* 3-Column Monetary Split Preview */}
-                <div className="grid grid-cols-3 gap-2 pt-2 border-t border-slate-200 dark:border-slate-700 text-center font-mono">
-                  <div className="p-2 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
-                    <p className="text-[10px] text-slate-400 font-sans">Gross Fare</p>
-                    <p className="font-bold text-slate-900 dark:text-white text-xs mt-0.5">
-                      ETB {selectedTxForReconciliation.grossFareETB.toFixed(2)}
-                    </p>
-                  </div>
-                  <div className="p-2 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
-                    <p className="text-[10px] text-slate-400 font-sans">Commission (15%)</p>
-                    <p className="font-bold text-cyan-600 dark:text-cyan-400 text-xs mt-0.5">
-                      ETB {selectedTxForReconciliation.platformCommissionETB.toFixed(2)}
-                    </p>
-                  </div>
-                  <div className="p-2 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
-                    <p className="text-[10px] text-slate-400 font-sans">Net Driver Payout</p>
-                    <p className="font-bold text-emerald-600 dark:text-emerald-400 text-xs mt-0.5">
-                      ETB {selectedTxForReconciliation.netDriverETB.toFixed(2)}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Reconciliation Audit Inputs */}
             <div className="space-y-3 text-xs">
-              <div>
-                <div className="flex items-center justify-between mb-1">
-                  <label className="text-slate-700 dark:text-slate-300 font-semibold">
-                    External Bank Reference ID <span className="text-rose-500">*</span>
-                  </label>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const prefix =
-                        selectedTxForReconciliation?.gateway === 'cbe_birr'
-                          ? 'CBE-CORE-'
-                          : selectedTxForReconciliation?.gateway === 'telebirr'
-                          ? 'TB-ENT-'
-                          : 'ETHSWITCH-';
-                      setReconcileExternalRef(`${prefix}${Math.floor(100000 + Math.random() * 900000)}`);
-                      setReconcileError(null);
-                    }}
-                    className="text-[11px] text-cyan-600 dark:text-cyan-400 hover:underline"
-                  >
-                    Generate Sample Ref
-                  </button>
+              {selectedTxForReconciliation && (
+                <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 space-y-1">
+                  <div className="flex justify-between">
+                    <span className="text-slate-500 dark:text-slate-400">Ledger Reference:</span>
+                    <span className="font-mono font-semibold text-slate-900 dark:text-white">
+                      {selectedTxForReconciliation.reference}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-500 dark:text-slate-400">Driver &amp; Trip:</span>
+                    <span className="text-slate-800 dark:text-slate-200">
+                      {selectedTxForReconciliation.driverName} (#{selectedTxForReconciliation.tripId})
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-500 dark:text-slate-400">Hub &amp; Channel:</span>
+                    <span className="font-medium text-cyan-600 dark:text-cyan-400">
+                      {selectedTxForReconciliation.countryCode || 'ET'} · {selectedTxForReconciliation.gateway.replace('_', ' ')}
+                    </span>
+                  </div>
+                  <div className="flex justify-between pt-1 border-t border-slate-200 dark:border-slate-700">
+                    <span className="text-slate-600 dark:text-slate-400 font-semibold">Gross Fare:</span>
+                    <span className="font-mono font-bold text-slate-900 dark:text-white">
+                      ETB {selectedTxForReconciliation.grossFareETB.toFixed(2)}
+                    </span>
+                  </div>
                 </div>
+              )}
+
+              <div>
+                <label className="block text-slate-700 dark:text-slate-300 font-semibold mb-1">
+                  External Bank Clearance / RTGS Reference ID:
+                </label>
                 <input
                   type="text"
-                  placeholder="e.g. CBE-CORE-894102 or TB-SETTLE-49102"
+                  placeholder="e.g. CBE-CORE-894102 or BCIMR-DJ-90214 or SAF-MPESA-88491"
                   value={reconcileExternalRef}
                   onChange={(e) => {
                     setReconcileExternalRef(e.target.value);
@@ -1458,7 +1572,7 @@ export const PaymentSettlementsView: React.FC<PaymentSettlementsViewProps> = ({
                   className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-mono text-xs focus:outline-hidden focus:ring-2 focus:ring-cyan-500"
                 />
                 <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-1">
-                  National Bank of Ethiopia (NBE) RTGS clearing number, EthSwitch transaction ID, or CBE daily bank statement clearance code.
+                  Central bank clearance reference, RTGS number, or interbank statement clearance code.
                 </p>
               </div>
 
@@ -1474,9 +1588,14 @@ export const PaymentSettlementsView: React.FC<PaymentSettlementsViewProps> = ({
                   <option value="Commercial Bank of Ethiopia">Commercial Bank of Ethiopia (CBE Core)</option>
                   <option value="Telebirr Enterprise Settlement">Telebirr Enterprise Portal (Ethio Telecom)</option>
                   <option value="EthSwitch RTGS Interbank">EthSwitch RTGS Interbank Clearing (NBE)</option>
+                  <option value="Banque pour le Commerce et l’Industrie Mer Rouge (BCIMR)">Banque pour le Commerce et l’Industrie Mer Rouge (Djibouti)</option>
+                  <option value="Central Bank of Kenya RTGS / Safaricom">Central Bank of Kenya RTGS / Safaricom</option>
+                  <option value="Bank of Uganda Interbank Rail">Bank of Uganda Interbank Rail</option>
+                  <option value="National Bank of Rwanda / BNR Switch">National Bank of Rwanda (BNR)</option>
+                  <option value="Bank of Tanzania Interbank Clearing">Bank of Tanzania Interbank Clearing</option>
+                  <option value="Central Bank of Somalia RTGS">Central Bank of Somalia RTGS</option>
+                  <option value="Bank of South Sudan Clearing">Bank of South Sudan Clearing</option>
                   <option value="Chapa Merchant Clearing">Chapa Merchant Gateway</option>
-                  <option value="Dashen Bank Amole">Dashen Bank Amole Clearing</option>
-                  <option value="Awash Bank Switch">Awash Bank Digital Switch</option>
                 </select>
               </div>
 
@@ -1498,7 +1617,7 @@ export const PaymentSettlementsView: React.FC<PaymentSettlementsViewProps> = ({
                 </label>
                 <textarea
                   rows={2}
-                  placeholder="e.g. Verified against CBE morning settlement credit batch #412 line 18."
+                  placeholder="e.g. Verified against cross-border dry port customs clearing statement."
                   value={reconcileNotes}
                   onChange={(e) => setReconcileNotes(e.target.value)}
                   className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white resize-none"
