@@ -211,6 +211,36 @@ export const ModuleManagement: React.FC<ModuleManagementProps> = ({
         </div>
       </div>
 
+      {/* East Africa Commerce & Lifestyle Standby Banner */}
+      <div className="p-4 rounded-xl border border-cyan-200 dark:border-cyan-900/50 bg-gradient-to-r from-cyan-50/70 via-blue-50/50 to-slate-50/50 dark:from-cyan-950/20 dark:via-blue-950/20 dark:to-slate-900/40 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-cyan-600 text-white flex items-center justify-center shrink-0 shadow-xs">
+            <ShoppingBag className="w-5 h-5" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2 text-[11px] text-slate-500 dark:text-slate-400">
+              <span>Consumer Pillar Standby</span>
+              <span aria-hidden="true">·</span>
+              <span className="font-semibold text-cyan-700 dark:text-cyan-300">8 East African Countries</span>
+            </div>
+            <h3 className="font-bold text-sm text-slate-900 dark:text-white">
+              Modules Standby · Commerce &amp; Lifestyle Services
+            </h3>
+            <p className="text-xs text-slate-600 dark:text-slate-400 mt-0.5">
+              Explore localized food delivery, multi-vendor marketplace, events, safari lodges, digital wallet rails, and express courier fleets across ET, KE, UG, RW, TZ, DJ, SO, and SS.
+            </p>
+          </div>
+        </div>
+
+        <button
+          onClick={() => onSelectModule('commerce-standby')}
+          className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-semibold text-white bg-cyan-600 hover:bg-cyan-500 transition-colors whitespace-nowrap shrink-0 shadow-xs self-start sm:self-auto"
+        >
+          <span>Open Standby Console</span>
+          <ArrowRight className="w-3.5 h-3.5" />
+        </button>
+      </div>
+
       {/* JSON Schema Inspector */}
       {showJsonInspector && (
         <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-900 dark:bg-slate-950 text-cyan-300 font-mono text-[11px]">
@@ -356,7 +386,16 @@ export const ModuleManagement: React.FC<ModuleManagementProps> = ({
                       Schema
                     </button>
                   )}
-                  {mod.enabled && (
+                  {['food', 'marketplace', 'events', 'hotels', 'courier', 'wallet'].includes(mod.key) ? (
+                    <button
+                      onClick={() => onSelectModule(mod.key)}
+                      className="text-[11px] text-amber-600 dark:text-amber-400 hover:text-amber-500 dark:hover:text-amber-300 font-semibold flex items-center gap-1 whitespace-nowrap"
+                      title="Open East Africa Standby Hub"
+                    >
+                      <span>Standby Hub</span>
+                      <ArrowRight className="w-3 h-3" />
+                    </button>
+                  ) : mod.enabled ? (
                     <button
                       onClick={() => onSelectModule(mod.key)}
                       className="text-[11px] text-cyan-600 dark:text-cyan-400 hover:text-cyan-500 dark:hover:text-cyan-300 font-semibold flex items-center gap-1 whitespace-nowrap"
@@ -364,7 +403,7 @@ export const ModuleManagement: React.FC<ModuleManagementProps> = ({
                       <span>Open</span>
                       <ArrowRight className="w-3 h-3" />
                     </button>
-                  )}
+                  ) : null}
                 </div>
               </div>
             </div>

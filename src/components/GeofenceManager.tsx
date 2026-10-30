@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   ShieldCheck,
   ShieldAlert,
@@ -14,6 +14,7 @@ import {
   Car,
   Truck,
   Volume2,
+  VolumeX,
   Eye,
   Sliders,
   Sparkles,
@@ -22,6 +23,12 @@ import {
   X,
   Maximize2,
   Info,
+  Globe2,
+  ExternalLink,
+  Navigation,
+  Activity,
+  Zap,
+  Lock,
 } from 'lucide-react';
 import {
   GeofenceZone,
@@ -29,6 +36,9 @@ import {
   DispatchJob,
   Driver,
   GeofenceShapeType,
+  EastAfricaCountryCode,
+  AdminUser,
+  PermissionAction,
 } from '../types';
 import {
   ambalayService,
@@ -37,21 +47,41 @@ import {
   isPointInPolygon,
   distanceMeters,
 } from '../services/ambalay';
+import {
+  EAST_AFRICA_GPS_CONFIGS,
+  GeoBounds,
+} from '../services/eastAfricaGpsData';
+import {
+  EAST_AFRICA_GEOMAP_ENGINES,
+  RegionalGeoMapService,
+} from '../services/eastAfricaMaps';
+import { back4AppService } from '../services/back4app';
 
 interface GeofenceManagerProps {
   darkMode: boolean;
   drivers?: Driver[];
   activeJobs?: DispatchJob[];
+  user?: AdminUser | null;
+  userRole?: string;
+  userJurisdiction?: EastAfricaCountryCode;
+  onGuardPermission?: (action: PermissionAction, featureLabel: string) => boolean;
+  onNotify?: (title: string, message?: string, type?: 'success' | 'info' | 'warning' | 'error') => void;
 }
 
-// Convert Lat/Lng to SVG Radar Map coordinates
-// Addis Ababa geographic bounds: Lat 8.89 to 9.06 (South to North), Lng 38.71 to 38.86 (West to East)
-function geoToSvg(coords: [number, number], width = 800, height = 520): { x: number; y: number } {
-  const minLat = 8.89;
-  const maxLat = 9.06;
-  const minLng = 38.71;
-  const maxLng = 38.86;
+const ALL_COUNTRIES: { code: Exclude<EastAfricaCountryCode, 'ALL'>; name: string; flag: string }[] = [
+  { code: 'ET', name: 'Ethiopia', flag: '🇪🇹' },
+  { code: 'KE', name: 'Kenya', flag: '🇰🇪' },
+  { code: 'UG', name: 'Uganda', flag: '🇺🇬' },
+  { code: 'RW', name: 'Rwanda', flag: '🇷🇼' },
+  { code: 'TZ', name: 'Tanzania', flag: '🇹🇿' },
+  { code: 'DJ', name: 'Djibouti', flag: '🇩🇯' },
+  { code: 'SO', name: 'Somalia', flag: '🇸🇴' },
+  { code: 'SS', name: 'South Sudan', flag: '🇸🇸' },
+];
 
+// Convert Lat/Lng to SVG Radar Map coordinates based on active country bounds
+function geoToSvg(coords: [number, number], bounds: GeoBounds, width = 800, height = 520): { x: number; y: number } {
+  const { minLat, maxLat, minLng, maxLng } = bounds;
   const xNorm = (coords[1] - minLng) / (maxLng - minLng);
   const yNorm = 1 - (coords[0] - minLat) / (maxLat - minLat); // inverted for SVG Y
 
@@ -61,13 +91,9 @@ function geoToSvg(coords: [number, number], width = 800, height = 520): { x: num
   };
 }
 
-// Convert SVG coordinates back to approximate [lat, lng]
-function svgToGeo(x: number, y: number, width = 800, height = 520): [number, number] {
-  const minLat = 8.89;
-  const maxLat = 9.06;
-  const minLng = 38.71;
-  const maxLng = 38.86;
-
+// Convert SVG coordinates back to approximate [lat, lng] based on active country bounds
+function svgToGeo(x: number, y: number, bounds: GeoBounds, width = 800, height = 520): [number, number] {
+  const { minLat, maxLat, minLng, maxLng } = bounds;
   const xNorm = Math.max(0, Math.min(1, (x - 35) / (width - 70)));
   const yNorm = Math.max(0, Math.min(1, 1 - (y - 35) / (height - 70)));
 
@@ -83,7 +109,7 @@ function playBreachBeep() {
     const osc = ctx.createOscillator();
     const gain = ctx.createGain();
     osc.type = 'sawtooth';
-    osc.frequency.setValueAtTime(880, ctx.currentTime); // A5 note
+    osc.frequency.setValueAtTime(880, ctx.currentTime);
     osc.frequency.exponentialRampToValueAtTime(440, ctx.currentTime + 0.25);
     gain.gain.setValueAtTime(0.2, ctx.currentTime);
     gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.25);
@@ -94,60 +120,47 @@ function playBreachBeep() {
   } catch {}
 }
 
-const PRESET_ZONES: Partial<GeofenceZone>[] = [
-  {
-    name: 'Merkato Commercial Goods Perimeter',
-    category: 'commercial',
-    shape: 'polygon',
-    center: [9.0305, 38.7395],
-    radiusMeters: 1100,
-    polygonPoints: [
-      [9.0360, 38.7320],
-      [9.0375, 38.7460],
-      [9.0250, 38.7480],
-      [9.0230, 38.7340],
-    ],
-    color: '#ec4899',
-    description: 'Africa\'s largest open-air market trading zone and goods transit gate.',
-    alertOnExit: true,
-  },
-  {
-    name: 'Gotera Freight Weighbridge Hub',
-    category: 'transit',
-    shape: 'circle',
-    center: [8.9882, 38.7588],
-    radiusMeters: 950,
-    color: '#eab308',
-    description: 'High-density multi-level junction connecting Debre Zeit road to the ring highway.',
-    alertOnExit: true,
-  },
-  {
-    name: 'Bole Intl. Terminal VIP Corridor',
-    category: 'airport',
-    shape: 'polygon',
-    center: [8.9778, 38.7993],
-    radiusMeters: 1500,
-    polygonPoints: [
-      [8.9860, 38.7910],
-      [8.9890, 38.8080],
-      [8.9690, 38.8120],
-      [8.9660, 38.7940],
-    ],
-    color: '#06b6d4',
-    description: 'Diplomatic and airline passenger transfer perimeter.',
-    alertOnExit: true,
-  },
-];
-
 export const GeofenceManager: React.FC<GeofenceManagerProps> = ({
   darkMode,
   drivers = [],
   activeJobs = [],
+  user = null,
+  userRole = 'Super Admin',
+  onGuardPermission,
+  onNotify,
 }) => {
-  // Geofence collection
-  const [geofences, setGeofences] = useState<GeofenceZone[]>(() => {
-    return ambalayService.getGeofences();
+  // Determine active country based on user login jurisdiction
+  const userHomeCountry: Exclude<EastAfricaCountryCode, 'ALL'> =
+    user?.jurisdictionCountry && user.jurisdictionCountry !== 'ALL'
+      ? (user.jurisdictionCountry as Exclude<EastAfricaCountryCode, 'ALL'>)
+      : 'ET';
+
+  const [selectedCountry, setSelectedCountry] = useState<Exclude<EastAfricaCountryCode, 'ALL'>>(userHomeCountry);
+  const [activeViewMode, setActiveViewMode] = useState<'radar' | 'geo_engines' | 'breaches'>('radar');
+
+  // React to persona switch
+  useEffect(() => {
+    if (user?.jurisdictionCountry && user.jurisdictionCountry !== 'ALL') {
+      setSelectedCountry(user.jurisdictionCountry as Exclude<EastAfricaCountryCode, 'ALL'>);
+    }
+  }, [user]);
+
+  const activeCountryGps = EAST_AFRICA_GPS_CONFIGS[selectedCountry] || EAST_AFRICA_GPS_CONFIGS.ET;
+  const activeGeoMapEngine: RegionalGeoMapService = EAST_AFRICA_GEOMAP_ENGINES[selectedCountry] || EAST_AFRICA_GEOMAP_ENGINES.ET;
+
+  // Initialize geofences for each country
+  const [geofencesByCountry, setGeofencesByCountry] = useState<Record<string, GeofenceZone[]>>(() => {
+    const initial: Record<string, GeofenceZone[]> = {};
+    ALL_COUNTRIES.forEach((c) => {
+      const config = EAST_AFRICA_GPS_CONFIGS[c.code];
+      initial[c.code] = config?.geofences || [];
+    });
+    // Ensure Ethiopia also has the rich default geofences from ambalayService
+    initial['ET'] = DEFAULT_GEOFENCES;
+    return initial;
   });
+
+  const geofences = geofencesByCountry[selectedCountry] || [];
 
   // Selected geofence for detailed inspector
   const [selectedZoneId, setSelectedZoneId] = useState<string | null>(geofences[0]?.id || null);
@@ -165,117 +178,32 @@ export const GeofenceManager: React.FC<GeofenceManagerProps> = ({
   const [newZoneDesc, setNewZoneDesc] = useState('');
   const [isCreatingZone, setIsCreatingZone] = useState(false);
 
-  // Live Monitored Vehicles/Trips
-  const [monitoredVehicles, setMonitoredVehicles] = useState<DispatchJob[]>([
-    {
-      id: 'dsp-1',
-      tripId: 'TRP-9801',
-      module: 'ride',
-      passenger: 'Selamawit Tadesse',
-      passengerPhone: '0922 455 667',
-      pickupName: 'Bole Intl. Airport',
-      pickupCoords: [8.9778, 38.7993],
-      dropoffName: 'Kazanchis Commercial',
-      dropoffCoords: [9.0195, 38.7698],
-      status: 'En Route',
-      fareETB: 480,
-      distanceKm: 7.2,
-      driverName: 'Abebe Kebede',
-      vehiclePlate: 'AA-12345',
-      currentCoords: [8.9810, 38.8020], // Inside Bole circle initially
-      speedKmh: 42,
-      batteryPercent: 88,
-      etaMinutes: 6,
-      headingDeg: 315,
-      progressPercent: 20,
-      requestedAt: '3m ago',
-    },
-    {
-      id: 'dsp-2',
-      tripId: 'TRP-9802',
-      module: 'truck',
-      passenger: 'Kality Logistics Corp',
-      passengerPhone: '0911 344 556',
-      pickupName: 'Kality Customs Yard',
-      pickupCoords: [8.9240, 38.7560],
-      dropoffName: 'Bole Industrial Park',
-      dropoffCoords: [8.9700, 38.8200],
-      status: 'En Route',
-      fareETB: 3200,
-      distanceKm: 14.8,
-      driverName: 'Dawit Mengistu',
-      vehiclePlate: 'ET-TRK-882',
-      currentCoords: [8.9270, 38.7580], // Inside Kality polygon initially
-      speedKmh: 48,
-      batteryPercent: 95,
-      etaMinutes: 19,
-      headingDeg: 45,
-      progressPercent: 30,
-      requestedAt: '8m ago',
-    },
-    {
-      id: 'dsp-3',
-      tripId: 'TRP-9803',
-      module: 'ride',
-      passenger: 'Dr. Tedros Alemayehu',
-      passengerPhone: '0912 889 900',
-      pickupName: 'Sarbet International Zone',
-      pickupCoords: [8.9961, 38.7368],
-      dropoffName: 'Meskel Square Hub',
-      dropoffCoords: [9.0108, 38.7613],
-      status: 'En Route',
-      fareETB: 310,
-      distanceKm: 4.5,
-      driverName: 'Yonas Haile',
-      vehiclePlate: 'AA-77491',
-      currentCoords: [9.0040, 38.7480], // Transitioning towards Meskel
-      speedKmh: 34,
-      batteryPercent: 72,
-      etaMinutes: 8,
-      headingDeg: 60,
-      progressPercent: 55,
-      requestedAt: '12m ago',
-    },
-    {
-      id: 'dsp-4',
-      tripId: 'TRP-9804',
-      module: 'ride',
-      passenger: 'Bethlehem Girma',
-      passengerPhone: '0930 112 233',
-      pickupName: 'Meskel Square',
-      pickupCoords: [9.0108, 38.7613],
-      dropoffName: 'Kazanchis District',
-      dropoffCoords: [9.0195, 38.7698],
-      status: 'En Route',
-      fareETB: 240,
-      distanceKm: 2.8,
-      driverName: 'Almaz Bekele',
-      vehiclePlate: 'AA-44921',
-      currentCoords: [9.0115, 38.7620], // Inside Meskel circle
-      speedKmh: 28,
-      batteryPercent: 82,
-      etaMinutes: 5,
-      headingDeg: 40,
-      progressPercent: 35,
-      requestedAt: '5m ago',
-    },
-  ]);
+  // Live Monitored Vehicles/Trips per Country
+  const [monitoredVehiclesByCountry, setMonitoredVehiclesByCountry] = useState<Record<string, DispatchJob[]>>(() => {
+    const jobsMap: Record<string, DispatchJob[]> = {};
+    ALL_COUNTRIES.forEach((c) => {
+      jobsMap[c.code] = EAST_AFRICA_GPS_CONFIGS[c.code]?.initialJobs || [];
+    });
+    return jobsMap;
+  });
+
+  const monitoredVehicles = monitoredVehiclesByCountry[selectedCountry] || [];
 
   // Breach Alerts Feed
   const [breachAlerts, setBreachAlerts] = useState<GeofenceBreachAlert[]>([
     {
       id: 'alt-init-1',
-      geofenceId: 'geo-4',
-      geofenceName: 'Kazanchis Diplomatic & Financial District',
+      geofenceId: geofences[0]?.id || 'geo-1',
+      geofenceName: geofences[0]?.name || 'National Port / Airport Secure Perimeter',
       tripId: 'TRP-9799',
       jobId: 'dsp-seed-9',
       driverName: 'Ermias Assefa',
       vehiclePlate: 'AA-88123',
       type: 'exit_breach',
-      location: [9.0110, 38.7600],
-      timestamp: '4m ago',
+      location: activeCountryGps.bounds.center,
+      timestamp: '2m ago',
       acknowledged: false,
-      message: 'Vehicle exited authorized Kazanchis diplomatic perimeter without clearance.',
+      message: `Vehicle exited authorized ${activeCountryGps.capital} secure perimeter without digital clearance.`,
       severity: 'warning',
     },
   ]);
@@ -283,15 +211,28 @@ export const GeofenceManager: React.FC<GeofenceManagerProps> = ({
   // Audio / Alert notifications state
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [lastBreachNotification, setLastBreachNotification] = useState<string | null>(null);
-  const [radioPingNotice, setRadioPingNotice] = useState<string | null>(null);
 
   // SVG ref for map click coords calculation
   const svgMapRef = useRef<SVGSVGElement | null>(null);
 
-  // Sync to localStorage
-  const saveGeofencesList = (updated: GeofenceZone[]) => {
-    setGeofences(updated);
-    ambalayService.saveGeofences(updated);
+  const canManageGeofences = userRole === 'Super Admin' || userRole === 'Operations Director' || userRole === 'Freight Coordinator' || userRole === 'Ride Manager';
+
+  const checkAuthority = (featureLabel: string): boolean => {
+    if (onGuardPermission) {
+      return onGuardPermission('manage_freight', featureLabel);
+    }
+    return canManageGeofences;
+  };
+
+  // Sync geofences for current country
+  const saveCurrentCountryGeofences = (updated: GeofenceZone[]) => {
+    setGeofencesByCountry((prev) => ({
+      ...prev,
+      [selectedCountry]: updated,
+    }));
+    if (selectedCountry === 'ET') {
+      ambalayService.saveGeofences(updated);
+    }
   };
 
   // ---------------------------------------------------------------------------
@@ -299,19 +240,20 @@ export const GeofenceManager: React.FC<GeofenceManagerProps> = ({
   // ---------------------------------------------------------------------------
   useEffect(() => {
     const timer = setInterval(() => {
-      setMonitoredVehicles((prevVehicles) => {
-        return prevVehicles.map((vehicle) => {
+      setMonitoredVehiclesByCountry((prevMap) => {
+        const currentList = prevMap[selectedCountry] || [];
+        const nextVehicles = currentList.map((vehicle) => {
           if (!vehicle.currentCoords) return vehicle;
 
-          // Compute simulated step towards dropoff with small deviation
-          const dLat = (vehicle.dropoffCoords[0] - vehicle.pickupCoords[0]) * 0.04;
-          const dLng = (vehicle.dropoffCoords[1] - vehicle.pickupCoords[1]) * 0.04;
+          // Step towards dropoff with gentle drift
+          const dLat = (vehicle.dropoffCoords[0] - vehicle.pickupCoords[0]) * 0.035;
+          const dLng = (vehicle.dropoffCoords[1] - vehicle.pickupCoords[1]) * 0.035;
 
-          const nextLat = Number((vehicle.currentCoords[0] + dLat + (Math.random() - 0.5) * 0.003).toFixed(5));
-          const nextLng = Number((vehicle.currentCoords[1] + dLng + (Math.random() - 0.5) * 0.003).toFixed(5));
+          const nextLat = Number((vehicle.currentCoords[0] + dLat + (Math.random() - 0.5) * 0.002).toFixed(5));
+          const nextLng = Number((vehicle.currentCoords[1] + dLng + (Math.random() - 0.5) * 0.002).toFixed(5));
           const nextCoords: [number, number] = [nextLat, nextLng];
 
-          // Check containment against all active geofences
+          // Check containment against all active geofences in this country
           geofences.forEach((zone) => {
             if (zone.status !== 'active') return;
 
@@ -319,9 +261,8 @@ export const GeofenceManager: React.FC<GeofenceManagerProps> = ({
             const wasInside = zone.activeTripsInside?.includes(vehicle.tripId);
             const isCurrentlyInside = isInsideGeofence(nextCoords, zone);
 
-            // Breach condition: Vehicle was inside or assigned to this zone, and has now exited
+            // Breach condition: Vehicle was inside or assigned, and has now exited
             if ((wasInside || wasAssigned) && !isCurrentlyInside && zone.alertOnExit) {
-              // Trigger exit breach if not already recently alerted
               const alreadyAlerted = breachAlerts.some(
                 (a) => a.tripId === vehicle.tripId && a.geofenceId === zone.id && !a.acknowledged
               );
@@ -333,13 +274,13 @@ export const GeofenceManager: React.FC<GeofenceManagerProps> = ({
                   geofenceName: zone.name,
                   tripId: vehicle.tripId,
                   jobId: vehicle.id,
-                  driverName: vehicle.driverName || 'Mobile Driver',
+                  driverName: vehicle.driverName || 'Regional Courier / Freight Hauler',
                   vehiclePlate: vehicle.vehiclePlate || 'N/A',
                   type: 'exit_breach',
                   location: nextCoords,
                   timestamp: 'Just now',
                   acknowledged: false,
-                  message: `Vehicle ${vehicle.vehiclePlate} (${vehicle.driverName}) has EXITED boundary "${zone.name}".`,
+                  message: `Vehicle ${vehicle.vehiclePlate} (${vehicle.driverName}) has EXITED perimeter "${zone.name}" in ${activeCountryGps.countryName}.`,
                   severity: zone.category === 'airport' || zone.category === 'port' ? 'critical' : 'warning',
                 };
 
@@ -350,9 +291,17 @@ export const GeofenceManager: React.FC<GeofenceManagerProps> = ({
                   playBreachBeep();
                 }
 
+                // Log to Back4App ActivityLog
+                back4AppService.addClassRecord('ActivityLog', {
+                  summary: `[Geofence Breach] ${vehicle.vehiclePlate} exited ${zone.name} (${activeCountryGps.countryName})`,
+                  category: 'regulatory',
+                  countryCode: selectedCountry,
+                  createdAt: new Date().toISOString(),
+                }).catch(() => null);
+
                 // Update zone breach stats
-                setGeofences((prevZones) =>
-                  prevZones.map((z) =>
+                saveCurrentCountryGeofences(
+                  geofences.map((z) =>
                     z.id === zone.id
                       ? {
                           ...z,
@@ -367,8 +316,8 @@ export const GeofenceManager: React.FC<GeofenceManagerProps> = ({
               }
             } else if (isCurrentlyInside && !wasInside) {
               // Entered zone
-              setGeofences((prevZones) =>
-                prevZones.map((z) =>
+              saveCurrentCountryGeofences(
+                geofences.map((z) =>
                   z.id === zone.id
                     ? {
                         ...z,
@@ -386,15 +335,18 @@ export const GeofenceManager: React.FC<GeofenceManagerProps> = ({
             progressPercent: Math.min(100, vehicle.progressPercent + 2),
           };
         });
+
+        return {
+          ...prevMap,
+          [selectedCountry]: nextVehicles,
+        };
       });
-    }, 3000);
+    }, 3500);
 
     return () => clearInterval(timer);
-  }, [geofences, breachAlerts, soundEnabled]);
+  }, [geofences, breachAlerts, soundEnabled, selectedCountry, activeCountryGps]);
 
-  // ---------------------------------------------------------------------------
   // Map Click Handler for Interactive Geofence Drawing
-  // ---------------------------------------------------------------------------
   const handleMapClick = (e: React.MouseEvent<SVGSVGElement>) => {
     if (drawingMode === 'none') return;
 
@@ -405,7 +357,7 @@ export const GeofenceManager: React.FC<GeofenceManagerProps> = ({
     const clickX = ((e.clientX - rect.left) / rect.width) * 800;
     const clickY = ((e.clientY - rect.top) / rect.height) * 520;
 
-    const geoPoint = svgToGeo(clickX, clickY);
+    const geoPoint = svgToGeo(clickX, clickY, activeCountryGps.bounds);
 
     if (drawingMode === 'drawing_circle') {
       setTempCircleCenter(geoPoint);
@@ -414,929 +366,808 @@ export const GeofenceManager: React.FC<GeofenceManagerProps> = ({
     }
   };
 
-  // Complete circular geofence creation
+  const resetDrawingState = () => {
+    setDrawingMode('none');
+    setTempPolygonPoints([]);
+    setTempCircleCenter(null);
+    setIsCreatingZone(false);
+    setNewZoneName('');
+    setNewZoneDesc('');
+  };
+
   const handleSaveCircleGeofence = () => {
+    if (!checkAuthority(`Create circular geofence in ${activeCountryGps.countryName}`)) return;
     if (!tempCircleCenter) return;
 
     const newZone: GeofenceZone = {
-      id: `geo-circ-${Date.now()}`,
-      name: newZoneName.trim() || `Circular Perimeter #${geofences.length + 1}`,
+      id: `geo-circ-${selectedCountry.toLowerCase()}-${Date.now()}`,
+      name: newZoneName.trim() || `${activeCountryGps.capital} Circular Perimeter #${geofences.length + 1}`,
       category: newZoneCategory,
       shape: 'circle',
       center: tempCircleCenter,
       radiusMeters: tempCircleRadius,
       status: 'active',
       color: newZoneColor,
-      description: newZoneDesc.trim() || 'Custom circular geofence boundary.',
+      description: newZoneDesc.trim() || `Custom geofence boundary in ${activeCountryGps.countryName}.`,
       alertOnExit: true,
       alertOnEntry: false,
-      assignedTripIds: ['TRP-9801', 'TRP-9803'],
+      assignedTripIds: monitoredVehicles[0] ? [monitoredVehicles[0].tripId] : [],
       activeTripsInside: [],
       breachCount: 0,
     };
 
     const updated = [newZone, ...geofences];
-    saveGeofencesList(updated);
+    saveCurrentCountryGeofences(updated);
     setSelectedZoneId(newZone.id);
     resetDrawingState();
+    onNotify?.('Geofence Created', `Added circular perimeter "${newZone.name}" in ${activeCountryGps.countryName}.`, 'success');
   };
 
-  // Complete polygon geofence creation
   const handleSavePolygonGeofence = () => {
+    if (!checkAuthority(`Create polygon geofence in ${activeCountryGps.countryName}`)) return;
     if (tempPolygonPoints.length < 3) return;
 
-    // Calculate centroid for center coordinate
     const avgLat = tempPolygonPoints.reduce((acc, p) => acc + p[0], 0) / tempPolygonPoints.length;
     const avgLng = tempPolygonPoints.reduce((acc, p) => acc + p[1], 0) / tempPolygonPoints.length;
 
     const newZone: GeofenceZone = {
-      id: `geo-poly-${Date.now()}`,
-      name: newZoneName.trim() || `Polygon Boundary #${geofences.length + 1}`,
+      id: `geo-poly-${selectedCountry.toLowerCase()}-${Date.now()}`,
+      name: newZoneName.trim() || `${activeCountryGps.capital} Polygon Zone #${geofences.length + 1}`,
       category: newZoneCategory,
       shape: 'polygon',
       center: [Number(avgLat.toFixed(5)), Number(avgLng.toFixed(5))],
-      radiusMeters: 1600,
+      radiusMeters: 1400,
       polygonPoints: tempPolygonPoints,
       status: 'active',
       color: newZoneColor,
-      description: newZoneDesc.trim() || `Custom polygonal zone with ${tempPolygonPoints.length} boundary vertices.`,
+      description: newZoneDesc.trim() || `Polygon perimeter boundary in ${activeCountryGps.countryName}.`,
       alertOnExit: true,
       alertOnEntry: false,
-      assignedTripIds: ['TRP-9802'],
-      activeTripsInside: ['TRP-9802'],
+      assignedTripIds: monitoredVehicles[0] ? [monitoredVehicles[0].tripId] : [],
+      activeTripsInside: [],
       breachCount: 0,
     };
 
     const updated = [newZone, ...geofences];
-    saveGeofencesList(updated);
+    saveCurrentCountryGeofences(updated);
     setSelectedZoneId(newZone.id);
     resetDrawingState();
+    onNotify?.('Geofence Created', `Added polygon perimeter "${newZone.name}" with ${tempPolygonPoints.length} nodes.`, 'success');
   };
 
-  const resetDrawingState = () => {
-    setDrawingMode('none');
-    setTempPolygonPoints([]);
-    setTempCircleCenter(null);
-    setNewZoneName('');
-    setNewZoneDesc('');
-    setIsCreatingZone(false);
-  };
-
-  const handleApplyPreset = (preset: Partial<GeofenceZone>) => {
-    const newZone: GeofenceZone = {
-      id: `geo-pre-${Date.now()}`,
-      name: preset.name || 'Preset Boundary',
-      category: preset.category || 'commercial',
-      shape: preset.shape || 'circle',
-      center: preset.center || [9.0108, 38.7613],
-      radiusMeters: preset.radiusMeters || 1000,
-      polygonPoints: preset.polygonPoints,
-      status: 'active',
-      color: preset.color || '#38bdf8',
-      description: preset.description,
-      alertOnExit: true,
-      alertOnEntry: false,
-      assignedTripIds: ['TRP-9801', 'TRP-9804'],
-      activeTripsInside: ['TRP-9804'],
-      breachCount: 0,
-    };
-
-    const updated = [newZone, ...geofences];
-    saveGeofencesList(updated);
-    setSelectedZoneId(newZone.id);
-  };
-
-  const handleDeleteZone = (id: string) => {
-    const updated = geofences.filter((g) => g.id !== id);
-    saveGeofencesList(updated);
-    if (selectedZoneId === id) {
+  const handleDeleteGeofence = (zoneId: string) => {
+    if (!checkAuthority(`Delete geofence ${zoneId}`)) return;
+    const updated = geofences.filter((z) => z.id !== zoneId);
+    saveCurrentCountryGeofences(updated);
+    if (selectedZoneId === zoneId) {
       setSelectedZoneId(updated[0]?.id || null);
     }
+    onNotify?.('Geofence Deleted', `Removed perimeter zone from ${activeCountryGps.countryName}.`, 'info');
   };
 
-  const handleToggleZoneStatus = (id: string) => {
-    const updated = geofences.map((g) =>
-      g.id === id ? { ...g, status: (g.status === 'active' ? 'warning' : 'active') as any } : g
-    );
-    saveGeofencesList(updated);
-  };
-
-  const handleAcknowledgeAlert = (id: string) => {
+  const handleAcknowledgeAlert = (alertId: string) => {
     setBreachAlerts((prev) =>
-      prev.map((a) => (a.id === id ? { ...a, acknowledged: true } : a))
+      prev.map((a) => (a.id === alertId ? { ...a, acknowledged: true } : a))
     );
+    onNotify?.('Breach Acknowledged', 'Cleared alert beacon from perimeter console.', 'info');
   };
 
-  const handleSendDriverRadioPing = (alert: GeofenceBreachAlert) => {
-    setRadioPingNotice(`Radio alert dispatched to ${alert.driverName} (${alert.vehiclePlate}): "Return to assigned corridor immediately."`);
-    setTimeout(() => setRadioPingNotice(null), 4000);
-    handleAcknowledgeAlert(alert.id);
-    if (soundEnabled) playBreachBeep();
+  const handleClearAllAlerts = () => {
+    setBreachAlerts((prev) => prev.map((a) => ({ ...a, acknowledged: true })));
+    setLastBreachNotification(null);
+    onNotify?.('All Breaches Cleared', 'Marked all geofence breach notifications as reviewed.', 'info');
   };
 
-  const handleExportIncidentLog = () => {
-    const dataStr = 'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(breachAlerts, null, 2));
-    const downloadAnchor = document.createElement('a');
-    downloadAnchor.setAttribute('href', dataStr);
-    downloadAnchor.setAttribute('download', `afronala_geofence_incidents_${Date.now()}.json`);
-    document.body.appendChild(downloadAnchor);
-    downloadAnchor.click();
-    downloadAnchor.remove();
-  };
+  const selectedZone = geofences.find((z) => z.id === selectedZoneId) || geofences[0];
 
-  const selectedZone = geofences.find((g) => g.id === selectedZoneId);
-  const totalBreaches = breachAlerts.length;
-  const activeZonesCount = geofences.filter((g) => g.status === 'active').length;
+  const cardClass = 'bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800';
 
   return (
     <div className="space-y-6">
-      {/* Top Banner & Telemetry Statistics */}
-      <div
-        className={`p-6 rounded-2xl border transition-all ${
-          darkMode
-            ? 'bg-gradient-to-r from-slate-900 via-indigo-950/20 to-slate-900 border-indigo-500/30'
-            : 'bg-gradient-to-r from-indigo-50 via-white to-blue-50 border-indigo-200'
-        }`}
-      >
-        <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-xl bg-indigo-500/20 border border-indigo-500/40 flex items-center justify-center text-indigo-400 shrink-0">
-              <ShieldCheck className="w-6 h-6 animate-pulse" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h1 className={`text-xl font-bold tracking-tight ${darkMode ? 'text-white' : 'text-slate-900'}`}>
-                  AmbaLay Geofence Security &amp; Perimeter Manager
-                </h1>
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 flex items-center gap-1">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
-                  LIVE RADAR
-                </span>
-              </div>
-              <p className={`text-xs mt-1 ${darkMode ? 'text-slate-400' : 'text-slate-600'}`}>
-                Define circular and polygonal boundaries across Addis Ababa. Detects fleet exit breaches in real-time with automated audio alarms and radio dispatch.
-              </p>
-            </div>
+      {/* Top Header & Breadcrumb */}
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-3 border-b border-slate-200 dark:border-slate-800">
+        <div>
+          <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400 mb-1">
+            <span>Geospatial &amp; Perimeters</span>
+            <span aria-hidden="true">·</span>
+            <span className="font-semibold text-cyan-600 dark:text-cyan-400">
+              Geofence Boundary Suite
+            </span>
+            <span aria-hidden="true">·</span>
+            <span>8 East African Jurisdictions</span>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
-            <button
-              onClick={() => setSoundEnabled((prev) => !prev)}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all ${
-                soundEnabled
-                  ? darkMode
-                    ? 'bg-indigo-600/20 border-indigo-500 text-indigo-300'
-                    : 'bg-indigo-50 border-indigo-300 text-indigo-700'
-                  : 'bg-slate-800 border-slate-700 text-slate-400'
-              }`}
-              title="Toggle Audio Breach Chime"
-            >
-              <Volume2 className="w-3.5 h-3.5" />
-              <span>{soundEnabled ? 'Alarm Sound: ON' : 'Alarm Sound: OFF'}</span>
-            </button>
-
-            <button
-              onClick={handleExportIncidentLog}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 shadow-sm transition-all"
-            >
-              <Download className="w-3.5 h-3.5 text-cyan-400" />
-              <span>Export Breach Log</span>
-            </button>
-          </div>
+          <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 dark:text-white flex items-center gap-2.5">
+            <span>Geofence Perimeters &amp; Radar Controls</span>
+            <span className="text-xl">{activeCountryGps.flag}</span>
+          </h1>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-3xl">
+            Live corridor perimeter enforcement, container dry port weighbridge boundaries, and airport safe harbor tracking powered by national East African GeoMap engines.
+          </p>
         </div>
 
-        {/* Live Counters */}
-        <div className="mt-5 grid grid-cols-2 md:grid-cols-4 gap-3">
-          <div className={`p-3 rounded-xl border ${darkMode ? 'bg-slate-900/60 border-slate-800' : 'bg-white border-slate-200 shadow-xs'}`}>
-            <span className="text-[10px] uppercase font-bold text-slate-600 dark:text-slate-400 tracking-wider">Active Geofences</span>
-            <div className="text-lg font-bold font-mono text-cyan-700 dark:text-cyan-400 mt-1 tabular-nums">
-              {activeZonesCount} / {geofences.length}
-            </div>
-            <span className="text-[11px] text-slate-600 dark:text-slate-400">Addis Ababa hubs</span>
-          </div>
+        {/* Right side controls */}
+        <div className="flex items-center gap-2 flex-wrap shrink-0">
+          <button
+            onClick={() => setSoundEnabled(!soundEnabled)}
+            className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold border transition-colors ${
+              soundEnabled
+                ? 'border-cyan-200 dark:border-cyan-800/60 bg-cyan-50 dark:bg-cyan-950/40 text-cyan-700 dark:text-cyan-300'
+                : 'border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-500'
+            }`}
+            title="Toggle audible alarm synthesizer on perimeter breach"
+          >
+            {soundEnabled ? <Volume2 className="w-3.5 h-3.5" /> : <VolumeX className="w-3.5 h-3.5" />}
+            <span>{soundEnabled ? 'Alarm Sound: ON' : 'Alarm Muted'}</span>
+          </button>
 
-          <div className={`p-3 rounded-xl border ${darkMode ? 'bg-slate-900/60 border-slate-800' : 'bg-white border-slate-200 shadow-xs'}`}>
-            <span className="text-[10px] uppercase font-bold text-slate-600 dark:text-slate-400 tracking-wider">Monitored Fleet</span>
-            <div className="text-lg font-bold font-mono text-emerald-700 dark:text-emerald-400 mt-1 tabular-nums">
-              {monitoredVehicles.length} vehicles
-            </div>
-            <span className="text-[11px] text-slate-600 dark:text-slate-400">Live GPS tracking</span>
-          </div>
-
-          <div className={`p-3 rounded-xl border ${darkMode ? 'bg-slate-900/60 border-slate-800' : 'bg-white border-slate-200 shadow-xs'}`}>
-            <span className="text-[10px] uppercase font-bold text-slate-600 dark:text-slate-400 tracking-wider">Breach Incidents</span>
-            <div className="text-lg font-bold font-mono text-rose-700 dark:text-rose-400 mt-1 tabular-nums">
-              {totalBreaches} events
-            </div>
-            <span className="text-[11px] text-slate-600 dark:text-slate-400">Automated perimeter alerts</span>
-          </div>
-
-          <div className={`p-3 rounded-xl border ${darkMode ? 'bg-slate-900/60 border-slate-800' : 'bg-white border-slate-200 shadow-xs'}`}>
-            <span className="text-[10px] uppercase font-bold text-slate-600 dark:text-slate-400 tracking-wider">Boundary Engine</span>
-            <div className="text-lg font-bold font-mono text-amber-700 dark:text-amber-400 mt-1">
-              Polygon &amp; Circle
-            </div>
-            <span className="text-[11px] text-slate-600 dark:text-slate-400">Ray-Casting Algorithmic Check</span>
-          </div>
+          <button
+            onClick={() => setIsCreatingZone(true)}
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-semibold text-white bg-cyan-600 hover:bg-cyan-500 transition-colors shadow-xs whitespace-nowrap"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            <span>New Geofence in {activeCountryGps.countryCode}</span>
+          </button>
         </div>
       </div>
 
-      {/* Floating Active Breach Warning Notice */}
+      {/* East African Country Jurisdiction Selector */}
+      <div className={`p-4 rounded-xl ${cardClass} space-y-3`}>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <Globe2 className="w-4 h-4 text-cyan-600 dark:text-cyan-400" />
+            <span className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider">
+              Regional Operations Jurisdiction
+            </span>
+            <span className="text-xs text-slate-500 dark:text-slate-400">
+              (Operator: <strong className="text-slate-800 dark:text-slate-200">{user?.name || 'Operator'}</strong> · {user?.jurisdictionName || 'East Africa'})
+            </span>
+          </div>
+
+          <div className="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-2">
+            <span>National GeoMap Engine:</span>
+            <strong className="text-cyan-600 dark:text-cyan-400 font-semibold">{activeGeoMapEngine.engineName}</strong>
+          </div>
+        </div>
+
+        {/* Country Flag Selector Tabs */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2">
+          {ALL_COUNTRIES.map((c) => {
+            const isSelected = selectedCountry === c.code;
+            const isUserHome = userHomeCountry === c.code;
+            const engine = EAST_AFRICA_GEOMAP_ENGINES[c.code];
+            const zonesCount = (geofencesByCountry[c.code] || []).length;
+
+            return (
+              <button
+                key={c.code}
+                onClick={() => {
+                  setSelectedCountry(c.code);
+                  resetDrawingState();
+                  const firstZone = (geofencesByCountry[c.code] || [])[0];
+                  setSelectedZoneId(firstZone?.id || null);
+                }}
+                className={`p-2.5 rounded-lg border text-left transition-all ${
+                  isSelected
+                    ? 'border-cyan-500 bg-cyan-50/70 dark:bg-cyan-950/40 text-slate-900 dark:text-white shadow-xs ring-1 ring-cyan-500/20'
+                    : 'border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 text-slate-600 dark:text-slate-400 hover:border-slate-300 dark:hover:border-slate-700'
+                }`}
+              >
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-xl">{c.flag}</span>
+                  <span className="text-[10px] font-mono font-bold text-slate-500 dark:text-slate-400">
+                    {c.code}
+                  </span>
+                </div>
+                <div className="font-semibold text-xs truncate">{c.name}</div>
+                <div className="text-[10px] text-slate-500 dark:text-slate-400 truncate mt-0.5">
+                  {zonesCount} Perimeters
+                </div>
+                {isUserHome && (
+                  <div className="mt-1 text-[9px] font-semibold text-cyan-600 dark:text-cyan-400">
+                    Station
+                  </div>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* National GeoMap Engine Banner */}
+      <div className="p-4 rounded-xl border border-cyan-200 dark:border-cyan-900/50 bg-gradient-to-r from-cyan-50/80 via-blue-50/50 to-slate-50/50 dark:from-cyan-950/30 dark:via-blue-950/20 dark:to-slate-900/40 flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="flex items-start sm:items-center gap-3.5">
+          <div className="w-11 h-11 rounded-xl bg-cyan-600 text-white flex items-center justify-center shrink-0 shadow-xs">
+            <Compass className="w-6 h-6" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2 text-[11px] text-slate-500 dark:text-slate-400 mb-0.5">
+              <span>National GeoSpatial Provider</span>
+              <span aria-hidden="true">·</span>
+              <span className="font-semibold text-cyan-700 dark:text-cyan-300">{activeGeoMapEngine.provider}</span>
+              <span aria-hidden="true">·</span>
+              <span className="font-mono">{activeGeoMapEngine.apiVersion}</span>
+            </div>
+            <h3 className="font-bold text-base text-slate-900 dark:text-white flex items-center gap-2">
+              <span>{activeGeoMapEngine.engineName}</span>
+              <span className="text-xs px-2 py-0.5 rounded font-mono font-semibold bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
+                {activeGeoMapEngine.latencyMs}ms Latency
+              </span>
+            </h3>
+            <p className="text-xs text-slate-600 dark:text-slate-400 mt-0.5 max-w-3xl">
+              {activeGeoMapEngine.specialization}
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2 self-start md:self-auto shrink-0">
+          <div className="text-right hidden sm:block">
+            <span className="text-[11px] text-slate-500 block">Daily Telemetry Pings:</span>
+            <span className="font-mono font-bold text-xs text-slate-900 dark:text-white">
+              {activeGeoMapEngine.activeFleetPingsToday.toLocaleString()}
+            </span>
+          </div>
+          <button
+            onClick={() => setActiveViewMode(activeViewMode === 'geo_engines' ? 'radar' : 'geo_engines')}
+            className="px-3.5 py-2 text-xs font-semibold rounded-lg border border-cyan-300 dark:border-cyan-700 bg-white dark:bg-slate-800 text-cyan-700 dark:text-cyan-300 hover:bg-cyan-50 dark:hover:bg-slate-700 transition-colors"
+          >
+            {activeViewMode === 'geo_engines' ? 'Show Radar Map' : 'Explore All 8 GeoEngines'}
+          </button>
+        </div>
+      </div>
+
+      {/* Breach Notification Banner (if any) */}
       {lastBreachNotification && (
-        <div className="p-4 rounded-xl bg-rose-500/15 border border-rose-500/40 text-rose-300 flex items-center justify-between gap-3 animate-pulse">
-          <div className="flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-rose-500/20 text-rose-400">
-              <ShieldAlert className="w-5 h-5" />
-            </div>
-            <div>
-              <p className="text-xs font-bold uppercase tracking-wider text-rose-400">Security Breach Detected</p>
-              <p className="text-xs font-medium text-slate-200 mt-0.5">{lastBreachNotification}</p>
-            </div>
+        <div className="p-3.5 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900 text-rose-900 dark:text-rose-200 text-xs flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <ShieldAlert className="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0" />
+            <span className="font-medium">{lastBreachNotification}</span>
           </div>
           <button
             onClick={() => setLastBreachNotification(null)}
-            className="p-1 rounded-lg hover:bg-rose-500/20 text-rose-400 transition-colors"
+            className="text-xs text-rose-700 dark:text-rose-300 underline font-semibold shrink-0"
           >
-            <X className="w-4 h-4" />
+            Dismiss
           </button>
         </div>
       )}
 
-      {/* Driver Radio Dispatch Notice */}
-      {radioPingNotice && (
-        <div className="p-3.5 rounded-xl bg-cyan-500/15 border border-cyan-500/40 text-cyan-300 flex items-center gap-3">
-          <Radio className="w-4 h-4 animate-spin text-cyan-400" />
-          <span className="text-xs font-semibold">{radioPingNotice}</span>
-        </div>
-      )}
-
-      {/* Main Grid: Interactive Map (Left/Center) + Zone Controls & Containment (Right) */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* Left Column: Interactive AmbaLay Vector Map & Draw Canvas */}
-        <div className="lg:col-span-8 space-y-4">
-          <div className={`p-5 rounded-2xl border ${darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'}`}>
-            {/* Map Toolbar */}
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-4 border-b border-slate-800">
-              <div>
-                <h2 className="text-sm font-bold flex items-center gap-2">
-                  <Compass className="w-4 h-4 text-indigo-400" />
-                  Addis Ababa Interactive Perimeter Canvas
-                </h2>
-                <p className="text-xs text-slate-400 mt-0.5">
-                  Click on canvas to add vertices or set center. Monitored vehicles update continuously.
-                </p>
-              </div>
-
-              {/* Drawing Mode Toggles */}
+      {/* Main Split Grid: Interactive Radar Map (Left) + Geofence Details & Alerts (Right) */}
+      {activeViewMode === 'radar' && (
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+          {/* LEFT: SVG Radar Map & Live Perimeter Boundaries */}
+          <div className={`lg:col-span-8 p-4 sm:p-5 rounded-xl ${cardClass} space-y-4`}>
+            {/* Radar Controls Toolbar */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-200 dark:border-slate-800">
               <div className="flex items-center gap-2">
-                <button
-                  onClick={() => {
-                    if (drawingMode === 'drawing_circle') resetDrawingState();
-                    else {
-                      resetDrawingState();
-                      setDrawingMode('drawing_circle');
-                      setIsCreatingZone(true);
-                    }
-                  }}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all ${
-                    drawingMode === 'drawing_circle'
-                      ? 'bg-indigo-600 text-white shadow-md'
-                      : darkMode
-                      ? 'bg-slate-800 text-slate-300 hover:bg-slate-700'
-                      : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-                  }`}
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                  <span>{drawingMode === 'drawing_circle' ? 'Drawing Circle...' : '+ New Circle'}</span>
-                </button>
-
-                <button
-                  onClick={() => {
-                    if (drawingMode === 'drawing_polygon') resetDrawingState();
-                    else {
-                      resetDrawingState();
-                      setDrawingMode('drawing_polygon');
-                      setIsCreatingZone(true);
-                    }
-                  }}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all ${
-                    drawingMode === 'drawing_polygon'
-                      ? 'bg-purple-600 text-white shadow-md'
-                      : darkMode
-                      ? 'bg-slate-800 text-slate-300 hover:bg-slate-700'
-                      : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-                  }`}
-                >
-                  <Layers className="w-3.5 h-3.5" />
-                  <span>{drawingMode === 'drawing_polygon' ? `Polygon (${tempPolygonPoints.length} pts)` : '+ Draw Polygon'}</span>
-                </button>
+                <Radio className="w-4 h-4 text-cyan-600 dark:text-cyan-400 animate-pulse" />
+                <span className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider">
+                  Live Perimeter Radar · {activeCountryGps.capital} ({activeCountryGps.countryCode})
+                </span>
+                <span className="text-[11px] text-slate-500 dark:text-slate-400 font-mono">
+                  {monitoredVehicles.length} Vehicles Online
+                </span>
               </div>
-            </div>
 
-            {/* Drawing HUD Bar (when in drawing mode) */}
-            {drawingMode !== 'none' && (
-              <div className="mt-3 p-3 rounded-xl bg-indigo-500/10 border border-indigo-500/30 text-xs flex flex-wrap items-center justify-between gap-3">
-                <div className="flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-indigo-400 animate-ping" />
-                  <span className="font-semibold text-indigo-300">
-                    {drawingMode === 'drawing_circle'
-                      ? tempCircleCenter
-                        ? `Center placed: [${tempCircleCenter[0]}, ${tempCircleCenter[1]}]. Adjust radius slider & save.`
-                        : 'Click on the map canvas to place circle center'
-                      : `Polygon Mode: Click map to place vertices (${tempPolygonPoints.length} placed). Need ≥3 points.`}
-                  </span>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  {drawingMode === 'drawing_circle' && tempCircleCenter && (
-                    <div className="flex items-center gap-2">
-                      <span className="text-[11px] text-slate-400">Radius:</span>
-                      <input
-                        type="range"
-                        min="500"
-                        max="4000"
-                        step="100"
-                        value={tempCircleRadius}
-                        onChange={(e) => setTempCircleRadius(Number(e.target.value))}
-                        className="w-24 accent-indigo-400"
-                      />
-                      <span className="font-mono text-indigo-300 font-bold">{tempCircleRadius}m</span>
+              {/* Drawing mode toggles */}
+              <div className="flex items-center gap-1.5 flex-wrap">
+                {drawingMode === 'none' ? (
+                  <>
+                    <button
+                      onClick={() => {
+                        setDrawingMode('drawing_circle');
+                        setTempCircleCenter(activeCountryGps.bounds.center);
+                      }}
+                      className="px-2.5 py-1 text-xs font-medium rounded-md border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 transition-colors"
+                    >
+                      + Add Circle
+                    </button>
+                    <button
+                      onClick={() => {
+                        setDrawingMode('drawing_polygon');
+                        setTempPolygonPoints([]);
+                      }}
+                      className="px-2.5 py-1 text-xs font-medium rounded-md border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 transition-colors"
+                    >
+                      + Draw Polygon
+                    </button>
+                  </>
+                ) : (
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[11px] text-amber-600 dark:text-amber-400 font-medium">
+                      {drawingMode === 'drawing_circle' ? 'Click map to set center' : `Click map for nodes (${tempPolygonPoints.length})`}
+                    </span>
+                    {drawingMode === 'drawing_circle' && tempCircleCenter && (
                       <button
                         onClick={handleSaveCircleGeofence}
-                        className="px-2.5 py-1 rounded bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs"
+                        className="px-2.5 py-1 text-xs font-semibold rounded-md bg-emerald-600 hover:bg-emerald-500 text-white transition-colors"
                       >
                         Save Circle
                       </button>
-                    </div>
-                  )}
-
-                  {drawingMode === 'drawing_polygon' && (
-                    <div className="flex items-center gap-2">
+                    )}
+                    {drawingMode === 'drawing_polygon' && tempPolygonPoints.length >= 3 && (
                       <button
                         onClick={handleSavePolygonGeofence}
-                        disabled={tempPolygonPoints.length < 3}
-                        className={`px-3 py-1 rounded font-bold text-xs ${
-                          tempPolygonPoints.length >= 3
-                            ? 'bg-purple-600 hover:bg-purple-500 text-white cursor-pointer'
-                            : 'bg-slate-800 text-slate-500 cursor-not-allowed'
-                        }`}
+                        className="px-2.5 py-1 text-xs font-semibold rounded-md bg-emerald-600 hover:bg-emerald-500 text-white transition-colors"
                       >
-                        Close &amp; Save Polygon ({tempPolygonPoints.length} pts)
+                        Save Polygon
                       </button>
-                    </div>
-                  )}
-
-                  <button
-                    onClick={resetDrawingState}
-                    className="p-1 rounded text-slate-400 hover:text-rose-400"
-                    title="Cancel Drawing"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                </div>
+                    )}
+                    <button
+                      onClick={resetDrawingState}
+                      className="px-2.5 py-1 text-xs font-medium rounded-md bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-300"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                )}
               </div>
-            )}
+            </div>
 
-            {/* Interactive SVG Canvas */}
-            <div
-              className={`mt-4 relative rounded-xl border border-slate-800 bg-[#090d16] overflow-hidden select-none ${
-                drawingMode !== 'none' ? 'cursor-crosshair' : 'cursor-default'
-              }`}
-              style={{ height: '460px' }}
-            >
-              {/* Background Map Grid */}
-              <div className="absolute inset-0 opacity-20 bg-[radial-gradient(#6366f1_1px,transparent_1px)] [background-size:20px_20px]" />
-              
-              {/* Map Bounds Watermark */}
-              <div className="absolute bottom-3 left-3 text-[10px] font-mono text-slate-500 pointer-events-none">
-                Addis Ababa Central Grid [Lat 8.89 - 9.06 / Lng 38.71 - 38.86]
-              </div>
-
+            {/* SVG Interactive Radar Canvas */}
+            <div className="relative w-full aspect-[800/520] rounded-xl overflow-hidden bg-slate-950 border border-slate-800 select-none">
               <svg
                 ref={svgMapRef}
                 viewBox="0 0 800 520"
                 onClick={handleMapClick}
-                className="w-full h-full"
+                className={`w-full h-full ${drawingMode !== 'none' ? 'cursor-crosshair' : 'cursor-default'}`}
               >
                 <defs>
-                  {/* Glowing filter for geofence breaches */}
-                  <filter id="breachGlow" x="-50%" y="-50%" width="200%" height="200%">
-                    <feGaussianBlur stdDeviation="6" result="blur" />
-                    <feMerge>
-                      <feMergeNode in="blur" />
-                      <feMergeNode in="SourceGraphic" />
-                    </feMerge>
-                  </filter>
+                  {/* Subtle Grid Pattern */}
+                  <pattern id="radarGrid" width="40" height="40" patternUnits="userSpaceOnUse">
+                    <path d="M 40 0 L 0 0 0 40" fill="none" stroke="rgba(255,255,255,0.04)" strokeWidth="1" />
+                  </pattern>
+                  {/* Concentric Sweep Gradient */}
+                  <radialGradient id="radarSweep" cx="50%" cy="50%" r="50%">
+                    <stop offset="0%" stopColor="#06b6d4" stopOpacity="0.12" />
+                    <stop offset="70%" stopColor="#06b6d4" stopOpacity="0.03" />
+                    <stop offset="100%" stopColor="#06b6d4" stopOpacity="0" />
+                  </radialGradient>
                 </defs>
 
-                {/* 1. Render Defined Geofences */}
+                {/* Background Grid */}
+                <rect width="800" height="520" fill="#090d16" />
+                <rect width="800" height="520" fill="url(#radarGrid)" />
+
+                {/* Radar Concentric Rings */}
+                <circle cx="400" cy="260" r="120" fill="none" stroke="rgba(6,182,212,0.15)" strokeWidth="1" strokeDasharray="3 3" />
+                <circle cx="400" cy="260" r="220" fill="none" stroke="rgba(6,182,212,0.10)" strokeWidth="1" strokeDasharray="3 3" />
+                <circle cx="400" cy="260" r="320" fill="none" stroke="rgba(6,182,212,0.06)" strokeWidth="1" />
+
+                {/* Crosshairs */}
+                <line x1="400" y1="20" x2="400" y2="500" stroke="rgba(6,182,212,0.15)" strokeWidth="1" strokeDasharray="4 4" />
+                <line x1="30" y1="260" x2="770" y2="260" stroke="rgba(6,182,212,0.15)" strokeWidth="1" strokeDasharray="4 4" />
+
+                {/* Key Geographic Landmarks in Country */}
+                {activeCountryGps.locations.map((loc, idx) => {
+                  const pt = geoToSvg(loc.coords, activeCountryGps.bounds);
+                  return (
+                    <g key={idx} className="opacity-75">
+                      <circle cx={pt.x} cy={pt.y} r="2.5" fill="#94a3b8" />
+                      <text
+                        x={pt.x + 5}
+                        y={pt.y + 3}
+                        fill="#cbd5e1"
+                        fontSize="9"
+                        fontFamily="monospace"
+                        className="pointer-events-none select-none"
+                      >
+                        {loc.name.split('(')[0]}
+                      </text>
+                    </g>
+                  );
+                })}
+
+                {/* Render All Geofences in this Country */}
                 {geofences.map((zone) => {
-                  const isSelected = zone.id === selectedZoneId;
+                  const isSelected = selectedZoneId === zone.id;
                   const zoneColor = zone.color || '#06b6d4';
-                  const centerSvg = geoToSvg(zone.center);
 
                   if (zone.shape === 'polygon' && zone.polygonPoints && zone.polygonPoints.length >= 3) {
-                    // Polygon SVG
-                    const pointsStr = zone.polygonPoints
+                    const svgPointsStr = zone.polygonPoints
                       .map((p) => {
-                        const pt = geoToSvg(p);
+                        const pt = geoToSvg(p, activeCountryGps.bounds);
                         return `${pt.x},${pt.y}`;
                       })
                       .join(' ');
 
+                    const centerPt = geoToSvg(zone.center, activeCountryGps.bounds);
+
                     return (
-                      <g key={zone.id} className="cursor-pointer" onClick={(e) => { e.stopPropagation(); setSelectedZoneId(zone.id); }}>
-                        {/* Polygon shape */}
+                      <g key={zone.id} onClick={(e) => { e.stopPropagation(); setSelectedZoneId(zone.id); }} className="cursor-pointer">
                         <polygon
-                          points={pointsStr}
+                          points={svgPointsStr}
                           fill={zoneColor}
-                          fillOpacity={isSelected ? 0.28 : 0.16}
+                          fillOpacity={isSelected ? 0.28 : 0.14}
                           stroke={zoneColor}
-                          strokeWidth={isSelected ? 3 : 2}
-                          strokeDasharray={zone.status === 'warning' ? '6 3' : undefined}
-                          className="transition-all hover:opacity-90"
+                          strokeWidth={isSelected ? 2.5 : 1.5}
+                          strokeDasharray={zone.status === 'breached' ? '4 2' : 'none'}
                         />
-                        {/* Vertex dots */}
-                        {zone.polygonPoints.map((p, idx) => {
-                          const vPt = geoToSvg(p);
-                          return (
-                            <circle
-                              key={idx}
-                              cx={vPt.x}
-                              cy={vPt.y}
-                              r={isSelected ? 4 : 2.5}
-                              fill={zoneColor}
-                              stroke="#090d16"
-                              strokeWidth="1.5"
-                            />
-                          );
-                        })}
-                        {/* Centroid Label */}
                         <text
-                          x={centerSvg.x}
-                          y={centerSvg.y}
-                          fill={zoneColor}
+                          x={centerPt.x}
+                          y={centerPt.y}
+                          fill="#ffffff"
                           fontSize="10"
                           fontWeight="bold"
                           textAnchor="middle"
                           className="pointer-events-none drop-shadow"
                         >
-                          {zone.name.split(' ')[0]} (Poly)
+                          {zone.name.split(' ')[0]}
                         </text>
                       </g>
                     );
                   }
 
                   // Circular Geofence
-                  // Convert radius in meters to approximate SVG pixel radius
-                  // Approx 1 deg lat = 111,000 meters. Addis Lat span = 0.17 deg ~ 18,870 meters across 450px SVG height
-                  const pixelsPerMeter = 450 / 18870;
-                  const rPixels = Math.max(20, zone.radiusMeters * pixelsPerMeter);
+                  const centerPt = geoToSvg(zone.center, activeCountryGps.bounds);
+                  // Approximate SVG radius calculation
+                  const radiusPixels = Math.max(30, Math.min(180, (zone.radiusMeters / 1200) * 45));
 
                   return (
-                    <g key={zone.id} className="cursor-pointer" onClick={(e) => { e.stopPropagation(); setSelectedZoneId(zone.id); }}>
+                    <g key={zone.id} onClick={(e) => { e.stopPropagation(); setSelectedZoneId(zone.id); }} className="cursor-pointer">
                       <circle
-                        cx={centerSvg.x}
-                        cy={centerSvg.y}
-                        r={rPixels}
+                        cx={centerPt.x}
+                        cy={centerPt.y}
+                        r={radiusPixels}
                         fill={zoneColor}
-                        fillOpacity={isSelected ? 0.24 : 0.14}
+                        fillOpacity={isSelected ? 0.26 : 0.12}
                         stroke={zoneColor}
-                        strokeWidth={isSelected ? 3 : 2}
-                        strokeDasharray={zone.status === 'warning' ? '5 3' : undefined}
-                        className="transition-all"
+                        strokeWidth={isSelected ? 2.5 : 1.5}
+                        strokeDasharray={zone.status === 'breached' ? '4 2' : 'none'}
                       />
-                      {/* Center pin */}
-                      <circle
-                        cx={centerSvg.x}
-                        cy={centerSvg.y}
-                        r="4"
-                        fill={zoneColor}
-                        stroke="#090d16"
-                        strokeWidth="1.5"
-                      />
+                      <circle cx={centerPt.x} cy={centerPt.y} r="3" fill={zoneColor} />
                       <text
-                        x={centerSvg.x}
-                        y={centerSvg.y + 14}
-                        fill={zoneColor}
+                        x={centerPt.x}
+                        y={centerPt.y - radiusPixels - 4}
+                        fill="#ffffff"
                         fontSize="10"
                         fontWeight="bold"
                         textAnchor="middle"
                         className="pointer-events-none drop-shadow"
                       >
-                        {zone.name.split(' ')[0]} ({zone.radiusMeters}m)
+                        {zone.name.split(' ')[0]}
                       </text>
                     </g>
                   );
                 })}
 
-                {/* 2. Drawing In-Progress Preview */}
+                {/* Render In-Progress Drawing Points */}
                 {drawingMode === 'drawing_circle' && tempCircleCenter && (
-                  <g>
-                    {(() => {
-                      const pt = geoToSvg(tempCircleCenter);
-                      const pixelsPerMeter = 450 / 18870;
-                      const rPixels = Math.max(20, tempCircleRadius * pixelsPerMeter);
-                      return (
-                        <>
-                          <circle
-                            cx={pt.x}
-                            cy={pt.y}
-                            r={rPixels}
-                            fill="#6366f1"
-                            fillOpacity="0.3"
-                            stroke="#818cf8"
-                            strokeWidth="2.5"
-                            strokeDasharray="6 4"
-                          />
-                          <circle cx={pt.x} cy={pt.y} r="5" fill="#818cf8" />
-                        </>
-                      );
-                    })()}
-                  </g>
+                  <circle
+                    cx={geoToSvg(tempCircleCenter, activeCountryGps.bounds).x}
+                    cy={geoToSvg(tempCircleCenter, activeCountryGps.bounds).y}
+                    r={(tempCircleRadius / 1200) * 45}
+                    fill="#ec4899"
+                    fillOpacity="0.25"
+                    stroke="#ec4899"
+                    strokeWidth="2"
+                    strokeDasharray="4 3"
+                  />
                 )}
 
                 {drawingMode === 'drawing_polygon' && tempPolygonPoints.length > 0 && (
                   <g>
-                    {/* Polyline of points so far */}
-                    <polyline
-                      fill="none"
-                      stroke="#c084fc"
-                      strokeWidth="2.5"
-                      strokeDasharray="5 3"
-                      points={tempPolygonPoints
-                        .map((p) => {
-                          const pt = geoToSvg(p);
-                          return `${pt.x},${pt.y}`;
-                        })
-                        .join(' ')}
-                    />
-                    {tempPolygonPoints.map((p, idx) => {
-                      const pt = geoToSvg(p);
-                      return (
-                        <g key={idx}>
-                          <circle cx={pt.x} cy={pt.y} r="5" fill="#a855f7" stroke="#fff" strokeWidth="1.5" />
-                          <text x={pt.x + 8} y={pt.y + 4} fill="#c084fc" fontSize="9" fontWeight="bold">
-                            #{idx + 1}
-                          </text>
-                        </g>
-                      );
+                    {tempPolygonPoints.map((p, i) => {
+                      const pt = geoToSvg(p, activeCountryGps.bounds);
+                      return <circle key={i} cx={pt.x} cy={pt.y} r="4" fill="#ec4899" stroke="#ffffff" strokeWidth="1" />;
                     })}
+                    {tempPolygonPoints.length >= 2 && (
+                      <polyline
+                        points={tempPolygonPoints.map((p) => `${geoToSvg(p, activeCountryGps.bounds).x},${geoToSvg(p, activeCountryGps.bounds).y}`).join(' ')}
+                        fill="none"
+                        stroke="#ec4899"
+                        strokeWidth="2"
+                        strokeDasharray="4 3"
+                      />
+                    )}
                   </g>
                 )}
 
-                {/* 3. Live Monitored Vehicles */}
-                {monitoredVehicles.map((vehicle) => {
-                  if (!vehicle.currentCoords) return null;
-                  const vPt = geoToSvg(vehicle.currentCoords);
-
-                  // Check if this vehicle is currently inside any active geofence
-                  const insideZones = geofences.filter((z) =>
-                    z.status === 'active' && isInsideGeofence(vehicle.currentCoords!, z)
-                  );
-                  const isInsideAny = insideZones.length > 0;
-
-                  // Breach status: Has an active unacknowledged breach
-                  const hasBreach = breachAlerts.some(
-                    (a) => a.tripId === vehicle.tripId && !a.acknowledged
-                  );
+                {/* Render Monitored Vehicles on Radar */}
+                {monitoredVehicles.map((v) => {
+                  if (!v.currentCoords) return null;
+                  const vPt = geoToSvg(v.currentCoords, activeCountryGps.bounds);
+                  const isTruck = v.module === 'truck';
 
                   return (
-                    <g key={vehicle.id} className="transition-transform duration-1000">
-                      {/* Breach pulsing beacon */}
-                      {hasBreach && (
-                        <circle
-                          cx={vPt.x}
-                          cy={vPt.y}
-                          r="16"
-                          fill="#ef4444"
-                          opacity="0.35"
-                          filter="url(#breachGlow)"
-                          className="animate-ping"
-                        />
-                      )}
-
-                      {/* Vehicle Body Marker */}
-                      <circle
-                        cx={vPt.x}
-                        cy={vPt.y}
-                        r="7"
-                        fill={hasBreach ? '#ef4444' : isInsideAny ? '#10b981' : '#f59e0b'}
-                        stroke="#090d16"
-                        strokeWidth="2"
-                      />
-
-                      {/* Direction Pointer or Type Indicator */}
-                      <circle
-                        cx={vPt.x}
-                        cy={vPt.y}
-                        r="2.5"
-                        fill="#ffffff"
-                      />
-
-                      {/* Vehicle Label Tag */}
-                      <g transform={`translate(${vPt.x + 10}, ${vPt.y - 6})`}>
-                        <rect
-                          x="0"
-                          y="0"
-                          width="90"
-                          height="20"
-                          rx="4"
-                          fill="#0f172a"
-                          fillOpacity="0.85"
-                          stroke={hasBreach ? '#ef4444' : isInsideAny ? '#10b981' : '#f59e0b'}
-                          strokeWidth="1"
-                        />
-                        <text x="6" y="14" fill="#ffffff" fontSize="9" fontWeight="bold">
-                          {vehicle.vehiclePlate} ({vehicle.speedKmh}km/h)
-                        </text>
-                      </g>
+                    <g key={v.id} className="transition-all duration-1000">
+                      {/* Pulse beacon */}
+                      <circle cx={vPt.x} cy={vPt.y} r="8" fill={isTruck ? '#3b82f6' : '#06b6d4'} fillOpacity="0.2" className="animate-ping" />
+                      <circle cx={vPt.x} cy={vPt.y} r="4" fill={isTruck ? '#2563eb' : '#0891b2'} stroke="#ffffff" strokeWidth="1" />
+                      <text
+                        x={vPt.x + 6}
+                        y={vPt.y + 3}
+                        fill="#38bdf8"
+                        fontSize="9"
+                        fontFamily="monospace"
+                        fontWeight="bold"
+                        className="pointer-events-none select-none drop-shadow"
+                      >
+                        {v.vehiclePlate || v.driverName?.split(' ')[0]}
+                      </text>
                     </g>
                   );
                 })}
               </svg>
+
+              {/* Coordinates Scale Legend */}
+              <div className="absolute bottom-2 left-3 text-[10px] font-mono text-slate-400 bg-slate-900/80 px-2 py-0.5 rounded border border-slate-800">
+                Lat: {activeCountryGps.bounds.minLat.toFixed(2)}° to {activeCountryGps.bounds.maxLat.toFixed(2)}° · Lng: {activeCountryGps.bounds.minLng.toFixed(2)}° to {activeCountryGps.bounds.maxLng.toFixed(2)}°
+              </div>
             </div>
 
-            {/* Canvas Legend */}
-            <div className="mt-3 flex flex-wrap items-center justify-between text-xs text-slate-600 dark:text-slate-400 pt-2 border-t border-slate-200 dark:border-slate-800/60">
-              <div className="flex items-center gap-4">
-                <div className="flex items-center gap-1.5">
-                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
-                  <span>Vehicle Inside Perimeter</span>
+            {/* National GeoMap Engine Feature Matrix for Ride & Truck */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2">
+              <div className="p-3 rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/40">
+                <div className="flex items-center gap-2 text-xs font-bold text-slate-900 dark:text-white mb-1.5">
+                  <Car className="w-4 h-4 text-cyan-600 dark:text-cyan-400" />
+                  <span>Ride Hailing Dispatch Geo-Features</span>
                 </div>
-                <div className="flex items-center gap-1.5">
-                  <span className="w-2.5 h-2.5 rounded-full bg-rose-500 animate-ping" />
-                  <span>Perimeter Breach (Exited Zone)</span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <span className="w-2.5 h-2.5 rounded-full bg-amber-500" />
-                  <span>Transit Corridor Vehicle</span>
-                </div>
+                <ul className="space-y-1 text-xs text-slate-600 dark:text-slate-400">
+                  {activeGeoMapEngine.rideHailingFeatures.map((f, i) => (
+                    <li key={i} className="flex items-start gap-1.5">
+                      <span className="text-cyan-500 font-bold">·</span>
+                      <span>{f}</span>
+                    </li>
+                  ))}
+                </ul>
               </div>
 
-              <div className="flex items-center gap-2">
-                <span className="text-[11px] font-mono font-semibold text-cyan-700 dark:text-cyan-400">Ray-Casting Alg: Active</span>
+              <div className="p-3 rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/40">
+                <div className="flex items-center gap-2 text-xs font-bold text-slate-900 dark:text-white mb-1.5">
+                  <Truck className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                  <span>Truck Delivery &amp; Corridor Geo-Features</span>
+                </div>
+                <ul className="space-y-1 text-xs text-slate-600 dark:text-slate-400">
+                  {activeGeoMapEngine.truckDeliveryFeatures.map((f, i) => (
+                    <li key={i} className="flex items-start gap-1.5">
+                      <span className="text-blue-500 font-bold">·</span>
+                      <span>{f}</span>
+                    </li>
+                  ))}
+                </ul>
               </div>
             </div>
           </div>
 
-          {/* Quick Preset Boundaries Library */}
-          <div className={`p-4 rounded-xl border ${darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200 shadow-xs'}`}>
-            <h3 className="text-xs font-bold text-slate-700 dark:text-slate-400 uppercase tracking-wider mb-2.5 flex items-center gap-1.5">
-              <Sparkles className="w-3.5 h-3.5 text-cyan-700 dark:text-cyan-400" />
-              Quick-Add Ethiopian Perimeter Presets
-            </h3>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-              {PRESET_ZONES.map((preset, idx) => (
-                <div
-                  key={idx}
-                  className={`p-3 rounded-lg border flex flex-col justify-between gap-2 ${
-                    darkMode ? 'bg-slate-800/60 border-slate-700' : 'bg-slate-50 border-slate-200'
-                  }`}
-                >
+          {/* RIGHT: Selected Geofence Inspector & Recent Breaches */}
+          <div className="lg:col-span-4 space-y-4">
+            {/* Selected Geofence Card */}
+            {selectedZone ? (
+              <div className={`p-4 rounded-xl ${cardClass} space-y-3`}>
+                <div className="flex items-start justify-between gap-2 pb-2 border-b border-slate-200 dark:border-slate-800">
                   <div>
-                    <div className="flex items-center justify-between">
-                      <span className="font-bold text-xs text-slate-900 dark:text-white truncate">{preset.name}</span>
-                      <span className="text-[10px] font-mono uppercase text-indigo-700 dark:text-indigo-300 font-semibold">
-                        {preset.shape}
-                      </span>
-                    </div>
-                    <p className="text-[11px] text-slate-600 dark:text-slate-400 mt-1 line-clamp-2">{preset.description}</p>
+                    <span className="text-[10px] font-mono uppercase text-cyan-600 dark:text-cyan-400 font-semibold">
+                      {selectedZone.category} · {selectedZone.shape}
+                    </span>
+                    <h3 className="font-bold text-sm text-slate-900 dark:text-white">{selectedZone.name}</h3>
                   </div>
-                  <button
-                    onClick={() => handleApplyPreset(preset)}
-                    className="w-full py-1.5 rounded text-[11px] font-bold bg-indigo-600 hover:bg-indigo-500 text-white flex items-center justify-center gap-1 transition-all"
-                  >
-                    <Plus className="w-3 h-3" />
-                    <span>Apply Preset to Map</span>
-                  </button>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        {/* Right Column: Zone Inspector & Live Containment Feed */}
-        <div className="lg:col-span-4 space-y-4">
-          {/* Active Geofence Zones List */}
-          <div className={`p-5 rounded-2xl border ${darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200 shadow-xs'}`}>
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="text-sm font-bold flex items-center gap-2 text-slate-900 dark:text-white">
-                <Layers className="w-4 h-4 text-cyan-700 dark:text-cyan-400" />
-                Defined Geofence Boundaries
-              </h3>
-              <span className="text-[11px] font-mono text-cyan-700 dark:text-cyan-300 font-bold tabular-nums">
-                {geofences.length} Total
-              </span>
-            </div>
-
-            <div className="space-y-2.5 max-h-72 overflow-y-auto pr-1">
-              {geofences.map((zone) => {
-                const isSelected = zone.id === selectedZoneId;
-                const zoneColor = zone.color || '#06b6d4';
-                const tripsInsideCount = zone.activeTripsInside?.length || 0;
-
-                return (
-                  <div
-                    key={zone.id}
-                    onClick={() => setSelectedZoneId(zone.id)}
-                    className={`p-3 rounded-xl border cursor-pointer transition-all ${
-                      isSelected
-                        ? darkMode
-                          ? 'bg-slate-800 border-indigo-500/80 shadow-md ring-1 ring-indigo-500/50'
-                          : 'bg-indigo-50/80 border-indigo-400 shadow-xs'
-                        : darkMode
-                        ? 'bg-slate-950/60 border-slate-800 hover:bg-slate-800/50'
-                        : 'bg-slate-50 border-slate-200 hover:bg-slate-100'
+                  <span
+                    className={`text-[10px] font-semibold px-2 py-0.5 rounded ${
+                      selectedZone.status === 'breached'
+                        ? 'bg-rose-50 text-rose-700 dark:bg-rose-950 dark:text-rose-300 border border-rose-200 dark:border-rose-800'
+                        : 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800'
                     }`}
                   >
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="flex items-center gap-2">
-                        <span
-                          className="w-3 h-3 rounded-full shrink-0 border"
-                          style={{ backgroundColor: zoneColor, borderColor: zoneColor }}
-                        />
-                        <span className="font-bold text-xs text-slate-900 dark:text-white leading-tight">{zone.name}</span>
-                      </div>
+                    {selectedZone.status.toUpperCase()}
+                  </span>
+                </div>
 
-                      <div className="flex items-center gap-1">
-                        <span className="text-[10px] uppercase font-mono font-bold text-slate-600 dark:text-slate-300">
-                          {zone.shape || 'circle'}
-                        </span>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleDeleteZone(zone.id);
-                          }}
-                          className="p-1 rounded text-slate-600 dark:text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 transition-colors"
-                          title="Delete Zone"
-                        >
-                          <Trash2 className="w-3 h-3" />
-                        </button>
-                      </div>
-                    </div>
+                <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
+                  {selectedZone.description}
+                </p>
 
-                    <div className="mt-2 flex items-center justify-between text-[11px] text-slate-600 dark:text-slate-400">
-                      <span>Category: <strong className="capitalize text-slate-900 dark:text-slate-200">{zone.category}</strong></span>
-                      <span>
-                        {zone.shape === 'polygon'
-                          ? `${zone.polygonPoints?.length || 0} vertices`
-                          : `${zone.radiusMeters}m radius`}
-                      </span>
-                    </div>
-
-                    <div className="mt-2 pt-2 border-t border-slate-200 dark:border-slate-800/60 flex items-center justify-between text-[11px]">
-                      <span className="text-emerald-700 dark:text-emerald-400 font-semibold">
-                        ✓ {tripsInsideCount} Vehicle{tripsInsideCount === 1 ? '' : 's'} Inside
-                      </span>
-                      {zone.breachCount && zone.breachCount > 0 ? (
-                        <span className="text-rose-700 dark:text-rose-400 font-bold">
-                          ⚠ {zone.breachCount} Breaches Logged
-                        </span>
-                      ) : (
-                        <span className="text-slate-600 dark:text-slate-400">Zero breaches</span>
-                      )}
-                    </div>
+                <div className="space-y-1.5 text-xs pt-1 border-t border-slate-100 dark:border-slate-800">
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-500">Center Lat/Lng:</span>
+                    <span className="font-mono text-slate-800 dark:text-slate-200 font-medium">
+                      {selectedZone.center[0].toFixed(4)}°, {selectedZone.center[1].toFixed(4)}°
+                    </span>
                   </div>
-                );
-              })}
-            </div>
-          </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-500">Effective Radius:</span>
+                    <span className="font-mono text-slate-800 dark:text-slate-200 font-medium">
+                      {selectedZone.radiusMeters} meters
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-500">Vehicles Currently Inside:</span>
+                    <span className="font-bold text-cyan-600 dark:text-cyan-400">
+                      {selectedZone.activeTripsInside?.length || 0} active
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-500">Total Breach Count:</span>
+                    <span className="font-mono font-bold text-slate-900 dark:text-white">
+                      {selectedZone.breachCount || 0}
+                    </span>
+                  </div>
+                </div>
 
-          {/* Selected Zone Inspector */}
-          {selectedZone && (
-            <div className={`p-4 rounded-xl border ${darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200 shadow-xs'} space-y-3`}>
+                <div className="pt-2 flex items-center justify-between">
+                  <button
+                    onClick={() => handleDeleteGeofence(selectedZone.id)}
+                    className="text-xs text-rose-600 dark:text-rose-400 hover:text-rose-700 font-semibold flex items-center gap-1"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Delete Perimeter</span>
+                  </button>
+                  <span className="text-[11px] text-slate-500">
+                    Engine: <strong className="text-slate-700 dark:text-slate-300">{activeGeoMapEngine.engineName.split(' ')[0]}</strong>
+                  </span>
+                </div>
+              </div>
+            ) : null}
+
+            {/* List of All Geofences in Country */}
+            <div className={`p-4 rounded-xl ${cardClass} space-y-2.5`}>
               <div className="flex items-center justify-between">
-                <span className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-400">Zone Inspector</span>
+                <span className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider">
+                  Active Zones ({geofences.length})
+                </span>
+                <span className="text-[11px] text-slate-500">{activeCountryGps.countryName}</span>
+              </div>
+
+              <div className="space-y-1.5 max-h-56 overflow-y-auto pr-1">
+                {geofences.map((zone) => (
+                  <button
+                    key={zone.id}
+                    onClick={() => setSelectedZoneId(zone.id)}
+                    className={`w-full text-left p-2 rounded-lg border transition-colors flex items-center justify-between ${
+                      selectedZoneId === zone.id
+                        ? 'border-cyan-500 bg-cyan-50/50 dark:bg-cyan-950/30 text-slate-900 dark:text-white'
+                        : 'border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300'
+                    }`}
+                  >
+                    <div className="min-w-0 pr-2">
+                      <div className="font-semibold text-xs truncate">{zone.name}</div>
+                      <div className="text-[10px] text-slate-500 capitalize">{zone.category} · {zone.shape}</div>
+                    </div>
+                    <span className="text-[10px] font-mono text-cyan-600 dark:text-cyan-400 shrink-0">
+                      {zone.radiusMeters}m
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Breach Alerts Feed */}
+            <div className={`p-4 rounded-xl ${cardClass} space-y-3`}>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-1.5">
+                  <ShieldAlert className="w-4 h-4 text-rose-500" />
+                  <span className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider">
+                    Recent Breaches ({breachAlerts.filter((a) => !a.acknowledged).length})
+                  </span>
+                </div>
                 <button
-                  onClick={() => handleToggleZoneStatus(selectedZone.id)}
-                  className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold ${
-                    selectedZone.status === 'active'
-                      ? 'bg-emerald-50 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/30'
-                      : 'bg-amber-50 dark:bg-amber-500/20 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-500/30'
-                  }`}
+                  onClick={handleClearAllAlerts}
+                  className="text-[11px] text-cyan-600 dark:text-cyan-400 hover:underline font-semibold"
                 >
-                  {selectedZone.status.toUpperCase()}
+                  Clear All
                 </button>
               </div>
 
-              <div>
-                <h4 className="text-xs font-bold text-slate-900 dark:text-white">{selectedZone.name}</h4>
-                <p className="text-[11px] text-slate-600 dark:text-slate-400 mt-0.5">{selectedZone.description}</p>
-              </div>
-
-              <div className="grid grid-cols-2 gap-2 text-xs">
-                <div className={`p-2 rounded-lg border ${darkMode ? 'bg-slate-800/60 border-slate-700' : 'bg-slate-50 border-slate-200'}`}>
-                  <span className="text-[10px] text-slate-600 dark:text-slate-400 block">Center Coordinates</span>
-                  <span className="font-mono text-cyan-700 dark:text-cyan-400 font-bold text-[11px]">
-                    {selectedZone.center[0]}, {selectedZone.center[1]}
-                  </span>
-                </div>
-
-                <div className={`p-2 rounded-lg border ${darkMode ? 'bg-slate-800/60 border-slate-700' : 'bg-slate-50 border-slate-200'}`}>
-                  <span className="text-[10px] text-slate-600 dark:text-slate-400 block">Geometry Type</span>
-                  <span className="font-mono text-purple-700 dark:text-purple-400 font-bold text-[11px] uppercase">
-                    {selectedZone.shape || 'circle'}
-                  </span>
-                </div>
-              </div>
-
-              <div className="text-[11px] text-slate-600 dark:text-slate-400 space-y-1">
-                <div className="flex items-center justify-between">
-                  <span>Alert on Exit:</span>
-                  <span className="text-emerald-700 dark:text-emerald-400 font-bold">Enabled (Sound + Banner)</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span>Assigned Vehicle Trips:</span>
-                  <span className="font-mono font-semibold text-slate-900 dark:text-slate-200">
-                    {selectedZone.assignedTripIds?.join(', ') || 'None assigned'}
-                  </span>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Real-Time Breach Alert Feed */}
-          <div className={`p-5 rounded-2xl border ${darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200 shadow-xs'}`}>
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="text-sm font-bold flex items-center gap-2 text-slate-900 dark:text-white">
-                <ShieldAlert className="w-4 h-4 text-rose-600 dark:text-rose-400" />
-                Live Breach Feed &amp; Dispatch Alarms
-              </h3>
-              <span className="text-[11px] font-mono font-bold text-rose-700 dark:text-rose-300 tabular-nums">
-                {breachAlerts.filter((a) => !a.acknowledged).length} Unresolved
-              </span>
-            </div>
-
-            <div className="space-y-2.5 max-h-64 overflow-y-auto pr-1">
-              {breachAlerts.length > 0 ? (
-                breachAlerts.map((alert) => (
+              <div className="space-y-2 max-h-52 overflow-y-auto pr-1">
+                {breachAlerts.slice(0, 5).map((alert) => (
                   <div
                     key={alert.id}
-                    className={`p-3 rounded-xl border transition-all ${
+                    className={`p-2.5 rounded-lg border text-xs space-y-1 ${
                       alert.acknowledged
-                        ? darkMode
-                          ? 'bg-slate-950/40 border-slate-800 opacity-60'
-                          : 'bg-slate-50 border-slate-200 opacity-75'
-                        : darkMode
-                        ? 'bg-rose-950/20 border-rose-500/50 shadow-sm'
-                        : 'bg-rose-50 border-rose-300 shadow-xs'
+                        ? 'border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 opacity-60'
+                        : 'border-rose-200 dark:border-rose-900/60 bg-rose-50/40 dark:bg-rose-950/20'
                     }`}
                   >
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="space-y-0.5">
-                        <div className="flex items-center gap-2">
-                          <span className="font-bold text-xs text-slate-900 dark:text-white">{alert.vehiclePlate}</span>
-                          <span className="text-[10px] font-mono font-semibold text-cyan-700 dark:text-cyan-400">({alert.tripId})</span>
-                          <span className="text-[10px] text-rose-700 dark:text-rose-300 font-bold uppercase">
-                            · {alert.type}
-                          </span>
-                        </div>
-                        <p className="text-[11px] text-slate-800 dark:text-slate-300">{alert.message}</p>
-                      </div>
-
-                      <span className="text-[10px] font-mono text-slate-600 dark:text-slate-400 shrink-0">{alert.timestamp}</span>
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-slate-900 dark:text-white">{alert.vehiclePlate}</span>
+                      <span className="text-[10px] text-slate-500 font-mono">{alert.timestamp}</span>
                     </div>
-
-                    <div className="mt-2.5 flex items-center justify-between pt-2 border-t border-slate-200 dark:border-slate-800/60">
-                      <span className="text-[11px] text-slate-600 dark:text-slate-400">Driver: <strong className="text-slate-900 dark:text-white">{alert.driverName}</strong></span>
-
-                      <div className="flex items-center gap-1.5">
-                        {!alert.acknowledged ? (
-                          <>
-                            <button
-                              onClick={() => handleSendDriverRadioPing(alert)}
-                              className="px-2 py-1 rounded text-[10px] font-bold bg-cyan-600 hover:bg-cyan-500 text-white flex items-center gap-1 shadow-xs transition-all"
-                            >
-                              <Radio className="w-3 h-3" />
-                              <span>Radio Ping</span>
-                            </button>
-                            <button
-                              onClick={() => handleAcknowledgeAlert(alert.id)}
-                              className="px-2 py-1 rounded text-[10px] font-semibold bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-300 border border-slate-300 dark:border-slate-700"
-                            >
-                              Dismiss
-                            </button>
-                          </>
-                        ) : (
-                          <span className="text-[11px] text-emerald-700 dark:text-emerald-400 font-semibold flex items-center gap-1">
-                            <Check className="w-3 h-3" />
-                            Acknowledged
-                          </span>
-                        )}
+                    <p className="text-[11px] text-slate-600 dark:text-slate-400">{alert.message}</p>
+                    {!alert.acknowledged && (
+                      <div className="pt-1 flex justify-end">
+                        <button
+                          onClick={() => handleAcknowledgeAlert(alert.id)}
+                          className="text-[10px] font-semibold text-cyan-600 dark:text-cyan-400 hover:underline"
+                        >
+                          Acknowledge
+                        </button>
                       </div>
-                    </div>
+                    )}
                   </div>
-                ))
-              ) : (
-                <div className="text-center py-6 text-xs text-slate-600 dark:text-slate-400">
-                  Zero active perimeter breaches. Monitored fleet is inside bounds.
-                </div>
-              )}
+                ))}
+              </div>
             </div>
           </div>
         </div>
-      </div>
+      )}
+
+      {/* TAB: EAST AFRICAN GEOMAP ENGINES MATRIX */}
+      {activeViewMode === 'geo_engines' && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 pb-2 border-b border-slate-200 dark:border-slate-800">
+            <span>
+              National GeoMap Engines powering Afronala Ride Hailing and Truck Delivery across all 8 East African countries.
+            </span>
+            <button
+              onClick={() => setActiveViewMode('radar')}
+              className="text-cyan-600 dark:text-cyan-400 font-semibold hover:underline"
+            >
+              Return to Radar Map
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {ALL_COUNTRIES.map((c) => {
+              const engine = EAST_AFRICA_GEOMAP_ENGINES[c.code];
+              const isCurrent = selectedCountry === c.code;
+
+              return (
+                <div
+                  key={c.code}
+                  className={`p-5 rounded-xl border transition-all ${
+                    isCurrent
+                      ? 'border-cyan-500 bg-cyan-50/30 dark:bg-slate-900 ring-1 ring-cyan-500/20'
+                      : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900'
+                  }`}
+                >
+                  <div className="flex items-start justify-between gap-2 mb-2">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xl">{c.flag}</span>
+                        <h3 className="font-bold text-base text-slate-900 dark:text-white">
+                          {engine.engineName}
+                        </h3>
+                      </div>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                        {engine.provider} · <span className="font-mono">{engine.apiVersion}</span>
+                      </p>
+                    </div>
+
+                    <span className="text-xs font-mono font-bold px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+                      {engine.latencyMs}ms
+                    </span>
+                  </div>
+
+                  <p className="text-xs text-slate-600 dark:text-slate-400 mb-3 leading-relaxed">
+                    {engine.specialization}
+                  </p>
+
+                  <div className="grid grid-cols-2 gap-2 text-xs pt-2 border-t border-slate-100 dark:border-slate-800">
+                    <div>
+                      <span className="text-[11px] text-slate-500 block">Ride Hailing Specialization:</span>
+                      <span className="font-medium text-slate-800 dark:text-slate-200 text-[11px]">
+                        {engine.rideHailingFeatures[0]}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-[11px] text-slate-500 block">Truck Freight Specialization:</span>
+                      <span className="font-medium text-slate-800 dark:text-slate-200 text-[11px]">
+                        {engine.truckDeliveryFeatures[0]}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs">
+                    <span className="text-slate-500 text-[11px]">
+                      Accuracy: <strong className="text-slate-800 dark:text-slate-200 font-mono">±{engine.geocodingAccuracyMeters}m</strong> · Offline Highlands Cache: <strong className="text-emerald-600 dark:text-emerald-400">Supported</strong>
+                    </span>
+
+                    <button
+                      onClick={() => {
+                        setSelectedCountry(c.code);
+                        setActiveViewMode('radar');
+                      }}
+                      className="px-3 py-1 rounded bg-cyan-600 hover:bg-cyan-500 text-white font-semibold text-xs transition-colors"
+                    >
+                      Open Radar in {c.code}
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -20,8 +20,18 @@ import {
   AlertTriangle,
   RotateCcw,
   Zap,
+  Building2,
+  Compass,
+  Landmark,
+  BadgePercent,
+  Check,
+  Fuel,
+  MapPin,
+  Clock,
+  Coins,
 } from 'lucide-react';
 import {
+  AdminUser,
   EastAfricaCountryCode,
   EastAfricaCurrency,
   PermissionAction,
@@ -36,8 +46,13 @@ import { downloadCsv } from '../services/rbac';
 import { EAST_AFRICA_HUBS } from '../services/payments';
 
 interface PricingSurgeFlagsViewProps {
-  darkMode: boolean;
-  userRole: string;
+  darkMode?: boolean;
+  user?: AdminUser | null;
+  userRole?: string;
+  userJurisdiction?: EastAfricaCountryCode;
+  userJurisdictionName?: string;
+  assignedCorridors?: string[];
+  userName?: string;
   onGuardPermission: (action: PermissionAction, featureLabel: string) => boolean;
   onNotify: (title: string, message?: string, type?: ToastMessage['type']) => void;
 }
@@ -54,9 +69,11 @@ interface CorridorPreset {
   defaultDurationMin: number;
   defaultTons: number;
   note: string;
+  gateway: string;
 }
 
 const REGIONAL_CORRIDOR_PRESETS: CorridorPreset[] = [
+  // 🇪🇹 Ethiopia
   {
     id: 'corridor-aa-city',
     name: 'Addis Ababa Bole → Piassa Urban Ride',
@@ -66,17 +83,32 @@ const REGIONAL_CORRIDOR_PRESETS: CorridorPreset[] = [
     defaultDurationMin: 24,
     defaultTons: 0,
     note: 'Urban metropolitan ride hailing with AmbaLay route matrix',
+    gateway: 'Telebirr / CBE Birr',
   },
   {
     id: 'corridor-modjo-djibouti',
     name: 'Modjo Dry Port ⇄ Doraleh Port Djibouti (Container Vein)',
-    countryCode: 'DJ',
+    countryCode: 'ET',
     serviceType: 'truck',
     defaultDistanceKm: 910,
     defaultDurationMin: 960,
     defaultTons: 28,
     note: 'Bilateral export/import heavy container haul (ETB/DJF dual-rail clearing)',
+    gateway: 'CBE Birr ⇄ D-Money',
   },
+  {
+    id: 'corridor-hawassa-express',
+    name: 'Hawassa Industrial Park ⇄ Addis Ababa Southern Tollway',
+    countryCode: 'ET',
+    serviceType: 'truck',
+    defaultDistanceKm: 275,
+    defaultDurationMin: 320,
+    defaultTons: 22,
+    note: 'Apparel & textile export corridor with bonded customs escrow',
+    gateway: 'Telebirr Enterprise',
+  },
+
+  // 🇰🇪 Kenya
   {
     id: 'corridor-nbo-westlands',
     name: 'Nairobi Westlands → Upper Hill Corporate Ride',
@@ -86,75 +118,208 @@ const REGIONAL_CORRIDOR_PRESETS: CorridorPreset[] = [
     defaultDurationMin: 30,
     defaultTons: 0,
     note: 'Nairobi commercial express lane via Safaricom M-PESA',
+    gateway: 'Safaricom M-PESA',
+  },
+  {
+    id: 'corridor-mombasa-nbo',
+    name: 'Mombasa Port Container Terminal ⇄ Nairobi ICD SGR Depot',
+    countryCode: 'KE',
+    serviceType: 'truck',
+    defaultDistanceKm: 485,
+    defaultDurationMin: 540,
+    defaultTons: 32,
+    note: 'Standard Gauge Railway & highway freight artery linking Mombasa harbor',
+    gateway: 'Safaricom B2C Paybill',
   },
   {
     id: 'corridor-moyale-nbo',
-    name: 'Moyale Border Post ⇄ Nairobi Northern Frontier',
+    name: 'Moyale Border OSBP ⇄ Marsabit ⇄ Nairobi Commercial Route',
     countryCode: 'KE',
     serviceType: 'truck',
     defaultDistanceKm: 780,
     defaultDurationMin: 720,
     defaultTons: 24,
-    note: 'Cross-border livestock and commodities transit route',
+    note: 'Cross-border livestock, goods & agricultural commodities transit',
+    gateway: 'M-PESA / KEPSS',
+  },
+
+  // 🇺🇬 Uganda
+  {
+    id: 'corridor-kla-kololo',
+    name: 'Kampala Kololo & CBD Urban Ride',
+    countryCode: 'UG',
+    serviceType: 'ride',
+    defaultDistanceKm: 8,
+    defaultDurationMin: 22,
+    defaultTons: 0,
+    note: 'Kampala urban mobility with dynamic traffic congestion multiplier',
+    gateway: 'MTN MoMo Uganda',
   },
   {
     id: 'corridor-kla-malaba',
-    name: 'Kampala ⇄ Malaba Customs Terminal (Northern Corridor)',
+    name: 'Malaba OSBP Border ⇄ Tororo ⇄ Kampala Namanve Hub',
     countryCode: 'UG',
     serviceType: 'truck',
     defaultDistanceKm: 220,
     defaultDurationMin: 280,
-    defaultTons: 20,
-    note: 'East Africa Northern Transit Corridor linking Mombasa to Uganda',
+    defaultTons: 24,
+    note: 'Northern Transit Corridor connecting Kenya SGR to Kampala manufacturing',
+    gateway: 'MTN MoMo / Airtel Money',
   },
   {
+    id: 'corridor-entebbe-express',
+    name: 'Entebbe International Airport ⇄ Kampala CBD Express',
+    countryCode: 'UG',
+    serviceType: 'ride',
+    defaultDistanceKm: 42,
+    defaultDurationMin: 45,
+    defaultTons: 0,
+    note: 'High-speed airport corridor with integrated electronic toll collection',
+    gateway: 'MTN MoMo Open API',
+  },
+
+  // 🇷🇼 Rwanda
+  {
     id: 'corridor-kgl-heights',
-    name: 'Kigali Heights → Special Economic Zone (Masoro)',
+    name: 'Kigali Heights → Kimihurura Convention Center Ride',
     countryCode: 'RW',
     serviceType: 'ride',
-    defaultDistanceKm: 16,
-    defaultDurationMin: 32,
+    defaultDistanceKm: 14,
+    defaultDurationMin: 28,
     defaultTons: 0,
-    note: 'Clean urban corridor regulated by National Bank of Rwanda',
+    note: 'Clean urban corridor regulated by National Bank of Rwanda (BNR)',
+    gateway: 'MTN MoMo Rwanda',
+  },
+  {
+    id: 'corridor-klp-rusumo',
+    name: 'Kigali Logistics Platform (KLP Masaka) ⇄ Rusumo OSBP',
+    countryCode: 'RW',
+    serviceType: 'truck',
+    defaultDistanceKm: 165,
+    defaultDurationMin: 210,
+    defaultTons: 28,
+    note: 'Central Corridor gateway connecting Rwanda to Tanzania maritime ports',
+    gateway: 'MTN MoMo Pay BNR',
+  },
+
+  // 🇹🇿 Tanzania
+  {
+    id: 'corridor-dar-kariakoo',
+    name: 'Dar es Salaam CBD Kariakoo Commercial Ride',
+    countryCode: 'TZ',
+    serviceType: 'ride',
+    defaultDistanceKm: 11,
+    defaultDurationMin: 35,
+    defaultTons: 0,
+    note: 'Coastal commercial mobility with Vodacom M-Pesa instant fare clearing',
+    gateway: 'Vodacom M-Pesa TZ',
   },
   {
     id: 'corridor-dar-port',
-    name: 'Dar es Salaam Port ⇄ Morogoro Central Route',
+    name: 'Dar es Salaam Port Kurasini ⇄ Isaka Dry Port Route',
     countryCode: 'TZ',
     serviceType: 'truck',
-    defaultDistanceKm: 190,
-    defaultDurationMin: 240,
-    defaultTons: 28,
-    note: 'Tanzania maritime container transit into interior dry hubs',
+    defaultDistanceKm: 520,
+    defaultDurationMin: 600,
+    defaultTons: 30,
+    note: 'Tanzania maritime container transit into interior Great Lakes dry hubs',
+    gateway: 'TISS / M-Pesa B2C',
+  },
+
+  // 🇩🇯 Djibouti
+  {
+    id: 'corridor-dj-balbala',
+    name: 'Djibouti City Center → Balbala Port District Ride',
+    countryCode: 'DJ',
+    serviceType: 'ride',
+    defaultDistanceKm: 9,
+    defaultDurationMin: 20,
+    defaultTons: 0,
+    note: 'Urban harbor transit linking ministerial district to residential port zone',
+    gateway: 'D-Money Djibouti Telecom',
   },
   {
+    id: 'corridor-doraleh-galafi',
+    name: 'Doraleh Multipurpose Port (DMP) ⇄ Galafi Border Link',
+    countryCode: 'DJ',
+    serviceType: 'truck',
+    defaultDistanceKm: 215,
+    defaultDurationMin: 260,
+    defaultTons: 34,
+    note: 'Red Sea Deepwater container terminal to Ethiopia bonded customs border',
+    gateway: 'D-Money / BCIMR Clearing',
+  },
+
+  // 🇸🇴 Somalia
+  {
     id: 'corridor-mgq-airport',
-    name: 'Mogadishu Aden Adde Airport ⇄ Port Gateway',
+    name: 'Mogadishu Aden Adde Airport ⇄ Bakara Commercial Ride',
     countryCode: 'SO',
     serviceType: 'ride',
     defaultDistanceKm: 14,
     defaultDurationMin: 25,
     defaultTons: 0,
-    note: 'High-security transport corridor operating on USD/EVC Plus',
+    note: 'Secure transport corridor operating on USD/EVC Plus mobile wallet',
+    gateway: 'Hormuud EVC Plus (USD)',
   },
   {
-    id: 'corridor-jub-river',
-    name: 'Juba River Port ⇄ Custom Market Transit',
+    id: 'corridor-berbera-hargeisa',
+    name: 'Berbera Port DP World Terminal ⇄ Tog Wajaale Border',
+    countryCode: 'SO',
+    serviceType: 'truck',
+    defaultDistanceKm: 240,
+    defaultDurationMin: 300,
+    defaultTons: 25,
+    note: 'DP World deepwater hub connecting Somaliland trade to Eastern Ethiopia',
+    gateway: 'Telesom Zaad / EVC Plus',
+  },
+
+  // 🇸🇸 South Sudan
+  {
+    id: 'corridor-jub-custom',
+    name: 'Juba Munuki ⇄ Konyo Konyo Market Urban Ride',
+    countryCode: 'SS',
+    serviceType: 'ride',
+    defaultDistanceKm: 10,
+    defaultDurationMin: 26,
+    defaultTons: 0,
+    note: 'Juba urban mobility operating with m-GURUSH electronic payment rail',
+    gateway: 'm-GURUSH Mobile Money',
+  },
+  {
+    id: 'corridor-nimule-juba',
+    name: 'Nimule Border OSBP ⇄ Juba River Port Lifeline Route',
     countryCode: 'SS',
     serviceType: 'truck',
-    defaultDistanceKm: 25,
-    defaultDurationMin: 50,
-    defaultTons: 15,
-    note: 'White Nile inland river port connection to Juba retail depots',
+    defaultDistanceKm: 195,
+    defaultDurationMin: 240,
+    defaultTons: 26,
+    note: 'White Nile humanitarian lifeline connecting Uganda imports into South Sudan',
+    gateway: 'm-GURUSH / BSS Clearing',
   },
 ];
 
 export const PricingSurgeFlagsView: React.FC<PricingSurgeFlagsViewProps> = ({
+  darkMode = true,
+  user,
+  userRole = 'Super Admin',
+  userJurisdiction = 'ALL',
+  userJurisdictionName,
+  assignedCorridors,
+  userName,
   onGuardPermission,
   onNotify,
 }) => {
   const [activeTab, setActiveTab] = useState<StudioTab>('pricing');
-  const [selectedCountry, setSelectedCountry] = useState<EastAfricaCountryCode | 'ALL'>('ALL');
+
+  // Resolve initial country from operator persona
+  const resolveOperatorCountry = (): EastAfricaCountryCode | 'ALL' => {
+    if (userJurisdiction && userJurisdiction !== 'ALL') return userJurisdiction;
+    if (user?.jurisdictionCountry && user.jurisdictionCountry !== 'ALL') return user.jurisdictionCountry;
+    return 'ALL';
+  };
+
+  const [selectedCountry, setSelectedCountry] = useState<EastAfricaCountryCode | 'ALL'>(() => resolveOperatorCountry());
   const [config, setConfig] = useState<SuperAppRuntimeConfig | null>(null);
   const [configSource, setConfigSource] = useState<string>('governance-store');
   const [loading, setLoading] = useState(true);
@@ -169,6 +334,21 @@ export const PricingSurgeFlagsView: React.FC<PricingSurgeFlagsViewProps> = ({
   const [simTonnage, setSimTonnage] = useState<number>(20);
   const [simPriorityMultiplier, setSimPriorityMultiplier] = useState<number>(1.0);
   const [simSurgeMultiplier, setSimSurgeMultiplier] = useState<number>(1.0);
+
+  // Sync with persona/jurisdiction changes in top bar
+  useEffect(() => {
+    const operatorStation = resolveOperatorCountry();
+    setSelectedCountry(operatorStation);
+    if (operatorStation !== 'ALL') {
+      const matchingPreset = REGIONAL_CORRIDOR_PRESETS.find((p) => p.countryCode === operatorStation);
+      if (matchingPreset) {
+        setSelectedCorridorPresetId(matchingPreset.id);
+        setSimDistanceKm(matchingPreset.defaultDistanceKm);
+        setSimDurationMin(matchingPreset.defaultDurationMin);
+        setSimTonnage(matchingPreset.defaultTons || 20);
+      }
+    }
+  }, [userJurisdiction, user?.jurisdictionCountry]);
 
   const loadRuntimeConfig = async () => {
     setLoading(true);
@@ -508,6 +688,10 @@ export const PricingSurgeFlagsView: React.FC<PricingSurgeFlagsViewProps> = ({
     onNotify('CSV Exported', `Downloaded ${activeTab} configuration table for ${selectedCountry}.`, 'success');
   };
 
+  const userStationCountry = user?.jurisdictionCountry || userJurisdiction || 'ALL';
+  const isAssignedToSpecificCountry = userStationCountry !== 'ALL';
+  const assignedHub = isAssignedToSpecificCountry ? EAST_AFRICA_HUBS[userStationCountry] : null;
+
   if (loading || !config) {
     return (
       <div className="space-y-4 animate-pulse">
@@ -519,7 +703,7 @@ export const PricingSurgeFlagsView: React.FC<PricingSurgeFlagsViewProps> = ({
 
   return (
     <div className="space-y-6">
-      {/* Header */}
+      {/* View Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-slate-200 dark:border-slate-800">
         <div>
           <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
@@ -552,6 +736,64 @@ export const PricingSurgeFlagsView: React.FC<PricingSurgeFlagsViewProps> = ({
         </div>
       </div>
 
+      {/* Operator Station Governance Context Banner */}
+      <div className="p-4 rounded-xl border border-cyan-500/20 bg-linear-to-r from-cyan-950/40 via-slate-900 to-slate-900/80 text-white shadow-xs">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="flex items-start sm:items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-cyan-500/20 border border-cyan-500/30 flex items-center justify-center text-lg shrink-0">
+              {assignedHub ? assignedHub.flag : '🌐'}
+            </div>
+            <div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-xs uppercase tracking-wider font-mono text-cyan-400 font-semibold">
+                  Operator Tariff Governance
+                </span>
+                <span aria-hidden="true" className="text-slate-600">·</span>
+                <span className="text-xs font-bold text-slate-200">
+                  {userName || user?.name || 'Authorized Tariff Admin'} ({userRole})
+                </span>
+                <span aria-hidden="true" className="text-slate-600">·</span>
+                <span className="text-xs text-slate-300">
+                  Station: <strong className="text-cyan-300">{user?.jurisdictionName || (assignedHub ? assignedHub.countryName : 'Pan-East Africa Cross-Border Matrix')}</strong>
+                </span>
+              </div>
+              <p className="text-xs text-slate-300 mt-1">
+                {isAssignedToSpecificCountry && assignedHub ? (
+                  <span>
+                    Direct statutory pricing &amp; surge authority under <strong>{assignedHub.regulator}</strong>. Native currency: <strong>{assignedHub.currency} ({assignedHub.currencySymbol})</strong> at 1 {assignedHub.currency} = {assignedHub.exchangeRateToETB} ETB base. Corridors: {assignedCorridors && assignedCorridors.length > 0 ? assignedCorridors.join(' · ') : assignedHub.settlementCorridorNote}.
+                  </span>
+                ) : (
+                  <span>
+                    Pan-regional cross-border tariff authority covering all 8 member states: Ethiopia, Kenya, Uganda, Rwanda, Tanzania, Djibouti, Somalia, and South Sudan with real-time surge balancing and corridor escrows.
+                  </span>
+                )}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 shrink-0 self-start sm:self-auto">
+            {isAssignedToSpecificCountry && selectedCountry !== userStationCountry && (
+              <button
+                type="button"
+                onClick={() => handleCountryChange(userStationCountry)}
+                className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-cyan-600 hover:bg-cyan-500 text-white shadow-xs transition-colors flex items-center gap-1.5"
+              >
+                <span>Snap to My Station ({userStationCountry})</span>
+              </button>
+            )}
+            {selectedCountry !== 'ALL' && (
+              <button
+                type="button"
+                onClick={() => handleCountryChange('ALL')}
+                className="px-3 py-1.5 rounded-lg text-xs font-medium border border-slate-700 bg-slate-800/80 hover:bg-slate-700 text-slate-200 transition-colors"
+              >
+                View Pan-East Africa Grid
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+
       {/* East Africa Regional Country Selector Bar */}
       <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xs space-y-3">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
@@ -568,6 +810,7 @@ export const PricingSurgeFlagsView: React.FC<PricingSurgeFlagsViewProps> = ({
 
         <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-thin">
           <button
+            type="button"
             onClick={() => handleCountryChange('ALL')}
             className={`px-3 py-2 rounded-lg text-xs font-semibold transition-all shrink-0 flex items-center gap-2 border ${
               selectedCountry === 'ALL'
@@ -585,11 +828,14 @@ export const PricingSurgeFlagsView: React.FC<PricingSurgeFlagsViewProps> = ({
           {(Object.keys(EAST_AFRICA_HUBS) as EastAfricaCountryCode[]).map((cCode) => {
             const hub = EAST_AFRICA_HUBS[cCode];
             const isSelected = selectedCountry === cCode;
+            const isOperatorStation = userStationCountry === cCode;
+
             return (
               <button
                 key={cCode}
+                type="button"
                 onClick={() => handleCountryChange(cCode)}
-                className={`px-3 py-2 rounded-lg text-xs font-semibold transition-all shrink-0 flex items-center gap-2 border ${
+                className={`px-3 py-2 rounded-lg text-xs font-semibold transition-all shrink-0 flex items-center gap-2 border relative ${
                   isSelected
                     ? 'bg-cyan-600 text-white border-cyan-600 shadow-sm ring-2 ring-cyan-500/20'
                     : 'bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700/80'
@@ -600,6 +846,11 @@ export const PricingSurgeFlagsView: React.FC<PricingSurgeFlagsViewProps> = ({
                 <span className={`px-1.5 py-0.2 rounded text-[10px] font-mono uppercase ${isSelected ? 'bg-white/20 text-white' : 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-400'}`}>
                   {hub.currency}
                 </span>
+                {isOperatorStation && (
+                  <span className="px-1 py-0.2 rounded text-[9px] font-bold bg-amber-400 text-slate-900 ml-0.5">
+                    Your Station
+                  </span>
+                )}
               </button>
             );
           })}
@@ -611,13 +862,18 @@ export const PricingSurgeFlagsView: React.FC<PricingSurgeFlagsViewProps> = ({
             <div className="flex items-center gap-3">
               <span className="text-3xl">{activeHub.flag}</span>
               <div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                   <h3 className="font-bold text-slate-900 dark:text-white text-sm">
                     {activeHub.countryName} Dynamic Tariff Profile
                   </h3>
                   <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-cyan-100 dark:bg-cyan-950 text-cyan-800 dark:text-cyan-300 border border-cyan-500/30">
                     Regulator: {currentPricing.regulator}
                   </span>
+                  {userStationCountry === activeHub.countryCode && (
+                    <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-500/30">
+                      Primary Operator Assigned Hub
+                    </span>
+                  )}
                 </div>
                 <p className="text-[11px] text-slate-600 dark:text-slate-400 mt-0.5">
                   <span className="font-semibold text-slate-700 dark:text-slate-300">Strategic Corridor:</span> {currentPricing.corridorNotes || activeHub.settlementCorridorNote}
@@ -625,21 +881,21 @@ export const PricingSurgeFlagsView: React.FC<PricingSurgeFlagsViewProps> = ({
               </div>
             </div>
 
-            <div className="flex items-center gap-4 shrink-0 pt-2 md:pt-0 border-t md:border-t-0 border-slate-200 dark:border-slate-700">
+            <div className="flex items-center gap-4 shrink-0 pt-2 md:pt-0 border-t md:border-t-0 border-slate-200 dark:border-slate-700 flex-wrap">
               <div>
                 <span className="text-[10px] text-slate-500 dark:text-slate-400 uppercase tracking-wider block">Base Currency</span>
                 <span className="font-mono font-bold text-slate-900 dark:text-white">
                   {currentPricing.currency} ({currentPricing.currencySymbol})
                 </span>
               </div>
-              <div className="h-6 w-px bg-slate-200 dark:bg-slate-700" />
+              <div className="h-6 w-px bg-slate-200 dark:bg-slate-700 hidden sm:block" />
               <div>
                 <span className="text-[10px] text-slate-500 dark:text-slate-400 uppercase tracking-wider block">ETB Peg / Rate</span>
                 <span className="font-mono font-bold text-emerald-600 dark:text-emerald-400">
                   1 {currentPricing.currency} = {currentPricing.exchangeRateToETB} ETB
                 </span>
               </div>
-              <div className="h-6 w-px bg-slate-200 dark:bg-slate-700" />
+              <div className="h-6 w-px bg-slate-200 dark:bg-slate-700 hidden sm:block" />
               <div>
                 <span className="text-[10px] text-slate-500 dark:text-slate-400 uppercase tracking-wider block">Statutory Withholding</span>
                 <span className="font-mono font-bold text-purple-600 dark:text-purple-400">
@@ -1272,7 +1528,7 @@ export const PricingSurgeFlagsView: React.FC<PricingSurgeFlagsViewProps> = ({
                       </span>
                       {fareSimulation.currency !== 'ETB' && (
                         <span className="text-[10px] text-slate-400 block font-normal">
-                          ≈ ETB {fareSimulation.rideGrossETB.toFixed(2)}
+                          ≈ ETB {fareSimulation.rideGrossETB.toFixed(2)} base
                         </span>
                       )}
                     </div>
@@ -1315,7 +1571,7 @@ export const PricingSurgeFlagsView: React.FC<PricingSurgeFlagsViewProps> = ({
                       </span>
                       {fareSimulation.currency !== 'ETB' && (
                         <span className="text-[10px] text-slate-400 block font-normal">
-                          ≈ ETB {Math.round(fareSimulation.truckGrossETB).toLocaleString()}
+                          ≈ ETB {Math.round(fareSimulation.truckGrossETB).toLocaleString()} base
                         </span>
                       )}
                     </div>
@@ -1376,7 +1632,14 @@ export const PricingSurgeFlagsView: React.FC<PricingSurgeFlagsViewProps> = ({
                   onClick={() => handleBulkSetCountrySurge(1.25)}
                   className="px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-300 border border-amber-500/30 transition-colors"
                 >
-                  Apply 1.25x
+                  Apply 1.25x Peak
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleBulkSetCountrySurge(1.50)}
+                  className="px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-rose-500/10 hover:bg-rose-500/20 text-rose-700 dark:text-rose-300 border border-rose-500/30 transition-colors"
+                >
+                  Apply 1.50x Weather
                 </button>
                 <button
                   type="button"
@@ -1450,24 +1713,22 @@ export const PricingSurgeFlagsView: React.FC<PricingSurgeFlagsViewProps> = ({
                           </span>
                         </td>
                         <td className="py-2.5 px-4 text-right font-mono tabular-nums">
-                          <span className="text-slate-900 dark:text-white font-semibold">
-                            {zone.activeRequests} req
-                          </span>{' '}
-                          / <span className="text-slate-500">{zone.availableDrivers} fleet</span>
-                          <span className="text-[10px] text-slate-400 block font-normal">
+                          <div className="font-bold text-slate-900 dark:text-white">
+                            {zone.activeRequests} req / {zone.availableDrivers} fleet
+                          </div>
+                          <div className="text-[11px] text-slate-500 dark:text-slate-400">
                             Pressure: {pressure}x
-                          </span>
+                          </div>
                         </td>
                         <td className="py-2.5 px-4 text-right">
                           <span
-                            className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md font-mono font-bold tabular-nums text-xs ${
+                            className={`font-mono font-bold text-sm px-2 py-0.5 rounded-md ${
                               isSurgeHigh
-                                ? 'bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-200 border border-amber-500/40'
-                                : 'bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200'
+                                ? 'bg-amber-100 dark:bg-amber-950/80 text-amber-700 dark:text-amber-300 border border-amber-300 dark:border-amber-700'
+                                : 'text-slate-800 dark:text-slate-200'
                             }`}
                           >
-                            <Flame className={`w-3 h-3 ${isSurgeHigh ? 'text-amber-600 dark:text-amber-400' : 'text-slate-400'}`} />
-                            <span>{zone.currentMultiplier.toFixed(2)}x</span>
+                            {zone.currentMultiplier.toFixed(2)}x
                           </span>
                         </td>
                         <td className="py-2.5 px-4">
@@ -1477,9 +1738,9 @@ export const PricingSurgeFlagsView: React.FC<PricingSurgeFlagsViewProps> = ({
                             onClick={() =>
                               handleAdjustSurge(zone, zone.currentMultiplier, !zone.autoSurgeEnabled)
                             }
-                            className={`px-2 py-0.5 rounded text-[11px] font-semibold transition-colors ${
+                            className={`px-2 py-1 rounded-md text-[11px] font-semibold transition-colors ${
                               zone.autoSurgeEnabled
-                                ? 'bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30'
+                                ? 'bg-cyan-50 dark:bg-cyan-950/60 text-cyan-700 dark:text-cyan-300 border border-cyan-500/30'
                                 : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-300 dark:border-slate-700'
                             }`}
                           >
@@ -1487,7 +1748,7 @@ export const PricingSurgeFlagsView: React.FC<PricingSurgeFlagsViewProps> = ({
                           </button>
                         </td>
                         <td className="py-2.5 px-4 text-right">
-                          <div className="flex items-center justify-end gap-1">
+                          <div className="flex items-center justify-end gap-1.5">
                             <button
                               type="button"
                               disabled={busyItem === zone.zoneId || zone.currentMultiplier <= 1.0}
@@ -1633,7 +1894,7 @@ export const PricingSurgeFlagsView: React.FC<PricingSurgeFlagsViewProps> = ({
               <div className="flex items-center gap-2">
                 <Smartphone className="w-4 h-4 text-cyan-600 dark:text-cyan-400" />
                 <h3 className="text-sm font-bold text-slate-900 dark:text-white">
-                  Flutter Client Role Preview
+                  Flutter Client Role Preview ({selectedCountry === 'ALL' ? 'Pan-East Africa' : selectedCountry})
                 </h3>
               </div>
               <p className="text-xs text-slate-500 dark:text-slate-400">
@@ -1657,30 +1918,123 @@ export const PricingSurgeFlagsView: React.FC<PricingSurgeFlagsViewProps> = ({
                 ))}
               </div>
 
-              <div className="space-y-2 pt-2">
-                <h4 className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-                  Active Features for {previewRole.replace('_', ' ').toUpperCase()} ({roleLauncherFlags.length}):
-                </h4>
-                {roleLauncherFlags.length === 0 ? (
-                  <p className="text-xs text-slate-400 p-3 bg-slate-50 dark:bg-slate-800/40 rounded-lg text-center">
-                    No active features for this role.
-                  </p>
-                ) : (
-                  roleLauncherFlags.map((rf) => (
-                    <div
-                      key={rf.key}
-                      className="p-2.5 rounded-lg border border-emerald-200 dark:border-emerald-900/60 bg-emerald-50/40 dark:bg-emerald-950/20 flex items-center justify-between text-xs"
-                    >
-                      <div className="flex items-center gap-2">
-                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
-                        <span className="font-medium text-slate-900 dark:text-white">{rf.name}</span>
-                      </div>
-                      <span className="text-[10px] font-mono text-emerald-700 dark:text-emerald-300 font-semibold">
-                        {rf.rolloutPercentage}%
+              {/* Handset Mockup Container */}
+              <div className="p-4 rounded-2xl bg-slate-950 text-white border border-slate-800 space-y-3 font-sans shadow-inner">
+                <div className="flex items-center justify-between text-[11px] text-slate-400 border-b border-slate-800 pb-2">
+                  <div className="flex items-center gap-1">
+                    <span>{activeHub ? activeHub.flag : '🌍'}</span>
+                    <span className="font-semibold text-slate-200">
+                      {activeHub ? activeHub.countryName : 'East Africa SuperApp'}
+                    </span>
+                  </div>
+                  <span className="font-mono text-[10px] text-cyan-400 uppercase">
+                    Role: {previewRole}
+                  </span>
+                </div>
+
+                {/* Role Specific Live Preview */}
+                {previewRole === 'customer' && (
+                  <div className="p-3 rounded-xl bg-slate-900/90 border border-slate-800 space-y-2">
+                    <div className="flex justify-between items-center text-xs">
+                      <span className="font-bold text-white flex items-center gap-1">
+                        <Car className="w-3.5 h-3.5 text-cyan-400" />
+                        <span>Ride Hailing Quote</span>
+                      </span>
+                      <span className="px-1.5 py-0.5 rounded text-[9px] font-mono bg-cyan-500/20 text-cyan-300">
+                        AmbaLay GPS
                       </span>
                     </div>
-                  ))
+                    <div className="text-sm font-mono font-bold text-emerald-400">
+                      {currentPricing?.currency || 'ETB'} {fareSimulation?.rideGrossNative.toFixed(2)}
+                    </div>
+                    <p className="text-[10px] text-slate-400">
+                      Payment Rail: {activeHub?.gateways[0]?.name || 'Mobile Money'}
+                    </p>
+                  </div>
                 )}
+
+                {previewRole === 'driver' && (
+                  <div className="p-3 rounded-xl bg-slate-900/90 border border-slate-800 space-y-2">
+                    <div className="flex justify-between items-center text-xs">
+                      <span className="font-bold text-white flex items-center gap-1">
+                        <Coins className="w-3.5 h-3.5 text-emerald-400" />
+                        <span>Driver Net Payout</span>
+                      </span>
+                      <span className="px-1.5 py-0.5 rounded text-[9px] font-mono bg-emerald-500/20 text-emerald-300">
+                        83% Net
+                      </span>
+                    </div>
+                    <div className="text-sm font-mono font-bold text-emerald-400">
+                      {currentPricing?.currency || 'ETB'} {fareSimulation?.rideNetNative.toFixed(2)}
+                    </div>
+                    <p className="text-[10px] text-slate-400">
+                      Tax Withheld: {currentPricing?.withholdingTaxPct ?? 2}% ({currentPricing?.regulator || 'Central Bank'})
+                    </p>
+                  </div>
+                )}
+
+                {previewRole === 'vehicle_owner' && (
+                  <div className="p-3 rounded-xl bg-slate-900/90 border border-slate-800 space-y-2">
+                    <div className="flex justify-between items-center text-xs">
+                      <span className="font-bold text-white flex items-center gap-1">
+                        <Truck className="w-3.5 h-3.5 text-blue-400" />
+                        <span>Freight Escrow Dispatch</span>
+                      </span>
+                      <span className="px-1.5 py-0.5 rounded text-[9px] font-mono bg-blue-500/20 text-blue-300">
+                        Auto-Bid Active
+                      </span>
+                    </div>
+                    <div className="text-sm font-mono font-bold text-blue-400">
+                      {currentPricing?.currency || 'ETB'} {fareSimulation ? Math.round(fareSimulation.truckGrossNative).toLocaleString() : '0'}
+                    </div>
+                    <p className="text-[10px] text-slate-400">
+                      Bidding Window: {currentPricing?.autoBidWindowMinutes ?? 20} min · Floor: {currentPricing?.biddingFloorPct ?? 85}%
+                    </p>
+                  </div>
+                )}
+
+                {previewRole === 'admin' && (
+                  <div className="p-3 rounded-xl bg-slate-900/90 border border-slate-800 space-y-1.5 text-[11px] font-mono">
+                    <div className="flex justify-between text-slate-400">
+                      <span>Parse Bridge:</span>
+                      <span className="text-emerald-400">CONNECTED</span>
+                    </div>
+                    <div className="flex justify-between text-slate-400">
+                      <span>Rate to ETB:</span>
+                      <span className="text-cyan-300">1 {currentPricing?.currency || 'ETB'} = {currentPricing?.exchangeRateToETB ?? 1.0} ETB</span>
+                    </div>
+                    <div className="flex justify-between text-slate-400">
+                      <span>Surge Multiplier:</span>
+                      <span className="text-amber-300">{simSurgeMultiplier.toFixed(2)}x</span>
+                    </div>
+                  </div>
+                )}
+
+                <div className="space-y-1.5 pt-1">
+                  <h4 className="text-[11px] font-semibold text-slate-300">
+                    Active Tiles ({roleLauncherFlags.length}):
+                  </h4>
+                  {roleLauncherFlags.length === 0 ? (
+                    <p className="text-[10px] text-slate-500 p-2 bg-slate-900 rounded-lg text-center">
+                      No flags active for this role.
+                    </p>
+                  ) : (
+                    roleLauncherFlags.slice(0, 4).map((rf) => (
+                      <div
+                        key={rf.key}
+                        className="p-2 rounded-lg bg-slate-900 border border-slate-800 flex items-center justify-between text-[11px]"
+                      >
+                        <div className="flex items-center gap-1.5 truncate">
+                          <CheckCircle2 className="w-3 h-3 text-emerald-400 shrink-0" />
+                          <span className="truncate text-slate-200">{rf.name}</span>
+                        </div>
+                        <span className="text-[9px] font-mono text-cyan-400 shrink-0">
+                          {rf.rolloutPercentage}%
+                        </span>
+                      </div>
+                    ))
+                  )}
+                </div>
               </div>
             </div>
           </div>

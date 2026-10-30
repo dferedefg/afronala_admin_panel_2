@@ -42,6 +42,7 @@ import {
   TrafficCorridor,
   TrafficHeatmapPoint,
 } from '../types';
+import { EAST_AFRICA_GEOMAP_ENGINES } from '../services/eastAfricaMaps';
 
 interface AmbaLayMapsConsoleProps {
   darkMode: boolean;
@@ -59,7 +60,7 @@ const PRESET_LOCATIONS = [
 ];
 
 export const AmbaLayMapsConsole: React.FC<AmbaLayMapsConsoleProps> = ({ darkMode }) => {
-  const [activeTab, setActiveTab] = useState<'routing' | 'geocoding' | 'matrix' | 'trips' | 'flutter' | 'traffic_geofences'>('routing');
+  const [activeTab, setActiveTab] = useState<'routing' | 'geocoding' | 'matrix' | 'trips' | 'flutter' | 'traffic_geofences' | 'regional_engines'>('routing');
   const [status, setStatus] = useState<AmbaLayServiceStatus | null>(null);
   const [isPinging, setIsPinging] = useState(false);
   const [copiedCode, setCopiedCode] = useState(false);
@@ -483,6 +484,18 @@ class AmbaLayMapsClient {
         >
           <Flame className="w-4 h-4 text-amber-600 dark:text-amber-400" />
           <span>Live Traffic &amp; Geofencing</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('regional_engines')}
+          className={`flex items-center gap-2 px-4 py-2.5 text-xs font-semibold border-b-2 transition-all whitespace-nowrap shrink-0 ${
+            activeTab === 'regional_engines'
+              ? 'border-cyan-600 dark:border-cyan-400 text-cyan-700 dark:text-cyan-400 bg-cyan-50 dark:bg-cyan-500/10'
+              : 'border-transparent text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
+          }`}
+        >
+          <Globe className="w-4 h-4 text-cyan-600 dark:text-cyan-400" />
+          <span>8 East African GeoMap Engines</span>
         </button>
       </div>
 
@@ -1358,6 +1371,92 @@ class AmbaLayMapsClient {
                 </div>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* TAB 7: 8 East African GeoMap Engines */}
+      {activeTab === 'regional_engines' && (
+        <div className="space-y-6">
+          <div className="p-4 rounded-xl border border-cyan-200 dark:border-cyan-900/50 bg-gradient-to-r from-cyan-50/70 via-blue-50/40 to-slate-50/40 dark:from-cyan-950/20 dark:via-blue-950/20 dark:to-slate-900/40">
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 rounded-xl bg-cyan-600 text-white flex items-center justify-center shrink-0 shadow-xs">
+                <Globe className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="font-bold text-sm text-slate-900 dark:text-white">
+                  East African Regional GeoMap Engines &amp; Corridor Navigation
+                </h3>
+                <p className="text-xs text-slate-600 dark:text-slate-400 mt-0.5 leading-relaxed">
+                  AmbaLay Maps Ethiopia serves as the primary Ethiopian GeoMap platform delivering centimetre-precision addressing and highland tollway routing for ride hailing and heavy truck freight. Each partner East African jurisdiction integrates its specialized national GeoMap engine with cross-border interoperability.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {Object.values(EAST_AFRICA_GEOMAP_ENGINES).map((engine) => (
+              <div
+                key={engine.countryCode}
+                className={`p-5 rounded-xl border ${darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'} space-y-3`}
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xl">{engine.flag}</span>
+                      <h4 className="font-bold text-base text-slate-900 dark:text-white">
+                        {engine.engineName}
+                      </h4>
+                    </div>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                      {engine.provider} · <span className="font-mono">{engine.apiVersion}</span>
+                    </p>
+                  </div>
+                  <span className="text-xs font-mono font-bold px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+                    {engine.latencyMs}ms
+                  </span>
+                </div>
+
+                <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
+                  {engine.specialization}
+                </p>
+
+                <div className="space-y-2 pt-2 border-t border-slate-100 dark:border-slate-800 text-xs">
+                  <div>
+                    <span className="text-[11px] font-semibold text-cyan-600 dark:text-cyan-400 block mb-0.5">
+                      🚗 Ride Hailing Capabilities:
+                    </span>
+                    <ul className="space-y-0.5 text-slate-600 dark:text-slate-400">
+                      {engine.rideHailingFeatures.map((f, i) => (
+                        <li key={i} className="flex items-start gap-1">
+                          <span className="text-cyan-500 font-bold">·</span>
+                          <span>{f}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+
+                  <div>
+                    <span className="text-[11px] font-semibold text-blue-600 dark:text-blue-400 block mb-0.5">
+                      🚛 Truck Delivery &amp; Corridor Capabilities:
+                    </span>
+                    <ul className="space-y-0.5 text-slate-600 dark:text-slate-400">
+                      {engine.truckDeliveryFeatures.map((f, i) => (
+                        <li key={i} className="flex items-start gap-1">
+                          <span className="text-blue-500 font-bold">·</span>
+                          <span>{f}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+
+                <div className="pt-2 border-t border-slate-100 dark:border-slate-800 text-[11px] text-slate-500 flex items-center justify-between">
+                  <span>Accuracy: <strong className="text-slate-800 dark:text-slate-200 font-mono">±{engine.geocodingAccuracyMeters}m</strong></span>
+                  <span>Daily Telemetry: <strong className="text-slate-800 dark:text-slate-200 font-mono">{engine.activeFleetPingsToday.toLocaleString()}</strong></span>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       )}

@@ -364,7 +364,7 @@ export interface AmbaLayTripData {
 
 // East Africa Cross-Border Payment Settlement Rails & Multi-Country Hubs
 export type EastAfricaCountryCode = 'ALL' | 'ET' | 'KE' | 'UG' | 'RW' | 'TZ' | 'DJ' | 'SO' | 'SS';
-export type EastAfricaCurrency = 'ETB' | 'KES' | 'UGX' | 'RWF' | 'TZS' | 'DJF' | 'USD' | 'SSP';
+export type EastAfricaCurrency = 'ETB' | 'KES' | 'UGX' | 'RWF' | 'TZS' | 'DJF' | 'USD' | 'SSP' | 'SOS';
 
 export type PaymentGateway =
   | 'telebirr'       // Ethiopia - Ethio Telecom

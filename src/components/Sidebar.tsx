@@ -345,19 +345,23 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </button>
           ))}
 
-          {!hasAnyCommerceModule && !collapsed && (
-            <button
-              onClick={() => onSelectTab('modules')}
-              className="w-full text-left p-2.5 rounded-xl border border-dashed border-slate-200 dark:border-slate-800 text-[11px] text-slate-500 hover:text-cyan-700 dark:hover:text-cyan-300 transition-colors flex items-center justify-between"
-              title="Configure in Module Management"
-            >
-              <span>5 modules standby</span>
-              <span className="text-[10px] font-semibold text-cyan-600 dark:text-cyan-400 flex items-center gap-0.5">
-                <Plus className="w-3 h-3" />
-                <span>Enable</span>
-              </span>
-            </button>
-          )}
+          <button
+            onClick={() => onSelectTab('commerce-standby')}
+            className={`w-full ${navItemClass(activeTab === 'commerce-standby')}`}
+            title="Modules Standby - Commerce & Lifestyle Services across East Africa"
+          >
+            <div className="text-amber-600 dark:text-amber-400">
+              <ShoppingBag className="w-4 h-4 shrink-0" />
+            </div>
+            {!collapsed && (
+              <div className="flex items-center justify-between flex-1 min-w-0">
+                <span className="truncate">Modules Standby</span>
+                <span className="text-[10px] font-mono font-medium text-amber-600 dark:text-amber-400">
+                  6 Services
+                </span>
+              </div>
+            )}
+          </button>
         </div>
 
         {/* ==================================================================== */}

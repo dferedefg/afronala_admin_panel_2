@@ -52,6 +52,8 @@ import { SuperAppMonorepoView } from './components/SuperAppMonorepoView';
 import { Back4AppDatabaseClassesView } from './components/Back4AppDatabaseClassesView';
 import { BridgeDiagnosticsView } from './components/BridgeDiagnosticsView';
 import { NotificationsView } from './components/NotificationsView';
+import { CommerceLifestyleStandbyView } from './components/CommerceLifestyleStandbyView';
+import { CommerceVerticalKey } from './services/eastAfricaCommerce';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { DEFAULT_EAST_AFRICA_NOTIFICATIONS } from './services/notifications';
 import { X, Smartphone, CheckCircle2, AlertTriangle, Info, ShieldAlert } from 'lucide-react';
@@ -644,9 +646,35 @@ export default function App() {
             />
           )}
 
+          {activeTab === 'commerce-standby' && (
+            <CommerceLifestyleStandbyView
+              darkMode={darkMode}
+              user={currentUser}
+              userRole={currentUser.role}
+              onGuardPermission={guardPermission}
+              onNotify={pushToast}
+              onNavigateModules={() => setActiveTab('modules')}
+            />
+          )}
+
           {activeTab.startsWith('module-') &&
             (() => {
               const modKey = activeTab.replace('module-', '');
+              const isCommerceVertical = ['food', 'marketplace', 'events', 'hotels', 'courier', 'wallet'].includes(modKey);
+              if (isCommerceVertical) {
+                return (
+                  <CommerceLifestyleStandbyView
+                    darkMode={darkMode}
+                    user={currentUser}
+                    userRole={currentUser.role}
+                    initialVertical={modKey as CommerceVerticalKey}
+                    onGuardPermission={guardPermission}
+                    onNotify={pushToast}
+                    onNavigateModules={() => setActiveTab('modules')}
+                  />
+                );
+              }
+
               const targetMod = modules.find((m) => m.key === modKey);
               if (!targetMod) {
                 return (
@@ -691,13 +719,27 @@ export default function App() {
 
           {activeTab === 'ambalay' && <AmbaLayMapsConsole darkMode={darkMode} />}
 
-          {activeTab === 'geofences' && <GeofenceManager darkMode={darkMode} drivers={drivers} />}
+          {activeTab === 'geofences' && (
+            <GeofenceManager
+              darkMode={darkMode}
+              drivers={drivers}
+              user={currentUser}
+              userRole={currentUser.role}
+              userJurisdiction={currentUser.jurisdictionCountry}
+              onGuardPermission={guardPermission}
+              onNotify={pushToast}
+            />
+          )}
 
           {activeTab === 'settlements' && (
             <PaymentSettlementsView
               darkMode={darkMode}
+              user={currentUser}
               userRole={currentUser.role}
+              userJurisdiction={currentUser.jurisdictionCountry}
+              userName={currentUser.name}
               onGuardPermission={guardPermission}
+              onNotify={pushToast}
             />
           )}
 
@@ -742,7 +784,12 @@ export default function App() {
           {activeTab === 'superapp-pricing' && (
             <PricingSurgeFlagsView
               darkMode={darkMode}
+              user={currentUser}
               userRole={currentUser.role}
+              userJurisdiction={currentUser.jurisdictionCountry}
+              userJurisdictionName={currentUser.jurisdictionName}
+              assignedCorridors={currentUser.assignedCorridors}
+              userName={currentUser.name}
               onGuardPermission={guardPermission}
               onNotify={pushToast}
             />
@@ -842,7 +889,14 @@ export default function App() {
               darkMode={darkMode}
               trips={trips}
               shipments={shipments}
+              user={currentUser}
               userRole={currentUser.role}
+              userJurisdiction={currentUser.jurisdictionCountry}
+              userJurisdictionName={currentUser.jurisdictionName}
+              assignedCorridors={currentUser.assignedCorridors}
+              userName={currentUser.name}
+              userEmail={currentUser.email}
+              onGuardPermission={guardPermission}
               onNotify={pushToast}
             />
           )}
