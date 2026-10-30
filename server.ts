@@ -13,6 +13,11 @@ import {
   rescanBack4AppClasses,
 } from './server/back4appClassInspector.ts';
 import { superAppGovernanceStore } from './server/superAppBridgeState.ts';
+import {
+  getCountryNodeTelemetry,
+  getAllEastAfricaNodeSummaries,
+  inferCountryFromActivityItem,
+} from './server/eastAfricaNodeDiagnostics.ts';
 
 dotenv.config();
 
@@ -200,6 +205,9 @@ app.get('/api/back4app/status', async (_req: Request, res: Response) => {
 app.post('/api/back4app/diagnostics/ping', async (req: Request, res: Response) => {
   const suiteStart = Date.now();
   const adminRole = (req.header('x-admin-role') || 'Super Admin').trim();
+  const requestedCountry = String(
+    req.body?.countryCode || req.header('x-user-country') || 'ET'
+  ).trim().toUpperCase();
   const rawSessionToken =
     typeof req.body?.sessionToken === 'string' ? req.body.sessionToken.trim() : '';
   const cleanupProbe = req.body?.cleanupProbe !== false;
@@ -221,6 +229,7 @@ app.post('/api/back4app/diagnostics/ping', async (req: Request, res: Response) =
       maskedAppId: maskSecret(BACK4APP_APP_ID),
       maskedClientKey: maskSecret(BACK4APP_CLIENT_KEY),
       simulatedFault: simulateFault,
+      countryTelemetry: getCountryNodeTelemetry(requestedCountry, simulatedLatency, false),
       handshake: {
         ok: false,
         statusCode: 502,
@@ -443,6 +452,12 @@ app.post('/api/back4app/diagnostics/ping', async (req: Request, res: Response) =
       ? 'degraded'
       : 'unreachable';
 
+  const countryTelemetry = getCountryNodeTelemetry(
+    requestedCountry,
+    handshakeLatencyMs,
+    overallStatus === 'healthy' || overallStatus === 'degraded'
+  );
+
   return res.json({
     id: `ping-${Date.now()}`,
     timestamp: new Date().toISOString(),
@@ -451,6 +466,7 @@ app.post('/api/back4app/diagnostics/ping', async (req: Request, res: Response) =
     parseBaseUrl: BACK4APP_BASE_URL,
     maskedAppId: maskSecret(BACK4APP_APP_ID),
     maskedClientKey: maskSecret(BACK4APP_CLIENT_KEY),
+    countryTelemetry,
     handshake: {
       ok: handshakeOk,
       statusCode: handshakeStatus,
@@ -482,6 +498,30 @@ app.post('/api/back4app/diagnostics/ping', async (req: Request, res: Response) =
       cleanupOk,
       cleanupLatencyMs,
     },
+  });
+});
+
+// East Africa Multi-Country Regional Bridge Nodes & Edge Relay Summary
+app.get('/api/back4app/diagnostics/east-africa-nodes', async (_req: Request, res: Response) => {
+  const t0 = Date.now();
+  let isOnline = true;
+  let latency = 40;
+  try {
+    const probe = await fetch(`${BACK4APP_BASE_URL}/classes/ModuleRegistry?limit=1`, {
+      headers: getParseHeaders(),
+    });
+    isOnline = probe.ok;
+    latency = Date.now() - t0;
+  } catch {
+    isOnline = false;
+    latency = Date.now() - t0;
+  }
+  const nodes = getAllEastAfricaNodeSummaries(latency, isOnline);
+  return res.json({
+    scannedAt: new Date().toISOString(),
+    totalNodes: nodes.length,
+    activeHealthyNodes: nodes.filter((n) => n.status === 'healthy').length,
+    nodes,
   });
 });
 
@@ -558,6 +598,7 @@ app.get('/api/back4app/activity-stream', async (req: Request, res: Response) => 
   const t0 = Date.now();
   const limit = Math.min(Math.max(Number(req.query.limit) || 40, 5), 100);
   const strictActivityLogOnly = req.query.strict === 'true';
+  const targetCountry = String(req.query.country || req.header('x-user-country') || '').trim().toUpperCase();
 
   const classifyActivityRow = (raw: Record<string, any>): {
     category: 'user_login' | 'ride_request' | 'truck_booking' | 'driver_status' | 'system';
@@ -675,6 +716,7 @@ app.get('/api/back4app/activity-stream', async (req: Request, res: Response) => 
 
     const events: any[] = rawActivityRows.map((row: any) => {
       const classified = classifyActivityRow(row);
+      const cInfo = inferCountryFromActivityItem(row);
       return {
         id: `actlog-${row.objectId}`,
         objectId: String(row.objectId),
@@ -687,6 +729,8 @@ app.get('/api/back4app/activity-stream', async (req: Request, res: Response) => 
         referenceId: classified.referenceId,
         statusLabel: classified.statusLabel,
         platform: String(row.platform || row.client || 'Android .apk'),
+        countryCode: cInfo.countryCode,
+        countryName: cInfo.countryName,
         createdAt: String(row.createdAt || row.updatedAt || new Date().toISOString()),
         updatedAt: String(row.updatedAt || row.createdAt || new Date().toISOString()),
       };
@@ -906,13 +950,20 @@ app.get('/api/back4app/activity-stream', async (req: Request, res: Response) => 
       return 0;
     });
 
+    const filtered =
+      targetCountry && targetCountry !== 'ALL'
+        ? events.filter((e) => (e.countryCode || 'ET') === targetCountry)
+        : events;
+    const finalEvents = filtered.length > 0 ? filtered : events;
+
     return res.json({
       fetchedAt: new Date().toISOString(),
       totalLatencyMs: Date.now() - t0,
       readOnly: true,
       strictActivityLogOnly,
+      selectedCountry: targetCountry || 'ALL',
       activityLogStatus,
-      events: events.slice(0, limit),
+      events: finalEvents.slice(0, limit),
     });
   } catch (error: any) {
     return res.status(502).json({
@@ -1592,7 +1643,7 @@ async function bootstrapServer() {
     const { createServer } = await import('vite');
     const vite = await createServer({
       server: {
-        middlewareMode: { server: httpServer },
+        middlewareMode: true,
         hmr: process.env.DISABLE_HMR !== 'true' ? { server: httpServer } : false,
       },
       appType: 'spa',

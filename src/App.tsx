@@ -752,6 +752,11 @@ export default function App() {
             <BridgeDiagnosticsView
               darkMode={darkMode}
               userRole={currentUser.role}
+              userJurisdiction={currentUser.jurisdictionCountry}
+              userJurisdictionName={currentUser.jurisdictionName}
+              assignedCorridors={currentUser.assignedCorridors}
+              userName={currentUser.name}
+              userEmail={currentUser.email}
               activePulses={activePulses}
               onPulsesUpdated={handlePulsesUpdated}
               onAcknowledgePulse={handleAcknowledgePulse}
@@ -768,6 +773,11 @@ export default function App() {
               vehicles={vehicles}
               trips={trips}
               userRole={currentUser.role}
+              userJurisdiction={currentUser.jurisdictionCountry}
+              userJurisdictionName={currentUser.jurisdictionName}
+              assignedCorridors={currentUser.assignedCorridors}
+              userName={currentUser.name}
+              userEmail={currentUser.email}
               onAddDriver={handleAddDriver}
               onUpdateDriverStatus={handleUpdateDriverStatus}
               onDeleteDriver={handleDeleteDriver}
@@ -784,6 +794,11 @@ export default function App() {
               darkMode={darkMode}
               shipments={shipments}
               userRole={currentUser.role}
+              userJurisdiction={currentUser.jurisdictionCountry}
+              userJurisdictionName={currentUser.jurisdictionName}
+              assignedCorridors={currentUser.assignedCorridors}
+              userName={currentUser.name}
+              userEmail={currentUser.email}
               onAddShipment={handleAddShipment}
               onUpdateShipmentStatus={handleUpdateShipmentStatus}
               onNotify={pushToast}

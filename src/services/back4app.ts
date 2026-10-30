@@ -24,6 +24,8 @@ import {
   Vehicle,
   VehicleStatus,
   WebhookSubscription,
+  EastAfricaCountryCode,
+  EastAfricaNodeDiagnosticSummary,
 } from '../types';
 import {
   evaluateDriverDocumentCompliance,
@@ -298,6 +300,36 @@ export const DEFAULT_DRIVERS: Driver[] = [
     earningsETB: 48000,
     joinedDate: 'Mar 2024',
   },
+  {
+    objectId: 'drv-seed-ke-3',
+    name: 'Kevin Ochieng',
+    phone: '+254 711 234 567',
+    vehicleModel: 'Mazda Demio SkyActiv',
+    vehiclePlate: 'KDA-104R',
+    status: 'Active',
+    rating: 4.9,
+    module: 'ride',
+    countryCode: 'KE',
+    countryName: 'Kenya',
+    tripsCompleted: 1120,
+    earningsETB: 54000,
+    joinedDate: 'Jan 2024',
+  },
+  {
+    objectId: 'drv-seed-ke-4',
+    name: 'Brian Mwangi',
+    phone: '+254 733 456 789',
+    vehicleModel: 'Toyota Fielder 1.5X',
+    vehiclePlate: 'KCP-552T',
+    status: 'Active',
+    rating: 4.8,
+    module: 'ride',
+    countryCode: 'KE',
+    countryName: 'Kenya',
+    tripsCompleted: 980,
+    earningsETB: 49500,
+    joinedDate: 'Feb 2024',
+  },
 
   // 🇺🇬 Uganda
   {
@@ -330,6 +362,36 @@ export const DEFAULT_DRIVERS: Driver[] = [
     earningsETB: 36000,
     joinedDate: 'Apr 2024',
   },
+  {
+    objectId: 'drv-seed-ug-3',
+    name: 'Patrick Mukasa',
+    phone: '+256 752 987 654',
+    vehicleModel: 'Toyota Spacio Eco',
+    vehiclePlate: 'UBF-341P',
+    status: 'Active',
+    rating: 4.8,
+    module: 'ride',
+    countryCode: 'UG',
+    countryName: 'Uganda',
+    tripsCompleted: 750,
+    earningsETB: 39000,
+    joinedDate: 'Feb 2024',
+  },
+  {
+    objectId: 'drv-seed-ug-4',
+    name: 'Grace Akello',
+    phone: '+256 782 112 233',
+    vehicleModel: 'Suzuki Alto K10',
+    vehiclePlate: 'UBJ-882L',
+    status: 'Verified',
+    rating: 4.9,
+    module: 'ride',
+    countryCode: 'UG',
+    countryName: 'Uganda',
+    tripsCompleted: 580,
+    earningsETB: 31000,
+    joinedDate: 'Mar 2024',
+  },
 
   // 🇷🇼 Rwanda
   {
@@ -346,6 +408,36 @@ export const DEFAULT_DRIVERS: Driver[] = [
     tripsCompleted: 260,
     earningsETB: 240000,
     joinedDate: 'Nov 2023',
+  },
+  {
+    objectId: 'drv-seed-rw-2',
+    name: 'Eric Nshimiyimana',
+    phone: '+250 788 334 455',
+    vehicleModel: 'Toyota Corolla Sedan',
+    vehiclePlate: 'RAE-442C',
+    status: 'Active',
+    rating: 4.9,
+    module: 'ride',
+    countryCode: 'RW',
+    countryName: 'Rwanda',
+    tripsCompleted: 920,
+    earningsETB: 47000,
+    joinedDate: 'Jan 2024',
+  },
+  {
+    objectId: 'drv-seed-rw-3',
+    name: 'Diane Uwase',
+    phone: '+250 788 556 677',
+    vehicleModel: 'Hyundai i10 Grand',
+    vehiclePlate: 'RAF-118K',
+    status: 'Verified',
+    rating: 4.8,
+    module: 'ride',
+    countryCode: 'RW',
+    countryName: 'Rwanda',
+    tripsCompleted: 640,
+    earningsETB: 33500,
+    joinedDate: 'Feb 2024',
   },
 
   // 🇹🇿 Tanzania
@@ -364,6 +456,36 @@ export const DEFAULT_DRIVERS: Driver[] = [
     earningsETB: 295000,
     joinedDate: 'Dec 2023',
   },
+  {
+    objectId: 'drv-seed-tz-2',
+    name: 'Baraka Mrema',
+    phone: '+255 713 112 233',
+    vehicleModel: 'Toyota IST Hatchback',
+    vehiclePlate: 'T-312-DRT',
+    status: 'Active',
+    rating: 4.8,
+    module: 'ride',
+    countryCode: 'TZ',
+    countryName: 'Tanzania',
+    tripsCompleted: 830,
+    earningsETB: 42000,
+    joinedDate: 'Jan 2024',
+  },
+  {
+    objectId: 'drv-seed-tz-3',
+    name: 'Neema Shirima',
+    phone: '+255 768 445 566',
+    vehicleModel: 'Suzuki Swift 1.2',
+    vehiclePlate: 'T-409-BCX',
+    status: 'Verified',
+    rating: 4.9,
+    module: 'ride',
+    countryCode: 'TZ',
+    countryName: 'Tanzania',
+    tripsCompleted: 710,
+    earningsETB: 37500,
+    joinedDate: 'Mar 2024',
+  },
 
   // 🇩🇯 Djibouti
   {
@@ -380,6 +502,36 @@ export const DEFAULT_DRIVERS: Driver[] = [
     tripsCompleted: 450,
     earningsETB: 380000,
     joinedDate: 'Jan 2024',
+  },
+  {
+    objectId: 'drv-seed-dj-2',
+    name: 'Omar Guelleh',
+    phone: '+253 77 88 99 00',
+    vehicleModel: 'Toyota Yaris Sedan',
+    vehiclePlate: 'DJ-1209-A',
+    status: 'Active',
+    rating: 4.8,
+    module: 'ride',
+    countryCode: 'DJ',
+    countryName: 'Djibouti',
+    tripsCompleted: 590,
+    earningsETB: 44000,
+    joinedDate: 'Jan 2024',
+  },
+  {
+    objectId: 'drv-seed-dj-3',
+    name: 'Fatouma Daher',
+    phone: '+253 77 44 55 66',
+    vehicleModel: 'Nissan Tiida 1.6',
+    vehiclePlate: 'DJ-3420-C',
+    status: 'Verified',
+    rating: 4.7,
+    module: 'ride',
+    countryCode: 'DJ',
+    countryName: 'Djibouti',
+    tripsCompleted: 420,
+    earningsETB: 31000,
+    joinedDate: 'Feb 2024',
   },
 
   // 🇸🇴 Somalia
@@ -398,6 +550,36 @@ export const DEFAULT_DRIVERS: Driver[] = [
     earningsETB: 260000,
     joinedDate: 'Feb 2024',
   },
+  {
+    objectId: 'drv-seed-so-2',
+    name: 'Abdi Shire',
+    phone: '+252 61 777 8899',
+    vehicleModel: 'Toyota Belta 1.3',
+    vehiclePlate: 'MOG-5542',
+    status: 'Active',
+    rating: 4.8,
+    module: 'ride',
+    countryCode: 'SO',
+    countryName: 'Somalia',
+    tripsCompleted: 630,
+    earningsETB: 38000,
+    joinedDate: 'Jan 2024',
+  },
+  {
+    objectId: 'drv-seed-so-3',
+    name: 'Yasmin Nur',
+    phone: '+252 63 444 1122',
+    vehicleModel: 'Toyota Probox Shuttle',
+    vehiclePlate: 'HRG-1029',
+    status: 'Verified',
+    rating: 4.7,
+    module: 'ride',
+    countryCode: 'SO',
+    countryName: 'Somalia',
+    tripsCompleted: 510,
+    earningsETB: 32000,
+    joinedDate: 'Mar 2024',
+  },
 
   // 🇸🇸 South Sudan
   {
@@ -415,9 +597,40 @@ export const DEFAULT_DRIVERS: Driver[] = [
     earningsETB: 230000,
     joinedDate: 'Mar 2024',
   },
+  {
+    objectId: 'drv-seed-ss-2',
+    name: 'Taban Lado',
+    phone: '+211 911 223 344',
+    vehicleModel: 'Toyota Rav4 AWD',
+    vehiclePlate: 'SSD-1192-B',
+    status: 'Active',
+    rating: 4.8,
+    module: 'ride',
+    countryCode: 'SS',
+    countryName: 'South Sudan',
+    tripsCompleted: 480,
+    earningsETB: 35000,
+    joinedDate: 'Jan 2024',
+  },
+  {
+    objectId: 'drv-seed-ss-3',
+    name: 'Mary Achol',
+    phone: '+211 922 667 788',
+    vehicleModel: 'Toyota Corolla Altis',
+    vehiclePlate: 'SSD-3301-C',
+    status: 'Verified',
+    rating: 4.9,
+    module: 'ride',
+    countryCode: 'SS',
+    countryName: 'South Sudan',
+    tripsCompleted: 390,
+    earningsETB: 28000,
+    joinedDate: 'Feb 2024',
+  },
 ];
 
 export const DEFAULT_VEHICLES: Vehicle[] = [
+  // 🇪🇹 Ethiopia
   {
     objectId: 'veh-seed-1',
     model: 'Toyota Vitz',
@@ -429,6 +642,8 @@ export const DEFAULT_VEHICLES: Vehicle[] = [
     year: 2021,
     capacity: '4 seats',
     module: 'ride',
+    countryCode: 'ET',
+    countryName: 'Ethiopia',
   },
   {
     objectId: 'veh-seed-2',
@@ -441,6 +656,8 @@ export const DEFAULT_VEHICLES: Vehicle[] = [
     year: 2022,
     capacity: '4 seats',
     module: 'ride',
+    countryCode: 'ET',
+    countryName: 'Ethiopia',
   },
   {
     objectId: 'veh-seed-3',
@@ -453,6 +670,8 @@ export const DEFAULT_VEHICLES: Vehicle[] = [
     year: 2020,
     capacity: '4 seats',
     module: 'ride',
+    countryCode: 'ET',
+    countryName: 'Ethiopia',
   },
   {
     objectId: 'veh-seed-4',
@@ -465,6 +684,8 @@ export const DEFAULT_VEHICLES: Vehicle[] = [
     year: 2023,
     capacity: '4 seats',
     module: 'ride',
+    countryCode: 'ET',
+    countryName: 'Ethiopia',
   },
   {
     objectId: 'veh-seed-5',
@@ -477,6 +698,8 @@ export const DEFAULT_VEHICLES: Vehicle[] = [
     year: 2022,
     capacity: '4 seats',
     module: 'ride',
+    countryCode: 'ET',
+    countryName: 'Ethiopia',
   },
   {
     objectId: 'veh-seed-6',
@@ -489,6 +712,8 @@ export const DEFAULT_VEHICLES: Vehicle[] = [
     year: 2021,
     capacity: '4 seats',
     module: 'ride',
+    countryCode: 'ET',
+    countryName: 'Ethiopia',
   },
   {
     objectId: 'veh-seed-7',
@@ -501,6 +726,8 @@ export const DEFAULT_VEHICLES: Vehicle[] = [
     year: 2022,
     capacity: '12 Tons',
     module: 'truck',
+    countryCode: 'ET',
+    countryName: 'Ethiopia',
   },
   {
     objectId: 'veh-seed-8',
@@ -513,6 +740,246 @@ export const DEFAULT_VEHICLES: Vehicle[] = [
     year: 2023,
     capacity: '28 Tons',
     module: 'truck',
+    countryCode: 'ET',
+    countryName: 'Ethiopia',
+  },
+
+  // 🇰🇪 Kenya
+  {
+    objectId: 'veh-seed-ke-1',
+    model: 'Toyota Vitz 1.3',
+    plate: 'KDA-192B',
+    driverName: 'Kevin Ochieng',
+    status: 'Verified',
+    photoUrl: '/src/assets/images/vehicle_toyota_vitz_1792851957648.jpg',
+    type: 'Hatchback',
+    year: 2022,
+    capacity: '4 seats',
+    module: 'ride',
+    countryCode: 'KE',
+    countryName: 'Kenya',
+  },
+  {
+    objectId: 'veh-seed-ke-2',
+    model: 'Toyota Fielder 1.5X',
+    plate: 'KCP-552T',
+    driverName: 'Brian Mwangi',
+    status: 'Verified',
+    photoUrl: '/src/assets/images/vehicle_hyundai_accent_1792851958103.jpg',
+    type: 'Station Wagon',
+    year: 2023,
+    capacity: '4 seats',
+    module: 'ride',
+    countryCode: 'KE',
+    countryName: 'Kenya',
+  },
+  {
+    objectId: 'veh-seed-ke-3',
+    model: 'Suzuki Alto K10',
+    plate: 'KBZ-889M',
+    driverName: 'Faith Wanjiku',
+    status: 'Active',
+    photoUrl: '/src/assets/images/vehicle_toyota_vitz_1792851957648.jpg',
+    type: 'Hatchback',
+    year: 2021,
+    capacity: '4 seats',
+    module: 'ride',
+    countryCode: 'KE',
+    countryName: 'Kenya',
+  },
+
+  // 🇺🇬 Uganda
+  {
+    objectId: 'veh-seed-ug-1',
+    model: 'Toyota Premio',
+    plate: 'UBB-102N',
+    driverName: 'Sarah Nalwanga',
+    status: 'Verified',
+    photoUrl: '/src/assets/images/vehicle_hyundai_accent_1792851958103.jpg',
+    type: 'Sedan',
+    year: 2022,
+    capacity: '4 seats',
+    module: 'ride',
+    countryCode: 'UG',
+    countryName: 'Uganda',
+  },
+  {
+    objectId: 'veh-seed-ug-2',
+    model: 'Toyota Spacio Eco',
+    plate: 'UBF-341P',
+    driverName: 'Patrick Mukasa',
+    status: 'Verified',
+    photoUrl: '/src/assets/images/vehicle_toyota_vitz_1792851957648.jpg',
+    type: 'Minivan',
+    year: 2023,
+    capacity: '5 seats',
+    module: 'ride',
+    countryCode: 'UG',
+    countryName: 'Uganda',
+  },
+  {
+    objectId: 'veh-seed-ug-3',
+    model: 'Suzuki Alto K10',
+    plate: 'UBJ-882L',
+    driverName: 'Grace Akello',
+    status: 'Verified',
+    photoUrl: '/src/assets/images/vehicle_toyota_vitz_1792851957648.jpg',
+    type: 'Hatchback',
+    year: 2022,
+    capacity: '4 seats',
+    module: 'ride',
+    countryCode: 'UG',
+    countryName: 'Uganda',
+  },
+
+  // 🇷🇼 Rwanda
+  {
+    objectId: 'veh-seed-rw-1',
+    model: 'Toyota Corolla Sedan',
+    plate: 'RAE-442C',
+    driverName: 'Eric Nshimiyimana',
+    status: 'Verified',
+    photoUrl: '/src/assets/images/vehicle_hyundai_accent_1792851958103.jpg',
+    type: 'Sedan',
+    year: 2023,
+    capacity: '4 seats',
+    module: 'ride',
+    countryCode: 'RW',
+    countryName: 'Rwanda',
+  },
+  {
+    objectId: 'veh-seed-rw-2',
+    model: 'Hyundai Grand i10',
+    plate: 'RAF-910D',
+    driverName: 'Diane Uwase',
+    status: 'Active',
+    photoUrl: '/src/assets/images/vehicle_toyota_vitz_1792851957648.jpg',
+    type: 'Hatchback',
+    year: 2022,
+    capacity: '4 seats',
+    module: 'ride',
+    countryCode: 'RW',
+    countryName: 'Rwanda',
+  },
+
+  // 🇹🇿 Tanzania
+  {
+    objectId: 'veh-seed-tz-1',
+    model: 'Toyota Corolla Axio',
+    plate: 'T-312-ABW',
+    driverName: 'Baraka Mrema',
+    status: 'Verified',
+    photoUrl: '/src/assets/images/vehicle_hyundai_accent_1792851958103.jpg',
+    type: 'Sedan',
+    year: 2022,
+    capacity: '4 seats',
+    module: 'ride',
+    countryCode: 'TZ',
+    countryName: 'Tanzania',
+  },
+  {
+    objectId: 'veh-seed-tz-2',
+    model: 'Suzuki Swift 1.2',
+    plate: 'T-409-BCX',
+    driverName: 'Neema Shirima',
+    status: 'Verified',
+    photoUrl: '/src/assets/images/vehicle_toyota_vitz_1792851957648.jpg',
+    type: 'Hatchback',
+    year: 2023,
+    capacity: '4 seats',
+    module: 'ride',
+    countryCode: 'TZ',
+    countryName: 'Tanzania',
+  },
+
+  // 🇩🇯 Djibouti
+  {
+    objectId: 'veh-seed-dj-1',
+    model: 'Toyota Yaris Sedan',
+    plate: 'DJ-1209-A',
+    driverName: 'Omar Guelleh',
+    status: 'Verified',
+    photoUrl: '/src/assets/images/vehicle_hyundai_accent_1792851958103.jpg',
+    type: 'Sedan',
+    year: 2022,
+    capacity: '4 seats',
+    module: 'ride',
+    countryCode: 'DJ',
+    countryName: 'Djibouti',
+  },
+  {
+    objectId: 'veh-seed-dj-2',
+    model: 'Nissan Tiida 1.6',
+    plate: 'DJ-3420-C',
+    driverName: 'Fatouma Daher',
+    status: 'Verified',
+    photoUrl: '/src/assets/images/vehicle_toyota_vitz_1792851957648.jpg',
+    type: 'Hatchback',
+    year: 2021,
+    capacity: '4 seats',
+    module: 'ride',
+    countryCode: 'DJ',
+    countryName: 'Djibouti',
+  },
+
+  // 🇸🇴 Somalia
+  {
+    objectId: 'veh-seed-so-1',
+    model: 'Toyota Belta 1.3',
+    plate: 'MOG-5542',
+    driverName: 'Abdi Shire',
+    status: 'Verified',
+    photoUrl: '/src/assets/images/vehicle_hyundai_accent_1792851958103.jpg',
+    type: 'Sedan',
+    year: 2021,
+    capacity: '4 seats',
+    module: 'ride',
+    countryCode: 'SO',
+    countryName: 'Somalia',
+  },
+  {
+    objectId: 'veh-seed-so-2',
+    model: 'Toyota Probox Shuttle',
+    plate: 'HRG-1029',
+    driverName: 'Yasmin Nur',
+    status: 'Verified',
+    photoUrl: '/src/assets/images/vehicle_toyota_vitz_1792851957648.jpg',
+    type: 'Station Wagon',
+    year: 2022,
+    capacity: '5 seats',
+    module: 'ride',
+    countryCode: 'SO',
+    countryName: 'Somalia',
+  },
+
+  // 🇸🇸 South Sudan
+  {
+    objectId: 'veh-seed-ss-1',
+    model: 'Toyota Rav4 AWD',
+    plate: 'SSD-1192-B',
+    driverName: 'Taban Lado',
+    status: 'Verified',
+    photoUrl: '/src/assets/images/vehicle_hyundai_accent_1792851958103.jpg',
+    type: 'SUV',
+    year: 2022,
+    capacity: '5 seats',
+    module: 'ride',
+    countryCode: 'SS',
+    countryName: 'South Sudan',
+  },
+  {
+    objectId: 'veh-seed-ss-2',
+    model: 'Toyota Corolla Altis',
+    plate: 'SSD-3301-C',
+    driverName: 'Mary Achol',
+    status: 'Verified',
+    photoUrl: '/src/assets/images/vehicle_toyota_vitz_1792851957648.jpg',
+    type: 'Sedan',
+    year: 2023,
+    capacity: '4 seats',
+    module: 'ride',
+    countryCode: 'SS',
+    countryName: 'South Sudan',
   },
 ];
 
@@ -2675,16 +3142,22 @@ class Back4AppService {
     sessionToken?: string;
     cleanupProbe?: boolean;
     simulateFault?: '502-gateway' | 'handshake-failure';
+    countryCode?: EastAfricaCountryCode;
   }): Promise<ConnectivityPingResult> {
     const startTime = Date.now();
     try {
+      const headers = this.buildHeaders();
+      if (options?.countryCode) {
+        headers['x-user-country'] = options.countryCode;
+      }
       const res = await fetch('/api/back4app/diagnostics/ping', {
         method: 'POST',
-        headers: this.buildHeaders(),
+        headers,
         body: JSON.stringify({
           sessionToken: options?.sessionToken || '',
           cleanupProbe: options?.cleanupProbe !== false,
           simulateFault: options?.simulateFault || undefined,
+          countryCode: options?.countryCode || undefined,
         }),
       });
       if (!res.ok) {
@@ -2956,19 +3429,43 @@ class Back4AppService {
   async getActivityStream(options?: {
     limit?: number;
     strictActivityLogOnly?: boolean;
+    country?: EastAfricaCountryCode;
   }): Promise<ActivityStreamResponse> {
     const params = new URLSearchParams();
     params.set('limit', String(options?.limit || 40));
     if (options?.strictActivityLogOnly) {
       params.set('strict', 'true');
     }
+    if (options?.country && options.country !== 'ALL') {
+      params.set('country', options.country);
+    }
+
+    const headers = this.buildHeaders();
+    if (options?.country) {
+      headers['x-user-country'] = options.country;
+    }
 
     const res = await fetch(`/api/back4app/activity-stream?${params.toString()}`, {
       method: 'GET',
-      headers: this.buildHeaders(),
+      headers,
     });
     const data = await res.json();
     return data as ActivityStreamResponse;
+  }
+
+  async getEastAfricaNodeSummaries(): Promise<EastAfricaNodeDiagnosticSummary[]> {
+    try {
+      const res = await fetch('/api/back4app/diagnostics/east-africa-nodes', {
+        headers: this.buildHeaders(),
+      });
+      if (res.ok) {
+        const json = await res.json();
+        return Array.isArray(json?.nodes) ? json.nodes : [];
+      }
+    } catch (err) {
+      console.warn('Error fetching East Africa node summaries:', err);
+    }
+    return [];
   }
 
   // ---------------------------------------------------------------------------

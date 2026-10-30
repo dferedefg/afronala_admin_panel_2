@@ -66,6 +66,8 @@ export interface Vehicle {
   year: number;
   capacity?: string;
   module: 'ride' | 'truck';
+  countryCode?: EastAfricaCountryCode;
+  countryName?: string;
 }
 
 export type TripStatus = 'Completed' | 'On-Going' | 'Cancelled' | 'Requested';
@@ -872,6 +874,66 @@ export interface ConnectivityPingResult {
     cleanupOk: boolean;
     cleanupLatencyMs: number;
   };
+  countryTelemetry?: EastAfricaCountryNodeTelemetry;
+}
+
+export interface EastAfricaCountryNodeTelemetry {
+  countryCode: EastAfricaCountryCode;
+  countryName: string;
+  flag: string;
+  capital: string;
+  currency: EastAfricaCurrency;
+  edgeNodeHostname: string;
+  edgeLatencyMs: number;
+  edgeStatus: 'healthy' | 'degraded' | 'offline';
+  telecomCarriers: {
+    name: string;
+    type: string;
+    signalStatus: 'excellent' | 'good' | 'congested';
+    pingMs: number;
+  }[];
+  primaryPaymentGateway: {
+    name: string;
+    provider: string;
+    status: 'active' | 'degraded';
+    successRatePct: number;
+    webhookLatencyMs: number;
+  };
+  regulatoryAgency: {
+    name: string;
+    acronym: string;
+    syncStatus: 'synchronized' | 'pending' | 'warning';
+    lastSyncIso: string;
+    monitoredItems: string;
+  };
+  primaryCorridor: {
+    name: string;
+    flowStatus: 'normal' | 'congested' | 'delayed';
+    activeTrucks: number;
+    avgSpeedKmh: number;
+  };
+  activeApkDriversCount: number;
+  onlineVehiclesCount: number;
+  openDispatchJobsCount: number;
+  complianceHealthScore: number;
+}
+
+export interface EastAfricaNodeDiagnosticSummary {
+  countryCode: Exclude<EastAfricaCountryCode, 'ALL'>;
+  countryName: string;
+  flag: string;
+  capital: string;
+  currency: EastAfricaCurrency;
+  edgeNodeHostname: string;
+  status: 'healthy' | 'degraded' | 'unreachable';
+  latencyMs: number;
+  paymentGateway: string;
+  gatewaySuccessRate: number;
+  regulatorAcronym: string;
+  primaryCorridor: string;
+  activeDrivers: number;
+  apkVersion: string;
+  lastPingIso: string;
 }
 
 export type DiagnosticAutoFixAction = 'reset_session_tokens' | 'full_schema_resync';
@@ -958,6 +1020,8 @@ export interface ActivityStreamEvent {
   referenceId: string;
   statusLabel: string;
   platform: string;
+  countryCode?: EastAfricaCountryCode;
+  countryName?: string;
   createdAt: string;
   updatedAt: string;
 }

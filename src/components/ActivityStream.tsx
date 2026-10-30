@@ -28,6 +28,7 @@ import {
   AlertRuleMetricCategory,
   AlertRuleOperator,
   AlertRuleSeverity,
+  EastAfricaCountryCode,
   MobileActivityCategory,
   TriggeredActivityPulse,
 } from '../types';
@@ -36,6 +37,9 @@ import { downloadCsv } from '../services/rbac';
 
 interface ActivityStreamProps {
   darkMode: boolean;
+  userCountry?: EastAfricaCountryCode;
+  selectedCountry?: EastAfricaCountryCode;
+  onSelectCountry?: (country: EastAfricaCountryCode) => void;
   activePulses?: TriggeredActivityPulse[];
   onPulsesUpdated?: (
     pulses: TriggeredActivityPulse[],
@@ -73,6 +77,18 @@ function formatShortDate(iso: string): string {
   });
 }
 
+const COUNTRY_FLAGS: Record<string, string> = {
+  ET: '🇪🇹',
+  KE: '🇰🇪',
+  UG: '🇺🇬',
+  RW: '🇷🇼',
+  TZ: '🇹🇿',
+  DJ: '🇩🇯',
+  SO: '🇸🇴',
+  SS: '🇸🇸',
+  ALL: '🌍',
+};
+
 function getCategoryLabel(category: MobileActivityCategory): string {
   switch (category) {
     case 'user_login':
@@ -104,6 +120,9 @@ export function getRuleMetricLabel(category: AlertRuleMetricCategory): string {
 }
 
 export const ActivityStream: React.FC<ActivityStreamProps> = ({
+  userCountry,
+  selectedCountry,
+  onSelectCountry,
   activePulses: externalPulses,
   onPulsesUpdated,
   onAcknowledgePulse,
@@ -114,9 +133,18 @@ export const ActivityStream: React.FC<ActivityStreamProps> = ({
   const [loading, setLoading] = useState<boolean>(true);
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>('all');
+  const [countryFilter, setCountryFilter] = useState<EastAfricaCountryCode>(
+    selectedCountry || userCountry || 'ALL'
+  );
   const [strictActivityLogOnly, setStrictActivityLogOnly] = useState<boolean>(false);
   const [pollCadence, setPollCadence] = useState<PollCadence>(10000);
   const [searchQuery, setSearchQuery] = useState<string>('');
+
+  useEffect(() => {
+    if (selectedCountry) {
+      setCountryFilter(selectedCountry);
+    }
+  }, [selectedCountry]);
 
   // Threshold Alert Rules State
   const [alertRules, setAlertRules] = useState<ActivityAlertRule[]>(() =>
@@ -171,6 +199,7 @@ export const ActivityStream: React.FC<ActivityStreamProps> = ({
         const res = await back4AppService.getActivityStream({
           limit: 60,
           strictActivityLogOnly,
+          country: countryFilter !== 'ALL' ? countryFilter : undefined,
         });
         setStreamData(res);
         syncEvaluationWithEvents(res.events || []);
@@ -187,7 +216,7 @@ export const ActivityStream: React.FC<ActivityStreamProps> = ({
         setRefreshing(false);
       }
     },
-    [strictActivityLogOnly, onNotify, syncEvaluationWithEvents]
+    [strictActivityLogOnly, countryFilter, onNotify, syncEvaluationWithEvents]
   );
 
   useEffect(() => {
@@ -956,6 +985,55 @@ export const ActivityStream: React.FC<ActivityStreamProps> = ({
         </label>
       </div>
 
+      {/* East Africa Multi-Country Operation Scope Ribbon */}
+      <div className="px-4 sm:px-5 py-2.5 border-b border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/40 flex items-center justify-between gap-3 overflow-x-auto">
+        <div className="flex items-center gap-1.5 shrink-0 text-xs">
+          <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider shrink-0 mr-1">
+            Country Telemetry Scope:
+          </span>
+          {[
+            { code: 'ALL', label: 'All East Africa', flag: '🌍' },
+            { code: 'ET', label: 'Ethiopia', flag: '🇪🇹' },
+            { code: 'KE', label: 'Kenya', flag: '🇰🇪' },
+            { code: 'UG', label: 'Uganda', flag: '🇺🇬' },
+            { code: 'RW', label: 'Rwanda', flag: '🇷🇼' },
+            { code: 'TZ', label: 'Tanzania', flag: '🇹🇿' },
+            { code: 'DJ', label: 'Djibouti', flag: '🇩🇯' },
+            { code: 'SO', label: 'Somalia', flag: '🇸🇴' },
+            { code: 'SS', label: 'South Sudan', flag: '🇸🇸' },
+          ].map((c) => {
+            const isSelected = countryFilter === c.code;
+            const isUserBase = userCountry === c.code;
+            return (
+              <button
+                key={c.code}
+                type="button"
+                onClick={() => {
+                  setCountryFilter(c.code as EastAfricaCountryCode);
+                  onSelectCountry?.(c.code as EastAfricaCountryCode);
+                }}
+                className={`px-2.5 py-1 rounded-md text-xs transition-colors whitespace-nowrap shrink-0 inline-flex items-center gap-1.5 border ${
+                  isSelected
+                    ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900 border-slate-900 dark:border-white font-bold'
+                    : 'bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 font-medium'
+                }`}
+              >
+                <span>{c.flag}</span>
+                <span>{c.code}</span>
+                {isUserBase && (
+                  <span
+                    title="Your logged-in jurisdiction base"
+                    className="text-[10px] text-cyan-600 dark:text-cyan-400 font-bold ml-0.5"
+                  >
+                    ●
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
       {/* Category Filter Tabs + Search Input */}
       <div className="p-4 sm:px-5 border-b border-slate-200 dark:border-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-1.5">
@@ -1110,13 +1188,22 @@ export const ActivityStream: React.FC<ActivityStreamProps> = ({
                   </td>
 
                   <td className="py-2.5 px-4 whitespace-nowrap">
-                    <span className="font-semibold text-slate-900 dark:text-white">
-                      {ev.actorName}
-                    </span>
-                    <span aria-hidden="true" className="mx-1.5 text-slate-300 dark:text-slate-700">
-                      ·
-                    </span>
-                    <span className="text-slate-600 dark:text-slate-400">{ev.actorRole}</span>
+                    <div className="flex items-center gap-2">
+                      <span
+                        className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-mono border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900"
+                        title={ev.countryName || ev.countryCode || 'East Africa'}
+                      >
+                        <span>{COUNTRY_FLAGS[ev.countryCode || 'ET'] || '🇪🇹'}</span>
+                        <span className="font-semibold text-slate-700 dark:text-slate-300">
+                          {ev.countryCode || 'ET'}
+                        </span>
+                      </span>
+                      <span className="font-semibold text-slate-900 dark:text-white truncate">
+                        {ev.actorName}
+                      </span>
+                      <span aria-hidden="true" className="text-slate-300 dark:text-slate-700">·</span>
+                      <span className="text-slate-600 dark:text-slate-400">{ev.actorRole}</span>
+                    </div>
                   </td>
 
                   <td className="py-2.5 px-4 text-slate-700 dark:text-slate-300 max-w-md">
