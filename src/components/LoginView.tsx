@@ -158,40 +158,51 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLogin, darkMode }) => {
               </button>
             </form>
 
-            {/* 4-Persona RBAC Quick Demo Switcher */}
+            {/* East African Operations & RBAC Personas Quick Access */}
             <div className="mt-6 pt-5 border-t border-slate-200 dark:border-slate-800">
               <div className="flex items-center justify-between mb-2.5">
                 <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-                  Role-Scoped Quick Access
+                  Login by Country of Operation
                 </span>
                 <span className="text-[11px] text-slate-500 dark:text-slate-400 flex items-center gap-1">
                   <ShieldCheck className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400" />
-                  <span>4 RBAC Personas</span>
+                  <span>8 East African Hubs</span>
                 </span>
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
-                {DEMO_PERSONAS.map((persona) => (
-                  <button
-                    key={persona.role}
-                    type="button"
-                    onClick={() => onLogin(persona)}
-                    className="p-2.5 rounded-xl bg-slate-50 hover:bg-cyan-50 dark:bg-slate-800/80 dark:hover:bg-slate-800 text-left border border-slate-200 dark:border-slate-700 transition-colors"
-                  >
-                    <div className="flex items-center gap-2">
-                      <span className="w-6 h-6 rounded-full bg-cyan-600/15 text-cyan-700 dark:text-cyan-300 font-bold text-[10px] flex items-center justify-center shrink-0">
-                        {getInitials(persona.name)}
-                      </span>
-                      <div className="min-w-0">
-                        <p className="font-semibold text-slate-900 dark:text-white truncate">
-                          {persona.role}
-                        </p>
-                        <p className="text-[10px] text-slate-500 dark:text-slate-400 truncate">
-                          {persona.name}
-                        </p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs max-h-64 overflow-y-auto pr-1">
+                {DEMO_PERSONAS.map((persona) => {
+                  const flag =
+                    persona.jurisdictionCountry === 'ET' ? '🇪🇹' :
+                    persona.jurisdictionCountry === 'KE' ? '🇰🇪' :
+                    persona.jurisdictionCountry === 'RW' ? '🇷🇼' :
+                    persona.jurisdictionCountry === 'UG' ? '🇺🇬' :
+                    persona.jurisdictionCountry === 'TZ' ? '🇹🇿' :
+                    persona.jurisdictionCountry === 'DJ' ? '🇩🇯' :
+                    persona.jurisdictionCountry === 'SO' ? '🇸🇴' :
+                    persona.jurisdictionCountry === 'SS' ? '🇸🇸' : '🌍';
+                  return (
+                    <button
+                      key={persona.email}
+                      type="button"
+                      onClick={() => onLogin(persona)}
+                      className="p-2.5 rounded-xl bg-slate-50 hover:bg-cyan-50 dark:bg-slate-800/80 dark:hover:bg-slate-800 text-left border border-slate-200 dark:border-slate-700 transition-colors group"
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className="text-base shrink-0 group-hover:scale-110 transition-transform">
+                          {flag}
+                        </span>
+                        <div className="min-w-0">
+                          <p className="font-semibold text-slate-900 dark:text-white truncate">
+                            {persona.name}
+                          </p>
+                          <p className="text-[10px] text-cyan-700 dark:text-cyan-400 font-medium truncate">
+                            {persona.role} · {persona.jurisdictionName?.split(' ')[0] || 'East Africa'}
+                          </p>
+                        </div>
                       </div>
-                    </div>
-                  </button>
-                ))}
+                    </button>
+                  );
+                })}
               </div>
             </div>
           </div>

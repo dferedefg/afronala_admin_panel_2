@@ -91,6 +91,8 @@ export interface Trip {
     dropoff: [number, number];
     current?: [number, number];
   };
+  countryCode?: EastAfricaCountryCode;
+  countryName?: string;
 }
 
 export type ShipmentStatus = 'In Transit' | 'Picked Up' | 'Delivered' | 'Pending';
@@ -109,6 +111,8 @@ export interface Shipment {
   driver: string;
   freightRateETB: number;
   estimatedDelivery: string;
+  countryCode?: EastAfricaCountryCode;
+  countryName?: string;
 }
 
 export interface SystemAlert {

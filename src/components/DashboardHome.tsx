@@ -23,6 +23,7 @@ import {
   Trip,
 } from '../types';
 import { paymentSettlementService } from '../services/payments';
+import { EastAfricaCountryPreviewer } from './EastAfricaCountryPreviewer';
 
 interface DashboardHomeProps {
   user: AdminUser;
@@ -36,6 +37,8 @@ interface DashboardHomeProps {
   onAcknowledgeAllPulses?: () => void;
   onResolveAlert?: (alertIdOrIndex: string | number) => Promise<void>;
   onNavigateTab: (tab: string) => void;
+  onSwitchPersona?: (persona: AdminUser) => void;
+  onPushToast?: (title: string, message?: string, type?: 'info' | 'success' | 'warning') => void;
 }
 
 const RANGE_MULTIPLIERS: Record<string, { mult: number; deltaRev: string; deltaTrips: string; compLabel: string }> = {
@@ -57,6 +60,8 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
   onAcknowledgeAllPulses,
   onResolveAlert,
   onNavigateTab,
+  onSwitchPersona,
+  onPushToast,
 }) => {
   const [timeRange, setTimeRange] = useState('Today');
   const [chartHorizon, setChartHorizon] = useState<'This Month' | 'Quarterly' | 'YTD'>('This Month');
@@ -497,6 +502,15 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
           </div>
         </div>
       </div>
+
+      {/* East African Regional Operations Hub & Screen Previews */}
+      <EastAfricaCountryPreviewer
+        user={user}
+        darkMode={darkMode}
+        onNavigateTab={onNavigateTab}
+        onSwitchPersona={onSwitchPersona}
+        onPushToast={onPushToast}
+      />
 
       {/* Flutter SuperApp Unified Governance Strip */}
       <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 divide-y sm:divide-y-0 sm:divide-x divide-slate-200 dark:divide-slate-800 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">

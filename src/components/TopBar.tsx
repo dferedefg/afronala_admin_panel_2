@@ -758,12 +758,21 @@ export const TopBar: React.FC<TopBarProps> = ({
                 </p>
               </div>
 
-              <div className="p-2 space-y-1">
+              <div className="p-2 space-y-1 max-h-80 overflow-y-auto">
                 {DEMO_PERSONAS.map((persona) => {
-                  const isActive = user.role === persona.role;
+                  const isActive = user.email === persona.email;
+                  const flag =
+                    persona.jurisdictionCountry === 'ET' ? '🇪🇹' :
+                    persona.jurisdictionCountry === 'KE' ? '🇰🇪' :
+                    persona.jurisdictionCountry === 'RW' ? '🇷🇼' :
+                    persona.jurisdictionCountry === 'UG' ? '🇺🇬' :
+                    persona.jurisdictionCountry === 'TZ' ? '🇹🇿' :
+                    persona.jurisdictionCountry === 'DJ' ? '🇩🇯' :
+                    persona.jurisdictionCountry === 'SO' ? '🇸🇴' :
+                    persona.jurisdictionCountry === 'SS' ? '🇸🇸' : '🌍';
                   return (
                     <button
-                      key={persona.role}
+                      key={persona.email}
                       type="button"
                       onClick={() => {
                         onSwitchPersona?.(persona);
@@ -776,9 +785,9 @@ export const TopBar: React.FC<TopBarProps> = ({
                       }`}
                     >
                       <div className="flex items-start gap-2.5 min-w-0">
-                        <div className="w-7 h-7 rounded-full bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-cyan-300 font-bold text-[11px] flex items-center justify-center shrink-0 mt-0.5">
-                          {getInitials(persona.name)}
-                        </div>
+                        <span className="text-base shrink-0 mt-0.5">
+                          {flag}
+                        </span>
                         <div className="min-w-0">
                           <div className="flex items-center gap-1.5">
                             <span className="text-xs font-semibold text-slate-900 dark:text-white truncate">
@@ -788,8 +797,8 @@ export const TopBar: React.FC<TopBarProps> = ({
                               · {persona.role}
                             </span>
                           </div>
-                          <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-snug mt-0.5">
-                            {persona.scopeSummary}
+                          <p className="text-[10px] text-slate-500 dark:text-slate-400 leading-snug mt-0.5">
+                            {persona.jurisdictionName} · {persona.scopeSummary}
                           </p>
                         </div>
                       </div>

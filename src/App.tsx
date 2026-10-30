@@ -24,6 +24,7 @@ import { TopBar } from './components/TopBar';
 import { Sidebar } from './components/Sidebar';
 import { LoginView } from './components/LoginView';
 import { DashboardHome } from './components/DashboardHome';
+import { JurisdictionDashboardWrapper } from './components/JurisdictionDashboardWrapper';
 import { ModuleManagement } from './components/ModuleManagement';
 import { RideModuleView } from './components/RideModuleView';
 import { TruckDeliveryView } from './components/TruckDeliveryView';
@@ -64,6 +65,9 @@ export default function App() {
     role: 'Super Admin',
     avatar: '/src/assets/images/avatar_admin_daniel_1792851958392.jpg',
     status: 'online',
+    jurisdictionCountry: 'ET',
+    jurisdictionName: 'Ethiopia (Headquarters)',
+    assignedCorridors: ['Addis Ababa Urban Grid', 'Modjo Dry Port - Djibouti Corridor'],
   });
 
   // Theme state synced to document.documentElement for Tailwind v4 @custom-variant dark
@@ -594,7 +598,7 @@ export default function App() {
         {/* Main Content Viewport */}
         <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto">
           {activeTab === 'dashboard' && (
-            <DashboardHome
+            <JurisdictionDashboardWrapper
               user={currentUser}
               darkMode={darkMode}
               trips={trips}
@@ -606,6 +610,8 @@ export default function App() {
               onAcknowledgeAllPulses={handleAcknowledgeAllPulses}
               onResolveAlert={handleResolveAlert}
               onNavigateTab={(tab) => setActiveTab(tab)}
+              onSwitchPersona={handleSwitchPersona}
+              onPushToast={pushToast}
             />
           )}
 
@@ -667,6 +673,11 @@ export default function App() {
               darkMode={darkMode}
               drivers={drivers}
               onSyncTripToBack4App={handleSyncDispatchTrip}
+              user={currentUser}
+              jurisdictionCountry={currentUser.jurisdictionCountry}
+              onSwitchPersona={handleSwitchPersona}
+              onPushToast={pushToast}
+              onNavigateTab={(tab) => setActiveTab(tab)}
             />
           )}
 
