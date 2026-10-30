@@ -1781,21 +1781,88 @@ class Back4AppService {
           const list: Driver[] = [];
 
           for (const d of json.results) {
-            if (d.phone && seenPhones.has(d.phone)) continue;
-            if (d.phone) seenPhones.add(d.phone);
+            const rawPhone = String(d.phone || d.phoneNumber || d.telephone || '').trim();
+            const phone = rawPhone || (d.objectId ? `0911-${String(d.objectId).slice(0, 6)}` : `0911-${Math.random().toString(36).slice(2, 8)}`);
+
+            if (seenPhones.has(phone)) continue;
+            seenPhones.add(phone);
+
+            const rawName = String(
+              d.name ||
+                d.fullName ||
+                (d.firstName ? `${d.firstName} ${d.lastName || ''}`.trim() : '') ||
+                ''
+            ).trim();
+            const name = rawName || 'SuperApp Driver';
+
+            const rawPlate = String(d.vehiclePlate || d.plate || d.licensePlate || '').trim();
+            const vehiclePlate = rawPlate || (d.objectId ? `AA-${String(d.objectId).slice(0, 5).toUpperCase()}` : 'AA-12345');
+
+            const vehicleModel = String(d.vehicleModel || d.model || 'Toyota Vitz').trim();
+
+            const rawStatus = String(d.status || '').toLowerCase();
+            const status: DriverStatus =
+              rawStatus === 'active' || rawStatus === 'available' || rawStatus === 'verified'
+                ? rawStatus === 'verified'
+                  ? 'Verified'
+                  : 'Active'
+                : rawStatus === 'suspended' || rawStatus === 'inactive'
+                ? 'Suspended'
+                : 'Pending';
+
+            const moduleVal: 'ride' | 'truck' =
+              d.activeServiceMode === 'truck' || d.module === 'truck' ? 'truck' : 'ride';
+
+            const countryCode =
+              d.countryCode ||
+              (phone.startsWith('+254')
+                ? 'KE'
+                : phone.startsWith('+250')
+                ? 'RW'
+                : phone.startsWith('+256')
+                ? 'UG'
+                : phone.startsWith('+255')
+                ? 'TZ'
+                : phone.startsWith('+253')
+                ? 'DJ'
+                : phone.startsWith('+252')
+                ? 'SO'
+                : phone.startsWith('+211')
+                ? 'SS'
+                : 'ET');
+
+            const countryName =
+              d.countryName ||
+              (countryCode === 'KE'
+                ? 'Kenya'
+                : countryCode === 'RW'
+                ? 'Rwanda'
+                : countryCode === 'UG'
+                ? 'Uganda'
+                : countryCode === 'TZ'
+                ? 'Tanzania'
+                : countryCode === 'DJ'
+                ? 'Djibouti'
+                : countryCode === 'SO'
+                ? 'Somalia'
+                : countryCode === 'SS'
+                ? 'South Sudan'
+                : 'Ethiopia');
 
             list.push({
               objectId: d.objectId,
-              name: d.name,
-              phone: d.phone,
-              vehicleModel: d.vehicleModel,
-              vehiclePlate: d.vehiclePlate,
-              status: d.status,
-              rating: d.rating || 4.8,
+              name,
+              phone,
+              vehicleModel,
+              vehiclePlate,
+              status,
+              rating: typeof d.rating === 'number' && d.rating > 0 ? d.rating : 4.8,
               avatar: d.avatar,
-              module: d.module || 'ride',
-              tripsCompleted: d.tripsCompleted || 0,
-              earningsETB: d.earningsETB || 0,
+              module: moduleVal,
+              countryCode,
+              countryName,
+              tripsCompleted: Number(d.tripsCompleted || d.totalTrips || d.ridesCompleted || 0),
+              earningsETB: Number(d.earningsETB || 0),
               joinedDate: d.joinedDate || 'Recently',
               licenseExpiryDate: normalizeParseIsoDate(d.licenseExpiryDate),
               bolaInspectionExpiryDate: normalizeParseIsoDate(d.bolaInspectionExpiryDate),
@@ -1926,20 +1993,32 @@ class Back4AppService {
           const list: Vehicle[] = [];
 
           for (const v of json.results) {
-            if (v.plate && seenPlates.has(v.plate)) continue;
-            if (v.plate) seenPlates.add(v.plate);
+            const rawPlate = String(v.plate || v.vehiclePlate || v.licensePlate || '').trim();
+            const plate = rawPlate || (v.objectId ? `AA-${String(v.objectId).slice(0, 5).toUpperCase()}` : 'AA-00000');
+
+            if (seenPlates.has(plate)) continue;
+            seenPlates.add(plate);
+
+            const model = String(v.model || v.vehicleModel || 'Toyota Vitz').trim();
+            const driverName = String(v.driverName || v.driver || 'Assigned Driver').trim();
+
+            const rawStatus = String(v.status || '').toLowerCase();
+            const status: VehicleStatus =
+              rawStatus === 'verified' ? 'Verified' : rawStatus === 'active' ? 'Active' : rawStatus === 'inspection' ? 'Inspection' : 'Verified';
 
             list.push({
               objectId: v.objectId,
-              model: v.model,
-              plate: v.plate,
-              driverName: v.driverName,
-              status: v.status,
+              model,
+              plate,
+              driverName,
+              status,
               photoUrl: v.photoUrl || '/src/assets/images/vehicle_toyota_vitz_1792851957648.jpg',
               type: v.type || 'Hatchback',
-              year: v.year || 2022,
+              year: Number(v.year) || 2022,
               capacity: v.capacity || '4 seats',
               module: v.module || 'ride',
+              countryCode: v.countryCode,
+              countryName: v.countryName,
             });
           }
 

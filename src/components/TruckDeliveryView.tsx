@@ -715,14 +715,14 @@ export const TruckDeliveryView: React.FC<TruckDeliveryViewProps> = ({
       const matchesStatus = statusFilter === 'All' ? true : s.status === statusFilter;
       if (!matchesStatus) return false;
       if (!searchQuery.trim()) return true;
-      const q = searchQuery.toLowerCase();
+      const q = searchQuery.trim().toLowerCase();
       return (
-        s.shipmentId.toLowerCase().includes(q) ||
-        s.origin.toLowerCase().includes(q) ||
-        s.destination.toLowerCase().includes(q) ||
-        s.cargoType.toLowerCase().includes(q) ||
-        s.truckPlate.toLowerCase().includes(q) ||
-        s.driver.toLowerCase().includes(q)
+        (s.shipmentId || '').toLowerCase().includes(q) ||
+        (s.origin || '').toLowerCase().includes(q) ||
+        (s.destination || '').toLowerCase().includes(q) ||
+        (s.cargoType || '').toLowerCase().includes(q) ||
+        (s.truckPlate || '').toLowerCase().includes(q) ||
+        (s.driver || '').toLowerCase().includes(q)
       );
     });
   }, [countryShipments, statusFilter, searchQuery]);

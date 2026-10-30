@@ -597,11 +597,12 @@ export const RideModuleView: React.FC<RideModuleViewProps> = ({
 
   // Search & Status filters for Drivers
   const filteredDrivers = useMemo(() => {
+    const q = driverSearch.trim().toLowerCase();
     return filteredCountryDrivers.filter((d) => {
-      const matchesSearch =
-        d.name.toLowerCase().includes(driverSearch.toLowerCase()) ||
-        d.phone.includes(driverSearch) ||
-        d.vehiclePlate.toLowerCase().includes(driverSearch.toLowerCase());
+      const name = (d.name || '').toLowerCase();
+      const phone = d.phone || '';
+      const plate = (d.vehiclePlate || '').toLowerCase();
+      const matchesSearch = !q || name.includes(q) || phone.includes(q) || plate.includes(q);
       const matchesFilter = driverStatusFilter === 'All' || d.status === driverStatusFilter;
       return matchesSearch && matchesFilter;
     });
@@ -616,12 +617,12 @@ export const RideModuleView: React.FC<RideModuleViewProps> = ({
 
   // Search filter for Vehicles
   const filteredVehicles = useMemo(() => {
+    const q = vehicleSearch.trim().toLowerCase();
     return filteredCountryVehicles.filter((v) => {
-      return (
-        v.model.toLowerCase().includes(vehicleSearch.toLowerCase()) ||
-        v.plate.toLowerCase().includes(vehicleSearch.toLowerCase()) ||
-        v.driverName.toLowerCase().includes(vehicleSearch.toLowerCase())
-      );
+      const model = (v.model || '').toLowerCase();
+      const plate = (v.plate || '').toLowerCase();
+      const driverName = (v.driverName || '').toLowerCase();
+      return !q || model.includes(q) || plate.includes(q) || driverName.includes(q);
     });
   }, [filteredCountryVehicles, vehicleSearch]);
 
@@ -1233,11 +1234,11 @@ export const RideModuleView: React.FC<RideModuleViewProps> = ({
                         <td className="py-3">
                           <div className="flex items-center gap-3">
                             <div className="w-8 h-8 rounded-full bg-cyan-50 dark:bg-slate-800 border border-cyan-200 dark:border-slate-700 flex items-center justify-center font-bold text-cyan-700 dark:text-cyan-400 text-xs shrink-0">
-                              {driver.name.charAt(0)}
+                              {(driver.name || 'Driver').charAt(0).toUpperCase()}
                             </div>
                             <div>
                               <div className="flex items-center gap-1.5">
-                                <p className="font-semibold text-slate-900 dark:text-slate-200">{driver.name}</p>
+                                <p className="font-semibold text-slate-900 dark:text-slate-200">{driver.name || 'Unnamed Driver'}</p>
                                 <span className="text-xs" title={cCfg.name}>{cCfg.flag}</span>
                               </div>
                               <p className="text-[11px] text-slate-500 dark:text-slate-400">
@@ -1565,12 +1566,12 @@ export const RideModuleView: React.FC<RideModuleViewProps> = ({
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 rounded-full bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center justify-center font-bold text-cyan-700 dark:text-cyan-400">
-                        {currentHubTrip ? currentHubTrip.passenger.charAt(0) : activeCountryConfig.demoTrip.passenger.charAt(0)}
+                        {((currentHubTrip ? currentHubTrip.passenger : activeCountryConfig.demoTrip.passenger) || 'Passenger').charAt(0).toUpperCase()}
                       </div>
                       <div>
                         <p className="text-xs text-slate-500 dark:text-slate-400">Passenger</p>
                         <p className="font-semibold text-sm text-slate-900 dark:text-white">
-                          {currentHubTrip ? currentHubTrip.passenger : activeCountryConfig.demoTrip.passenger}
+                          {(currentHubTrip ? currentHubTrip.passenger : activeCountryConfig.demoTrip.passenger) || 'Passenger'}
                         </p>
                         <p className="text-[11px] font-mono text-slate-400">
                           {currentHubTrip ? currentHubTrip.passengerPhone || activeCountryConfig.demoTrip.passengerPhone : activeCountryConfig.demoTrip.passengerPhone}
@@ -1596,12 +1597,12 @@ export const RideModuleView: React.FC<RideModuleViewProps> = ({
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 rounded-full bg-cyan-50 dark:bg-cyan-500/20 border border-cyan-200 dark:border-cyan-500/40 flex items-center justify-center font-bold text-cyan-700 dark:text-cyan-300">
-                        {currentHubTrip ? currentHubTrip.driver.charAt(0) : activeCountryConfig.demoTrip.driver.charAt(0)}
+                        {((currentHubTrip ? currentHubTrip.driver : activeCountryConfig.demoTrip.driver) || 'Driver').charAt(0).toUpperCase()}
                       </div>
                       <div>
                         <p className="text-xs text-slate-500 dark:text-slate-400">Driver</p>
                         <p className="font-semibold text-sm text-slate-900 dark:text-white">
-                          {currentHubTrip ? currentHubTrip.driver : activeCountryConfig.demoTrip.driver}
+                          {(currentHubTrip ? currentHubTrip.driver : activeCountryConfig.demoTrip.driver) || 'Driver'}
                         </p>
                         <p className="text-[11px] text-slate-500 dark:text-slate-400 font-mono">
                           {activeCountryConfig.demoTrip.vehicle}

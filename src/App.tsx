@@ -52,6 +52,7 @@ import { SuperAppMonorepoView } from './components/SuperAppMonorepoView';
 import { Back4AppDatabaseClassesView } from './components/Back4AppDatabaseClassesView';
 import { BridgeDiagnosticsView } from './components/BridgeDiagnosticsView';
 import { NotificationsView } from './components/NotificationsView';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import { DEFAULT_EAST_AFRICA_NOTIFICATIONS } from './services/notifications';
 import { X, Smartphone, CheckCircle2, AlertTriangle, Info, ShieldAlert } from 'lucide-react';
 
@@ -597,7 +598,12 @@ export default function App() {
 
         {/* Main Content Viewport */}
         <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto">
-          {activeTab === 'dashboard' && (
+          <ErrorBoundary
+            key={activeTab}
+            fallbackTitle={`Module View Error (${activeTab})`}
+            onReset={() => setActiveTab('dashboard')}
+          >
+            {activeTab === 'dashboard' && (
             <JurisdictionDashboardWrapper
               user={currentUser}
               darkMode={darkMode}
@@ -708,6 +714,11 @@ export default function App() {
             <SuperAppApprovalsView
               darkMode={darkMode}
               userRole={currentUser.role}
+              userJurisdiction={currentUser.jurisdictionCountry}
+              userJurisdictionName={currentUser.jurisdictionName}
+              assignedCorridors={currentUser.assignedCorridors}
+              userName={currentUser.name}
+              userEmail={currentUser.email}
               onGuardPermission={guardPermission}
               onNotify={pushToast}
             />
@@ -717,6 +728,11 @@ export default function App() {
             <FleetBiddingEscrowView
               darkMode={darkMode}
               userRole={currentUser.role}
+              userJurisdiction={currentUser.jurisdictionCountry}
+              userJurisdictionName={currentUser.jurisdictionName}
+              assignedCorridors={currentUser.assignedCorridors}
+              userName={currentUser.name}
+              userEmail={currentUser.email}
               drivers={drivers}
               onGuardPermission={guardPermission}
               onNotify={pushToast}
@@ -860,6 +876,7 @@ export default function App() {
               onNotify={pushToast}
             />
           )}
+          </ErrorBoundary>
         </main>
       </div>
 

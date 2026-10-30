@@ -605,6 +605,11 @@ export interface SuperAppVerificationItem {
   eligibilityScore: number;
   missingChecks: string[];
   notes?: string;
+  countryCode?: EastAfricaCountryCode;
+  countryName?: string;
+  regulatorShort?: string;
+  regulatorName?: string;
+  corridorName?: string;
 }
 
 export interface SuperAppFreightBid {
@@ -622,6 +627,11 @@ export interface SuperAppFreightBid {
   autoSelected: boolean;
   status: 'open' | 'awarded' | 'declined';
   submittedAt: string;
+  countryCode?: EastAfricaCountryCode;
+  countryName?: string;
+  currency?: EastAfricaCurrency;
+  amountLocal?: number;
+  corridorName?: string;
 }
 
 export interface SuperAppTruckBookingLoad {
@@ -640,6 +650,11 @@ export interface SuperAppTruckBookingLoad {
   estimatedBudgetETB: number;
   status: 'bidding_open' | 'partially_allocated' | 'allocated' | 'in_transit' | 'completed';
   escrowId: string;
+  countryCode?: EastAfricaCountryCode;
+  countryName?: string;
+  currency?: EastAfricaCurrency;
+  estimatedBudgetLocal?: number;
+  corridorName?: string;
 }
 
 export interface SuperAppFleetTruck {
@@ -654,6 +669,9 @@ export interface SuperAppFleetTruck {
   assignedDriverName: string | null;
   assignedDriverPhone: string | null;
   status: 'active' | 'idle' | 'maintenance';
+  countryCode?: EastAfricaCountryCode;
+  countryName?: string;
+  homeDepot?: string;
 }
 
 export interface SuperAppDriverInvitation {
@@ -667,6 +685,8 @@ export interface SuperAppDriverInvitation {
   revenueSplitDriverPct: number;
   status: 'pending' | 'accepted' | 'declined' | 'revoked';
   sentAt: string;
+  countryCode?: EastAfricaCountryCode;
+  countryName?: string;
 }
 
 export interface SuperAppEscrowRecord {
@@ -676,13 +696,21 @@ export interface SuperAppEscrowRecord {
   recipientId: string;
   recipientName: string;
   recipientType: 'driver' | 'vehicle_owner_fleet';
-  paymentRail: 'telebirr' | 'cbe_birr' | 'mpesa_et' | 'bank_rtgs' | 'card' | 'cash';
+  paymentRail: PaymentGateway | 'telebirr' | 'cbe_birr' | 'mpesa_et' | 'bank_rtgs' | 'card' | 'cash' | string;
   grossAmountETB: number;
   platformMarginETB: number;
   taxWithheldETB: number;
   netPayoutETB: number;
   status: 'held_in_escrow' | 'payout_ready' | 'released' | 'disputed';
   updatedAt: string;
+  countryCode?: EastAfricaCountryCode;
+  countryName?: string;
+  currency?: EastAfricaCurrency;
+  grossAmountLocal?: number;
+  netPayoutLocal?: number;
+  platformMarginLocal?: number;
+  taxWithheldLocal?: number;
+  localPaymentRail?: string;
 }
 
 export interface SuperAppSurgeZone {

@@ -80,7 +80,7 @@ export function resolveItemCountryCode(
     return 'ET';
   } else {
     const d = item as Driver;
-    const text = `${d.phone} ${d.vehiclePlate} ${d.name}`.toLowerCase();
+    const text = `${d.phone || ''} ${d.vehiclePlate || ''} ${d.name || ''}`.toLowerCase();
     if (text.startsWith('+254') || text.includes('kda-') || text.includes('kby-')) return 'KE';
     if (text.startsWith('+250') || text.includes('rad-')) return 'RW';
     if (text.startsWith('+256') || text.includes('uba-') || text.includes('ubb-')) return 'UG';
