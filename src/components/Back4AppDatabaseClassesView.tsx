@@ -6,8 +6,6 @@ import {
   RefreshCw,
   Download,
   FileCode2,
-  ExternalLink,
-  Code2,
   Table,
   Eye,
   X,
@@ -20,34 +18,74 @@ import {
   Car,
   Users,
   Compass,
+  Globe2,
   ChevronRight,
   Info,
   Filter,
   ArrowRight,
+  ShieldCheck,
+  Building2,
+  CreditCard,
+  Hash,
 } from 'lucide-react';
 import {
   Back4AppClassDetailResponse,
   Back4AppClassSummary,
   Back4AppUploadedClassesManifest,
+  EastAfricaCountryCode,
   ToastMessage,
 } from '../types';
 import { superAppBridgeService } from '../services/superAppBridge';
 import { downloadCsv } from '../services/rbac';
+import { EAST_AFRICAN_COUNTRIES_META } from '../services/eastAfricaModules';
 
-interface Back4AppDatabaseClassesViewProps {
+export interface Back4AppDatabaseClassesViewProps {
   darkMode: boolean;
+  userRole?: string;
+  userJurisdiction?: EastAfricaCountryCode;
+  userJurisdictionName?: string;
+  currentUserName?: string;
+  currentUserEmail?: string;
+  assignedCorridors?: string[];
   onNotify?: (title: string, message?: string, type?: ToastMessage['type']) => void;
 }
 
 type ViewSubTab = 'records' | 'schema' | 'topology';
 
+const EAST_AFRICA_ORDERED_CODES: Array<Exclude<EastAfricaCountryCode, 'ALL'>> = [
+  'ET',
+  'KE',
+  'UG',
+  'RW',
+  'TZ',
+  'DJ',
+  'SO',
+  'SS',
+];
+
 export const Back4AppDatabaseClassesView: React.FC<Back4AppDatabaseClassesViewProps> = ({
+  userRole = 'Super Admin',
+  userJurisdiction = 'ALL',
+  userJurisdictionName = 'Pan-East Africa',
+  currentUserName = 'Operator',
   onNotify,
 }) => {
   const [manifest, setManifest] = useState<Back4AppUploadedClassesManifest | null>(null);
   const [selectedClass, setSelectedClass] = useState<string>('_User');
   const [classDetail, setClassDetail] = useState<Back4AppClassDetailResponse | null>(null);
   const [subTab, setSubTab] = useState<ViewSubTab>('records');
+
+  // Country of operation filter: defaults to the logged-in user's jurisdiction!
+  const [selectedCountry, setSelectedCountry] = useState<EastAfricaCountryCode>(() => {
+    return userJurisdiction || 'ALL';
+  });
+
+  // Keep in sync when user persona / jurisdiction switches
+  useEffect(() => {
+    if (userJurisdiction) {
+      setSelectedCountry(userJurisdiction);
+    }
+  }, [userJurisdiction]);
 
   // Loading & Action states
   const [loadingManifest, setLoadingManifest] = useState(true);
@@ -71,7 +109,11 @@ export const Back4AppDatabaseClassesView: React.FC<Back4AppDatabaseClassesViewPr
       const data = await superAppBridgeService.getUploadedClassesManifest();
       setManifest(data);
       if (showToast) {
-        onNotify?.('Classes Scanned', `Loaded ${data.totalClasses} classes with ${data.totalRecords} records.`, 'success');
+        onNotify?.(
+          'Classes Scanned',
+          `Loaded ${data.totalClasses} classes with ${data.totalRecords} records across 8 nations.`,
+          'success'
+        );
       }
     } catch (err: any) {
       onNotify?.('Inspection Failed', err?.message || 'Unable to scan Back4App CSV classes.', 'error');
@@ -80,11 +122,11 @@ export const Back4AppDatabaseClassesView: React.FC<Back4AppDatabaseClassesViewPr
     }
   };
 
-  // Fetch Class Records
-  const loadClassDetail = async (className: string) => {
+  // Fetch Class Records with country filter
+  const loadClassDetail = async (className: string, country: EastAfricaCountryCode) => {
     setLoadingRecords(true);
     try {
-      const data = await superAppBridgeService.getUploadedClassRecords(className);
+      const data = await superAppBridgeService.getUploadedClassRecords(className, country);
       setClassDetail(data);
       setCurrentPage(1);
       setSearchQuery('');
@@ -101,8 +143,12 @@ export const Back4AppDatabaseClassesView: React.FC<Back4AppDatabaseClassesViewPr
     try {
       const res = await superAppBridgeService.rescanUploadedClasses();
       setManifest(res.manifest);
-      await loadClassDetail(selectedClass);
-      onNotify?.('Rescan Complete', 'Successfully re-indexed Back4App CSV classes from disk.', 'success');
+      await loadClassDetail(selectedClass, selectedCountry);
+      onNotify?.(
+        'Rescan Complete',
+        'Successfully re-indexed Back4App 7 classes from disk with East African country data.',
+        'success'
+      );
     } catch (err: any) {
       onNotify?.('Rescan Error', err?.message || 'Failed to rescan directory.', 'error');
     } finally {
@@ -116,9 +162,9 @@ export const Back4AppDatabaseClassesView: React.FC<Back4AppDatabaseClassesViewPr
 
   useEffect(() => {
     if (selectedClass) {
-      loadClassDetail(selectedClass);
+      loadClassDetail(selectedClass, selectedCountry);
     }
-  }, [selectedClass]);
+  }, [selectedClass, selectedCountry]);
 
   // Filtered classes in the selector
   const filteredClasses = useMemo(() => {
@@ -166,6 +212,12 @@ export const Back4AppDatabaseClassesView: React.FC<Back4AppDatabaseClassesViewPr
       default:
         return <Database className="w-4 h-4 text-slate-500" />;
     }
+  };
+
+  // Helper to extract country from a row
+  const getRowCountryMeta = (row: Record<string, any>) => {
+    const code = (row.countryCode || 'ET').toUpperCase() as Exclude<EastAfricaCountryCode, 'ALL'>;
+    return EAST_AFRICAN_COUNTRIES_META[code] || EAST_AFRICAN_COUNTRIES_META.ET;
   };
 
   // Type badge styling helper
@@ -232,6 +284,18 @@ export const Back4AppDatabaseClassesView: React.FC<Back4AppDatabaseClassesViewPr
 
     const str = String(val).trim();
 
+    // Country Code column
+    if (colName === 'countryCode') {
+      const code = str.toUpperCase() as Exclude<EastAfricaCountryCode, 'ALL'>;
+      const meta = EAST_AFRICAN_COUNTRIES_META[code];
+      return (
+        <span className="inline-flex items-center gap-1 font-semibold text-slate-900 dark:text-white">
+          <span className="text-sm">{meta?.flag || '🌍'}</span>
+          <span className="font-mono text-[11px]">{code}</span>
+        </span>
+      );
+    }
+
     // GeoPoint detection
     if (str.startsWith('{') && str.includes('GeoPoint')) {
       try {
@@ -252,9 +316,50 @@ export const Back4AppDatabaseClassesView: React.FC<Back4AppDatabaseClassesViewPr
       try {
         const parsed = JSON.parse(str);
         return (
-          <span className="inline-flex items-center gap-1 font-mono text-[11px] text-purple-700 dark:text-purple-300 bg-purple-50 dark:bg-purple-950/50 px-1.5 py-0.5 rounded">
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              if (parsed.className && parsed.className !== selectedClass) {
+                setSelectedClass(parsed.className);
+              }
+            }}
+            className="inline-flex items-center gap-1 font-mono text-[11px] text-purple-700 dark:text-purple-300 bg-purple-50 dark:bg-purple-950/50 hover:bg-purple-100 dark:hover:bg-purple-900 px-1.5 py-0.5 rounded transition-colors"
+          >
             <Link2 className="w-3 h-3 text-purple-600" />
-            {parsed.className}#{String(parsed.objectId).slice(0, 8)}
+            <span>
+              {parsed.className}:{parsed.objectId?.slice(0, 8)}…
+            </span>
+          </button>
+        );
+      } catch {
+        // fallback
+      }
+    }
+
+    // Boolean
+    if (str === 'true' || str === 'false') {
+      const isTrue = str === 'true';
+      return (
+        <span
+          className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold ${
+            isTrue
+              ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300'
+              : 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400'
+          }`}
+        >
+          {str}
+        </span>
+      );
+    }
+
+    // JSON array
+    if (str.startsWith('[') && str.endsWith(']')) {
+      try {
+        const parsed = JSON.parse(str);
+        return (
+          <span className="inline-flex items-center gap-1 text-[11px] font-mono text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-950/40 px-1.5 py-0.5 rounded">
+            <span>{Array.isArray(parsed) ? `${parsed.length} items: [${parsed.slice(0, 2).join(', ')}${parsed.length > 2 ? '…' : ''}]` : str}</span>
           </span>
         );
       } catch {
@@ -262,137 +367,274 @@ export const Back4AppDatabaseClassesView: React.FC<Back4AppDatabaseClassesViewPr
       }
     }
 
-    // JSON objects / arrays
-    if ((str.startsWith('{') && str.endsWith('}')) || (str.startsWith('[') && str.endsWith(']'))) {
-      const isArr = str.startsWith('[');
+    // RoleCodes or Status badges
+    if (colName === 'status' || colName === 'onlineStatus' || colName === 'shiftStatus') {
+      const isOnline = str === 'online' || str === 'active';
       return (
         <span
-          className={`inline-block font-mono text-[10px] truncate max-w-[140px] px-1.5 py-0.5 rounded ${
-            isArr
-              ? 'bg-blue-50 dark:bg-blue-950/50 text-blue-700 dark:text-blue-300'
-              : 'bg-amber-50 dark:bg-amber-950/50 text-amber-700 dark:text-amber-300'
+          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-semibold ${
+            isOnline
+              ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300'
+              : 'bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300'
           }`}
-          title={str}
         >
+          <span
+            className={`w-1.5 h-1.5 rounded-full ${isOnline ? 'bg-emerald-500' : 'bg-amber-500'}`}
+          />
           {str}
         </span>
       );
     }
 
-    // Boolean
-    if (str.toLowerCase() === 'true' || str.toLowerCase() === 'false') {
-      const isTrue = str.toLowerCase() === 'true';
-      return (
-        <span
-          className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-mono font-semibold ${
-            isTrue
-              ? 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300'
-              : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400'
-          }`}
-        >
-          {str}
-        </span>
-      );
-    }
-
-    return <span className="font-mono text-xs text-slate-800 dark:text-slate-200">{str}</span>;
+    return <span className="font-mono text-slate-700 dark:text-slate-300">{str}</span>;
   };
 
-  // Copy JSON to clipboard
-  const handleCopyJson = (obj: any) => {
-    navigator.clipboard.writeText(JSON.stringify(obj, null, 2));
+  // Copy full record JSON
+  const handleCopyJson = (record: Record<string, any>) => {
+    navigator.clipboard.writeText(JSON.stringify(record, null, 2));
     setCopiedJson(true);
-    onNotify?.('Copied to Clipboard', 'Full Parse document JSON copied.', 'info');
     setTimeout(() => setCopiedJson(false), 2000);
+    onNotify?.('Copied to Clipboard', `Record JSON copied successfully.`, 'info');
   };
 
   // Export current class records to CSV
   const handleExportCsv = () => {
     if (!classDetail?.records || classDetail.records.length === 0) return;
-    const headers = classDetail.summary.columns.map((c) => c.name);
-    const rows = classDetail.records.map((r) =>
-      headers.map((h) => {
-        const val = r[h];
-        if (val === null || val === undefined) return '';
-        if (typeof val === 'object') return JSON.stringify(val);
-        return String(val);
-      })
+    const cols = classDetail.summary.columns.map((c) => c.name);
+    const scopeLabel = selectedCountry === 'ALL' ? 'all_east_africa' : selectedCountry.toLowerCase();
+    downloadCsv(
+      `afronala_${selectedClass.toLowerCase()}_${scopeLabel}_${new Date().toISOString().slice(0, 10)}.csv`,
+      cols,
+      classDetail.records.map((r) => cols.map((col) => r[col]))
     );
-    downloadCsv(`back4app_${selectedClass}_export.csv`, headers, rows);
-    onNotify?.('Export Downloaded', `Exported ${classDetail.records.length} records from ${selectedClass}.`, 'success');
+    onNotify?.(
+      'Export Complete',
+      `Downloaded ${classDetail.records.length} records for ${selectedClass} (${selectedCountry}) as CSV.`,
+      'success'
+    );
   };
+
+  // Current class breakdown counts per country
+  const currentClassCountryCounts = useMemo(() => {
+    if (classDetail?.countryBreakdown) {
+      return classDetail.countryBreakdown;
+    }
+    const currentSummary = manifest?.classes.find((c) => c.className === selectedClass);
+    return currentSummary?.countryCounts || {};
+  }, [classDetail, manifest, selectedClass]);
 
   return (
     <div className="space-y-6">
-      {/* Top Header Card */}
-      <div className="glass-panel-light dark:glass-panel-dark rounded-xl p-5 border border-slate-200 dark:border-slate-800 shadow-xs">
-        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-          <div>
-            <div className="flex items-center gap-2.5">
-              <div className="p-2 rounded-lg bg-cyan-50 dark:bg-cyan-950/60 text-cyan-700 dark:text-cyan-400 border border-cyan-200 dark:border-cyan-800/80">
-                <Database className="w-5 h-5" />
-              </div>
-              <div>
-                <h2 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                  Back4App Parse Database Classes
-                  <span className="text-xs px-2.5 py-0.5 rounded-full font-mono bg-cyan-100 dark:bg-cyan-950/80 text-cyan-800 dark:text-cyan-300 border border-cyan-200 dark:border-cyan-800">
-                    7 Classes · {manifest?.totalRecords || 259} Seed Records
-                  </span>
-                </h2>
-                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                  Direct inspection of production BaaS database schemas, single-identity multi-role actors, and relational pointers in <code className="font-mono text-[11px] text-cyan-700 dark:text-cyan-300">back4app_cloud_code/back4app_classes/</code>
-                </p>
-              </div>
-            </div>
+      {/* Top Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-slate-200 dark:border-slate-800">
+        <div>
+          <div className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-400 flex-wrap">
+            <span className="font-semibold text-slate-800 dark:text-slate-200">
+              Back4App Cloud Code Explorer
+            </span>
+            <span aria-hidden="true">·</span>
+            <span className="inline-flex items-center gap-1.5 font-medium">
+              <Database className="w-3.5 h-3.5 text-cyan-700 dark:text-cyan-400" />
+              <span>7 Core Database Classes · Pan-East Africa Schema</span>
+            </span>
           </div>
+          <h1 className="text-xl sm:text-2xl font-extrabold tracking-tight text-slate-900 dark:text-white mt-1">
+            Back4App Database Classes (7 Classes)
+          </h1>
+          <p className="text-xs text-slate-600 dark:text-slate-400 mt-0.5">
+            Full relational inspection, pointer topology, and schema audit across all 8 East African nations.
+          </p>
+        </div>
 
-          <div className="flex items-center gap-2 w-full md:w-auto">
-            <button
-              onClick={handleRescan}
-              disabled={rescanning}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 shadow-xs transition-colors disabled:opacity-50"
-              title="Rescan CSV files from directory"
-            >
-              <RefreshCw className={`w-3.5 h-3.5 ${rescanning ? 'animate-spin' : ''}`} />
-              <span>{rescanning ? 'Rescanning...' : 'Rescan CSVs'}</span>
-            </button>
+        <div className="flex items-center gap-2.5 shrink-0 flex-wrap">
+          <button
+            type="button"
+            onClick={handleExportCsv}
+            disabled={!classDetail?.records.length}
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-semibold border border-slate-300 dark:border-slate-700 bg-white hover:bg-slate-100 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 transition-colors shadow-xs whitespace-nowrap shrink-0 disabled:opacity-50"
+          >
+            <Download className="w-3.5 h-3.5 text-cyan-700 dark:text-cyan-400" />
+            <span>Export {selectedClass} CSV</span>
+          </button>
 
-            <button
-              onClick={handleExportCsv}
-              disabled={!classDetail?.records?.length}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold bg-cyan-600 hover:bg-cyan-700 text-white shadow-xs transition-colors disabled:opacity-50"
-              title="Export current class records to CSV"
-            >
-              <Download className="w-3.5 h-3.5" />
-              <span>Export CSV</span>
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={handleRescan}
+            disabled={rescanning}
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-semibold text-white bg-cyan-600 hover:bg-cyan-500 transition-colors shadow-xs whitespace-nowrap shrink-0 disabled:opacity-50"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${rescanning ? 'animate-spin' : ''}`} />
+            <span>{rescanning ? 'Re-Indexing Classes...' : 'Re-Index 7 Classes'}</span>
+          </button>
         </div>
       </div>
 
-      {/* Relational Pointer Topology Banner Card */}
-      <div className="rounded-xl border border-indigo-200 dark:border-indigo-900/60 bg-gradient-to-r from-indigo-50/50 via-slate-50/30 to-cyan-50/40 dark:from-indigo-950/20 dark:via-slate-900/30 dark:to-cyan-950/20 p-4">
-        <div className="flex items-start justify-between gap-4">
-          <div className="space-y-1">
-            <div className="flex items-center gap-2">
-              <Layers className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
-              <h3 className="text-xs font-bold uppercase tracking-wider text-indigo-900 dark:text-indigo-300">
-                Single-Identity Multi-Role Actor Model &amp; Pointer Topology
-              </h3>
+      {/* Operator Jurisdiction Context Card */}
+      <div className="p-4 rounded-xl border border-cyan-200/80 dark:border-cyan-900/60 bg-gradient-to-r from-cyan-50/70 via-white to-blue-50/50 dark:from-cyan-950/20 dark:via-slate-900 dark:to-blue-950/20 flex flex-col md:flex-row md:items-center justify-between gap-3 shadow-xs">
+        <div className="flex items-start sm:items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-cyan-600/10 dark:bg-cyan-500/20 text-cyan-700 dark:text-cyan-300 flex items-center justify-center shrink-0 text-xl font-bold">
+            {userJurisdiction && userJurisdiction !== 'ALL'
+              ? EAST_AFRICAN_COUNTRIES_META[userJurisdiction]?.flag || '🌍'
+              : '🌍'}
+          </div>
+          <div>
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-xs font-bold uppercase tracking-wider text-cyan-800 dark:text-cyan-300">
+                Logged In Operator Database Scope
+              </span>
+              <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-cyan-100 text-cyan-800 dark:bg-cyan-900/70 dark:text-cyan-200 border border-cyan-200 dark:border-cyan-800">
+                {userJurisdictionName || 'Pan-East Africa'}
+              </span>
+              <span className="text-[11px] font-mono text-slate-500 dark:text-slate-400">
+                ({currentUserName} · {userRole})
+              </span>
             </div>
-            <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed max-w-4xl">
-              Root authentication is centralized in <strong className="font-semibold text-slate-900 dark:text-white">_User</strong>. A single human logs in with one phone/email and dynamically assumes multiple roles via <code className="font-mono text-[11px] bg-slate-200 dark:bg-slate-800 px-1 py-0.5 rounded">roleCodes: [&quot;customer&quot;, &quot;driver&quot;, &quot;rideOwner&quot;, &quot;truckOwner&quot;]</code>. Child classes store relational pointers back to <strong className="font-semibold text-slate-900 dark:text-white">_User</strong>, with commercial contracts linked through <strong className="font-semibold text-slate-900 dark:text-white">RideDriver</strong> and fleet operations coordinated by <strong className="font-semibold text-slate-900 dark:text-white">TruckDispatcher</strong>.
+            <p className="text-xs text-slate-700 dark:text-slate-300 mt-0.5">
+              {userJurisdiction && userJurisdiction !== 'ALL' ? (
+                <>
+                  Inspecting Back4App Parse classes for <strong>{EAST_AFRICAN_COUNTRIES_META[userJurisdiction]?.name}</strong> ({EAST_AFRICAN_COUNTRIES_META[userJurisdiction]?.shortRegulator}). All records, GPS GeoPoints, and CDL/TIN numbers are scoped to local corridors.
+                </>
+              ) : (
+                <>
+                  Unified <strong>Pan-East Africa Multi-Country Database Topology</strong> covering all 8 member states.
+                </>
+              )}
             </p>
           </div>
         </div>
 
-        {/* Pointer Flow Mini Diagram */}
+        <div className="flex items-center gap-2 shrink-0 pt-2 md:pt-0 border-t md:border-t-0 border-cyan-100 dark:border-cyan-900/40">
+          {userJurisdiction && userJurisdiction !== 'ALL' && selectedCountry !== userJurisdiction && (
+            <button
+              type="button"
+              onClick={() => setSelectedCountry(userJurisdiction)}
+              className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-cyan-600 text-white hover:bg-cyan-500 shadow-xs transition-colors whitespace-nowrap flex items-center gap-1.5"
+            >
+              <span>Focus My Station ({EAST_AFRICAN_COUNTRIES_META[userJurisdiction]?.flag} {userJurisdiction})</span>
+            </button>
+          )}
+
+          {selectedCountry !== 'ALL' && (
+            <button
+              type="button"
+              onClick={() => setSelectedCountry('ALL')}
+              className="px-3 py-1.5 rounded-lg text-xs font-semibold border border-slate-300 dark:border-slate-700 bg-white hover:bg-slate-100 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 shadow-xs transition-colors whitespace-nowrap flex items-center gap-1.5"
+            >
+              <Globe2 className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400" />
+              <span>View All 8 Nations</span>
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* East African Country Switcher Tabs */}
+      <div className="space-y-1.5">
+        <div className="flex items-center justify-between text-xs text-slate-600 dark:text-slate-400 px-1">
+          <span className="font-semibold flex items-center gap-1.5">
+            <Compass className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400" />
+            <span>Select Country of Operation for 7 Database Classes:</span>
+          </span>
+          <span className="text-[11px] font-mono">
+            Class {selectedClass}: {currentClassCountryCounts[selectedCountry] ?? classDetail?.records.length ?? 0} records
+          </span>
+        </div>
+
+        <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none">
+          {/* All East Africa Tab */}
+          <button
+            type="button"
+            onClick={() => setSelectedCountry('ALL')}
+            className={`px-3.5 py-2 rounded-xl text-xs font-semibold transition-all whitespace-nowrap shrink-0 flex items-center gap-2 border ${
+              selectedCountry === 'ALL'
+                ? 'bg-slate-900 text-white border-slate-900 dark:bg-white dark:text-slate-900 dark:border-white shadow-sm ring-2 ring-cyan-500/20'
+                : 'bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700'
+            }`}
+          >
+            <span className="text-sm">🌍</span>
+            <span>All East Africa</span>
+            <span
+              className={`px-1.5 py-0.5 rounded-full text-[10px] font-mono ${
+                selectedCountry === 'ALL'
+                  ? 'bg-cyan-500 text-white dark:bg-cyan-600 dark:text-white'
+                  : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
+              }`}
+            >
+              {currentClassCountryCounts.ALL ?? manifest?.totalRecords ?? 0}
+            </span>
+          </button>
+
+          {/* 8 East African Member Countries */}
+          {EAST_AFRICA_ORDERED_CODES.map((code) => {
+            const meta = EAST_AFRICAN_COUNTRIES_META[code];
+            const isSelected = selectedCountry === code;
+            const isUserHome = userJurisdiction === code;
+            const count = currentClassCountryCounts[code] ?? 0;
+
+            return (
+              <button
+                key={code}
+                type="button"
+                onClick={() => setSelectedCountry(code)}
+                className={`px-3.5 py-2 rounded-xl text-xs font-semibold transition-all whitespace-nowrap shrink-0 flex items-center gap-2 border relative ${
+                  isSelected
+                    ? 'bg-cyan-600 text-white border-cyan-600 shadow-sm ring-2 ring-cyan-500/30'
+                    : 'bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700'
+                }`}
+              >
+                <span className="text-sm">{meta.flag}</span>
+                <span>{meta.name}</span>
+                {isUserHome && (
+                  <span
+                    title="Your Assigned Jurisdiction"
+                    className="px-1 py-0.2 rounded text-[9px] uppercase tracking-wider font-bold bg-amber-400 text-slate-950 dark:bg-amber-300 dark:text-slate-950"
+                  >
+                    You
+                  </span>
+                )}
+                <span
+                  className={`px-1.5 py-0.5 rounded-full text-[10px] font-mono ${
+                    isSelected
+                      ? 'bg-cyan-700 text-white dark:bg-cyan-700 dark:text-white'
+                      : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
+                  }`}
+                >
+                  {count}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Architectural Topology Summary Banner */}
+      <div className="p-4 sm:p-5 rounded-xl border border-indigo-200/80 dark:border-indigo-900/60 bg-indigo-50/40 dark:bg-indigo-950/20 shadow-xs">
+        <div className="flex items-start gap-3">
+          <div className="p-2.5 rounded-lg bg-indigo-600/10 dark:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 shrink-0">
+            <Layers className="w-5 h-5" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-700 dark:text-indigo-300 font-mono">
+                Architecture Standard
+              </span>
+              <span className="text-slate-300 dark:text-slate-700">·</span>
+              <h3 className="text-sm font-bold text-slate-900 dark:text-white">
+                Single-Identity Multi-Role Actor Model &amp; Pointer Topology
+              </h3>
+            </div>
+            <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed max-w-4xl mt-1">
+              Authentication is anchored in <strong className="font-semibold text-slate-900 dark:text-white">_User</strong>. A single human logs in once and assumes roles dynamically across all 8 East African countries via <code className="font-mono text-[11px] bg-slate-200 dark:bg-slate-800 px-1 py-0.5 rounded">roleCodes: [&quot;customer&quot;, &quot;driver&quot;, &quot;rideOwner&quot;, &quot;truckOwner&quot;, &quot;truckDispatcher&quot;]</code>. Child classes maintain relational pointers back to <strong className="font-semibold text-slate-900 dark:text-white">_User</strong>, with commercial contracts linked through <strong className="font-semibold text-slate-900 dark:text-white">RideDriver</strong> and cross-border transport coordinated by <strong className="font-semibold text-slate-900 dark:text-white">TruckDispatcher</strong>.
+            </p>
+          </div>
+        </div>
+
+        {/* Pointer Flow Diagram */}
         <div className="mt-3 pt-3 border-t border-indigo-100 dark:border-indigo-900/40 grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2">
           {[
             { name: '_User', role: 'Root Identity (Auth & Roles)', ptr: 'Target of 5 Classes' },
             { name: 'Customer', role: 'Riders & Shippers', ptr: '→ _User (user)' },
             { name: 'Driver', role: 'Ride/Truck Operator', ptr: '→ _User, Vehicle' },
-            { name: 'RideDriver', role: 'Revenue Split 80/20', ptr: '→ _User, RideOwner' },
+            { name: 'RideDriver', role: 'Revenue Split Agreements', ptr: '→ _User, RideOwner' },
             { name: 'RideOwner', role: 'Taxi Fleet Entity', ptr: '→ _User (ownerUserId)' },
             { name: 'TruckDispatcher', role: 'Waybill Corridor Hub', ptr: '→ _User (user)' },
             { name: 'TruckOwner', role: 'Freight Carrier Corp', ptr: '→ _User, Fleet' },
@@ -439,77 +681,88 @@ export const Back4AppDatabaseClassesView: React.FC<Back4AppDatabaseClassesViewPr
                       : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
                   }`}
                 >
-                  {cat === 'all' ? 'All (7)' : cat}
+                  {cat === 'all' ? 'All (7 Classes)' : cat}
                 </button>
               ))}
             </div>
           </div>
           <span className="text-xs text-slate-400 font-mono">
-            Selected: <strong className="text-slate-800 dark:text-slate-200">{selectedClass}</strong>
+            Active Class: <strong className="text-slate-800 dark:text-slate-200">{selectedClass}</strong> ({selectedCountry === 'ALL' ? 'Pan-East Africa' : selectedCountry})
           </span>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7 gap-3">
+        {/* 7 Class Cards Grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
           {filteredClasses.map((cls) => {
             const isSelected = selectedClass === cls.className;
+            const scopedCount =
+              cls.countryCounts && selectedCountry !== 'ALL'
+                ? cls.countryCounts[selectedCountry] ?? 0
+                : cls.recordCount;
+
             return (
-              <button
+              <div
                 key={cls.className}
                 onClick={() => setSelectedClass(cls.className)}
-                className={`text-left p-3.5 rounded-xl border transition-all relative flex flex-col justify-between ${
+                className={`p-4 rounded-xl border cursor-pointer transition-all text-left relative overflow-hidden ${
                   isSelected
-                    ? 'bg-cyan-50 dark:bg-cyan-950/40 border-cyan-500 ring-2 ring-cyan-500/30 shadow-sm'
-                    : 'bg-white dark:bg-slate-800/80 border-slate-200 dark:border-slate-700/80 hover:border-slate-300 dark:hover:border-slate-600'
+                    ? 'border-cyan-500 bg-white dark:bg-slate-800/90 shadow-md ring-2 ring-cyan-500/30'
+                    : 'border-slate-200 dark:border-slate-800 bg-white/70 dark:bg-slate-900 hover:border-slate-300 dark:hover:border-slate-700'
                 }`}
               >
-                <div>
-                  <div className="flex items-center justify-between gap-1 mb-2">
-                    <span className="p-1 rounded bg-slate-100 dark:bg-slate-700/60">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <div className="p-1.5 rounded-lg bg-slate-100 dark:bg-slate-800">
                       {getCategoryIcon(cls.category)}
-                    </span>
-                    <span className="text-[10px] px-1.5 py-0.5 rounded font-mono bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400">
-                      {cls.recordCount} rows
-                    </span>
+                    </div>
+                    <div>
+                      <h4 className="font-mono font-bold text-sm text-slate-900 dark:text-white">
+                        {cls.className}
+                      </h4>
+                      <span className="text-[10px] text-slate-500 dark:text-slate-400">
+                        {cls.category}
+                      </span>
+                    </div>
                   </div>
 
-                  <h4 className="text-sm font-bold font-mono text-slate-900 dark:text-white truncate">
-                    {cls.className}
-                  </h4>
-                  <p className="text-[11px] text-slate-500 dark:text-slate-400 line-clamp-2 mt-1">
-                    {cls.primaryFunction}
-                  </p>
-                </div>
-
-                <div className="mt-3 pt-2 border-t border-slate-100 dark:border-slate-700/50 flex items-center justify-between text-[10px] text-slate-500 dark:text-slate-400">
-                  <span>{cls.columnCount} columns</span>
-                  <span className="font-mono text-cyan-600 dark:text-cyan-400 flex items-center gap-0.5">
-                    View <ChevronRight className="w-3 h-3" />
+                  <span className="px-2 py-0.5 rounded text-[11px] font-mono font-bold bg-cyan-50 dark:bg-cyan-950/60 text-cyan-700 dark:text-cyan-300 border border-cyan-200 dark:border-cyan-800">
+                    {scopedCount} recs
                   </span>
                 </div>
-              </button>
+
+                <p className="text-[11px] text-slate-600 dark:text-slate-400 line-clamp-2 mt-2 leading-relaxed">
+                  {cls.primaryFunction}
+                </p>
+
+                <div className="mt-3 pt-2.5 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-[10px] text-slate-500 dark:text-slate-400 font-mono">
+                  <span>{cls.columnCount} columns</span>
+                  <span>{cls.outgoingPointers.length} pointers</span>
+                  <span>{(cls.fileSizeBytes / 1024).toFixed(1)} KB</span>
+                </div>
+              </div>
             );
           })}
         </div>
       </div>
 
-      {/* Main Class Inspection Panel */}
-      <div className="glass-panel-light dark:glass-panel-dark rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-xs">
-        {/* Panel Header & Sub-Tabs */}
-        <div className="p-4 sm:p-5 border-b border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+      {/* Class Detail Inspector Surface */}
+      <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xs overflow-hidden">
+        {/* Class Surface Header */}
+        <div className="p-4 sm:p-5 border-b border-slate-200 dark:border-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-4 bg-slate-50/50 dark:bg-slate-950/30">
           <div className="flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-cyan-600 dark:text-cyan-400">
+            <div className="p-2 rounded-xl bg-cyan-50 dark:bg-cyan-950/60 text-cyan-700 dark:text-cyan-300 border border-cyan-200 dark:border-cyan-800">
               <Table className="w-5 h-5" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h3 className="text-base font-bold text-slate-900 dark:text-white font-mono">
-                  {selectedClass}
+                <h3 className="font-mono font-bold text-base text-slate-900 dark:text-white">
+                  Class: {selectedClass}
                 </h3>
-                <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400">
-                  {classDetail?.summary?.fileName || `${selectedClass}.csv`}
+                <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
+                  {selectedCountry === 'ALL' ? 'Pan-East Africa' : `${EAST_AFRICAN_COUNTRIES_META[selectedCountry as Exclude<EastAfricaCountryCode, 'ALL'>]?.flag || ''} ${selectedCountry}`}
                 </span>
-                <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-cyan-50 dark:bg-cyan-950/50 text-cyan-700 dark:text-cyan-300 border border-cyan-200 dark:border-cyan-800">
-                  {classDetail?.summary?.category}
+                <span className="text-xs text-slate-400 font-mono">
+                  ({filteredRows.length} displayed records)
                 </span>
               </div>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
@@ -518,103 +771,74 @@ export const Back4AppDatabaseClassesView: React.FC<Back4AppDatabaseClassesViewPr
             </div>
           </div>
 
-          {/* Sub Tabs */}
-          <div className="flex items-center gap-1 p-1 bg-slate-100 dark:bg-slate-800/80 rounded-lg border border-slate-200 dark:border-slate-700/60 w-full sm:w-auto">
+          {/* Sub-Tab Navigation */}
+          <div className="flex items-center gap-1 p-1 rounded-lg bg-slate-200/70 dark:bg-slate-800 shrink-0">
             <button
               onClick={() => setSubTab('records')}
-              className={`flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-colors ${
                 subTab === 'records'
-                  ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs'
+                  ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-xs'
                   : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
               }`}
             >
               <Table className="w-3.5 h-3.5" />
-              <span>Record Browser ({filteredRows.length})</span>
+              <span>Records ({filteredRows.length})</span>
             </button>
-
             <button
               onClick={() => setSubTab('schema')}
-              className={`flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-colors ${
                 subTab === 'schema'
-                  ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs'
+                  ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-xs'
                   : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
               }`}
             >
-              <Code2 className="w-3.5 h-3.5" />
-              <span>Schema Breakdown ({classDetail?.summary?.columnCount || 0} cols)</span>
+              <FileCode2 className="w-3.5 h-3.5" />
+              <span>Schema ({classDetail?.summary?.columnCount || 0})</span>
             </button>
-
             <button
               onClick={() => setSubTab('topology')}
-              className={`flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-colors ${
                 subTab === 'topology'
-                  ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs'
+                  ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-xs'
                   : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
               }`}
             >
-              <Link2 className="w-3.5 h-3.5" />
-              <span>Relational Pointers</span>
+              <Layers className="w-3.5 h-3.5" />
+              <span>Topology</span>
             </button>
           </div>
         </div>
 
-        {/* Sub-Tab 1: Record Browser */}
+        {/* Sub-Tab 1: Interactive Records Table */}
         {subTab === 'records' && (
           <div className="p-4 sm:p-5 space-y-4">
-            {/* Search and Pagination Toolbar */}
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
-              <div className="relative w-full sm:w-80">
-                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+            {/* Filter and Search Bar */}
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+              <div className="relative flex-1 max-w-md">
+                <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
                 <input
                   type="text"
-                  placeholder={`Search ${selectedClass} records...`}
+                  placeholder={`Search ${selectedClass} records in ${selectedCountry === 'ALL' ? 'all 8 nations' : selectedCountry}...`}
                   value={searchQuery}
-                  onChange={(e) => {
-                    setSearchQuery(e.target.value);
-                    setCurrentPage(1);
-                  }}
-                  className="w-full pl-9 pr-3 py-2 rounded-lg text-xs bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 focus:outline-hidden focus:ring-1 focus:ring-cyan-500 font-mono"
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full pl-8 pr-3 py-1.5 rounded-lg text-xs border bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:border-cyan-600"
                 />
               </div>
 
-              <div className="flex items-center gap-2 w-full sm:w-auto justify-between sm:justify-end">
-                <div className="flex items-center gap-1 text-xs text-slate-500 dark:text-slate-400">
-                  <span>Show</span>
-                  <select
-                    value={pageSize}
-                    onChange={(e) => {
-                      setPageSize(Number(e.target.value));
-                      setCurrentPage(1);
-                    }}
-                    className="px-2 py-1 rounded bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-mono"
-                  >
-                    <option value={10}>10</option>
-                    <option value={25}>25</option>
-                    <option value={50}>50</option>
-                    <option value={100}>100</option>
-                  </select>
-                  <span>per page</span>
-                </div>
-
-                <div className="flex items-center gap-1">
-                  <button
-                    disabled={currentPage <= 1}
-                    onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                    className="px-2.5 py-1 rounded border border-slate-200 dark:border-slate-700 text-xs font-semibold disabled:opacity-40"
-                  >
-                    Prev
-                  </button>
-                  <span className="text-xs font-mono text-slate-600 dark:text-slate-400 px-1">
-                    Page {currentPage} of {totalPages}
-                  </span>
-                  <button
-                    disabled={currentPage >= totalPages}
-                    onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                    className="px-2.5 py-1 rounded border border-slate-200 dark:border-slate-700 text-xs font-semibold disabled:opacity-40"
-                  >
-                    Next
-                  </button>
-                </div>
+              <div className="flex items-center gap-2 self-end sm:self-auto">
+                <span className="text-xs text-slate-500 font-mono">Page size:</span>
+                <select
+                  value={pageSize}
+                  onChange={(e) => {
+                    setPageSize(Number(e.target.value));
+                    setCurrentPage(1);
+                  }}
+                  className="px-2 py-1 rounded text-xs border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 focus:outline-none"
+                >
+                  <option value={10}>10</option>
+                  <option value={25}>25</option>
+                  <option value={50}>50</option>
+                </select>
               </div>
             </div>
 
@@ -626,7 +850,7 @@ export const Back4AppDatabaseClassesView: React.FC<Back4AppDatabaseClassesViewPr
               </div>
             ) : paginatedRows.length === 0 ? (
               <div className="py-12 text-center text-slate-500 dark:text-slate-400 border border-dashed border-slate-200 dark:border-slate-800 rounded-lg">
-                <p className="text-xs">No records matched your search query.</p>
+                <p className="text-xs">No records matched your search query in {selectedCountry}.</p>
               </div>
             ) : (
               <div className="overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-800">
@@ -637,7 +861,10 @@ export const Back4AppDatabaseClassesView: React.FC<Back4AppDatabaseClassesViewPr
                         #
                       </th>
                       <th className="py-2.5 px-3 font-semibold text-slate-700 dark:text-slate-300">
-                        Action
+                        Nation
+                      </th>
+                      <th className="py-2.5 px-3 font-semibold text-slate-700 dark:text-slate-300">
+                        Inspect
                       </th>
                       {classDetail?.summary?.columns.map((col) => (
                         <th
@@ -657,6 +884,8 @@ export const Back4AppDatabaseClassesView: React.FC<Back4AppDatabaseClassesViewPr
                   <tbody className="divide-y divide-slate-100 dark:divide-slate-800/80">
                     {paginatedRows.map((row, idx) => {
                       const absoluteIdx = (currentPage - 1) * pageSize + idx + 1;
+                      const rCountry = getRowCountryMeta(row);
+
                       return (
                         <tr
                           key={row.objectId || `row-${absoluteIdx}`}
@@ -664,6 +893,12 @@ export const Back4AppDatabaseClassesView: React.FC<Back4AppDatabaseClassesViewPr
                         >
                           <td className="py-2.5 px-3 font-mono text-[11px] text-slate-400">
                             {absoluteIdx}
+                          </td>
+                          <td className="py-2.5 px-3 whitespace-nowrap">
+                            <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 border border-slate-200 dark:border-slate-700">
+                              <span>{rCountry.flag}</span>
+                              <span className="font-mono">{rCountry.code}</span>
+                            </span>
                           </td>
                           <td className="py-2.5 px-3">
                             <button
@@ -684,6 +919,34 @@ export const Back4AppDatabaseClassesView: React.FC<Back4AppDatabaseClassesViewPr
                     })}
                   </tbody>
                 </table>
+              </div>
+            )}
+
+            {/* Pagination Controls */}
+            {filteredRows.length > pageSize && (
+              <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 pt-2">
+                <span>
+                  Showing {paginatedRows.length} of {filteredRows.length} records
+                </span>
+                <div className="flex items-center gap-1">
+                  <button
+                    disabled={currentPage === 1}
+                    onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                    className="px-2.5 py-1 rounded border border-slate-300 dark:border-slate-700 disabled:opacity-40"
+                  >
+                    Prev
+                  </button>
+                  <span className="px-2 font-mono">
+                    {currentPage} / {totalPages}
+                  </span>
+                  <button
+                    disabled={currentPage >= totalPages}
+                    onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                    className="px-2.5 py-1 rounded border border-slate-300 dark:border-slate-700 disabled:opacity-40"
+                  >
+                    Next
+                  </button>
+                </div>
               </div>
             )}
           </div>
@@ -719,43 +982,28 @@ export const Back4AppDatabaseClassesView: React.FC<Back4AppDatabaseClassesViewPr
                       key={col.name}
                       className="hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition-colors"
                     >
-                      <td className="py-2.5 px-3 font-mono font-bold text-slate-900 dark:text-white">
+                      <td className="py-3 px-3 font-mono font-bold text-slate-900 dark:text-white">
                         {col.name}
                       </td>
-                      <td className="py-2.5 px-3">{getTypeBadge(col.type, col.pointerTarget)}</td>
-                      <td className="py-2.5 px-3">
+                      <td className="py-3 px-3">{getTypeBadge(col.type, col.pointerTarget)}</td>
+                      <td className="py-3 px-3 font-mono text-purple-600 dark:text-purple-400">
                         {col.pointerTarget ? (
                           <button
                             onClick={() => setSelectedClass(col.pointerTarget!)}
-                            className="inline-flex items-center gap-1 font-mono text-[11px] text-cyan-600 dark:text-cyan-400 hover:underline"
+                            className="hover:underline flex items-center gap-1"
                           >
                             <span>{col.pointerTarget}</span>
-                            <ExternalLink className="w-3 h-3" />
+                            <ArrowRight className="w-3 h-3" />
                           </button>
                         ) : (
-                          <span className="text-slate-400 font-mono text-[11px]">—</span>
+                          '—'
                         )}
                       </td>
-                      <td className="py-2.5 px-3 font-mono text-xs text-slate-700 dark:text-slate-300">
-                        {col.nonNullCount} / {classDetail.summary.recordCount} (
-                        {Math.round((col.nonNullCount / classDetail.summary.recordCount) * 100)}%)
+                      <td className="py-3 px-3 font-mono text-slate-600 dark:text-slate-400">
+                        {col.nonNullCount}
                       </td>
-                      <td className="py-2.5 px-3">
-                        <div className="flex flex-wrap gap-1 max-w-md">
-                          {col.sampleValues.map((sample, sIdx) => {
-                            const strSample =
-                              typeof sample === 'object' ? JSON.stringify(sample) : String(sample);
-                            return (
-                              <span
-                                key={sIdx}
-                                className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 max-w-[180px] truncate"
-                                title={strSample}
-                              >
-                                {strSample}
-                              </span>
-                            );
-                          })}
-                        </div>
+                      <td className="py-3 px-3 font-mono text-[11px] text-slate-500 max-w-xs truncate">
+                        {col.sampleValues.map((v) => (typeof v === 'object' ? JSON.stringify(v) : String(v))).join(', ') || '—'}
                       </td>
                     </tr>
                   ))}
@@ -765,145 +1013,79 @@ export const Back4AppDatabaseClassesView: React.FC<Back4AppDatabaseClassesViewPr
           </div>
         )}
 
-        {/* Sub-Tab 3: Relational Pointer Mapping */}
+        {/* Sub-Tab 3: Topology Graph */}
         {subTab === 'topology' && (
-          <div className="p-4 sm:p-5 space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* Outgoing Pointers Card */}
-              <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-700/80 bg-white/40 dark:bg-slate-800/40">
-                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-1.5 mb-3">
-                  <ArrowRight className="w-4 h-4 text-cyan-600" />
-                  Outgoing Pointers from {selectedClass}
-                </h4>
+          <div className="p-5 space-y-4">
+            <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800">
+              <h4 className="text-xs font-bold text-slate-900 dark:text-white mb-2">
+                Relational Pointers &amp; Foreign Keys Diagram
+              </h4>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mb-4">
+                Visual map of foreign keys and relational pointers across the 7 Back4App Parse classes operating across East African corridors.
+              </p>
 
-                {classDetail?.summary?.outgoingPointers.length === 0 ? (
-                  <p className="text-xs text-slate-500 italic py-4">
-                    {selectedClass} does not contain outgoing relational pointers (acts as a root reference class).
-                  </p>
-                ) : (
-                  <div className="space-y-2">
-                    {classDetail?.summary?.outgoingPointers.map((ptr, idx) => (
-                      <div
-                        key={idx}
-                        className="p-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/60 flex items-center justify-between"
-                      >
-                        <div>
-                          <div className="font-mono text-xs font-bold text-slate-900 dark:text-white">
-                            {selectedClass}.{ptr.sourceColumn}
-                          </div>
-                          <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
-                            Points to parent entity in Parse Server
-                          </div>
-                        </div>
-                        <button
-                          onClick={() => setSelectedClass(ptr.targetClass)}
-                          className="flex items-center gap-1 px-2.5 py-1 rounded text-xs font-mono font-semibold bg-cyan-50 dark:bg-cyan-950/60 text-cyan-700 dark:text-cyan-300 border border-cyan-200 dark:border-cyan-800 hover:bg-cyan-100"
-                        >
-                          <span>→ {ptr.targetClass}</span>
-                          <ExternalLink className="w-3 h-3" />
-                        </button>
-                      </div>
-                    ))}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                {manifest?.pointerTopology.edges.map((edge, i) => (
+                  <div
+                    key={i}
+                    className="p-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 flex items-center justify-between text-xs"
+                  >
+                    <div>
+                      <span className="font-mono font-bold text-slate-900 dark:text-white">
+                        {edge.source}
+                      </span>
+                      <span className="text-slate-400 mx-1.5">.</span>
+                      <span className="font-mono text-cyan-600 dark:text-cyan-400">{edge.via}</span>
+                    </div>
+                    <ArrowRight className="w-3.5 h-3.5 text-slate-400 shrink-0 mx-2" />
+                    <span className="font-mono font-bold text-purple-600 dark:text-purple-400">
+                      {edge.target}
+                    </span>
                   </div>
-                )}
-              </div>
-
-              {/* Incoming Pointers Card */}
-              <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-700/80 bg-white/40 dark:bg-slate-800/40">
-                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-1.5 mb-3">
-                  <Link2 className="w-4 h-4 text-purple-600" />
-                  Incoming Pointers to {selectedClass}
-                </h4>
-
-                {classDetail?.summary?.incomingPointers.length === 0 ? (
-                  <p className="text-xs text-slate-500 italic py-4">
-                    No other uploaded classes explicitly point directly to {selectedClass}.
-                  </p>
-                ) : (
-                  <div className="space-y-2">
-                    {classDetail?.summary?.incomingPointers.map((ptr, idx) => (
-                      <div
-                        key={idx}
-                        className="p-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/60 flex items-center justify-between"
-                      >
-                        <div>
-                          <div className="font-mono text-xs font-bold text-slate-900 dark:text-white">
-                            {ptr.sourceClass}.{ptr.sourceColumn}
-                          </div>
-                          <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
-                            Refers to objectId in {selectedClass}
-                          </div>
-                        </div>
-                        <button
-                          onClick={() => setSelectedClass(ptr.sourceClass)}
-                          className="flex items-center gap-1 px-2.5 py-1 rounded text-xs font-mono font-semibold bg-purple-50 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800 hover:bg-purple-100"
-                        >
-                          <span>{ptr.sourceClass}</span>
-                          <ExternalLink className="w-3 h-3" />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
+                ))}
               </div>
             </div>
           </div>
         )}
       </div>
 
-      {/* JSON Record Drawer Modal */}
+      {/* JSON Record Inspector Drawer Modal */}
       {inspectingRecord && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
-          <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 max-w-2xl w-full max-h-[85vh] flex flex-col shadow-2xl overflow-hidden">
-            {/* Modal Header */}
-            <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-xs">
+          <div className="w-full max-w-2xl p-6 rounded-2xl border bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white shadow-2xl flex flex-col max-h-[85vh]">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-slate-800 shrink-0">
               <div className="flex items-center gap-2">
-                <FileCode2 className="w-4 h-4 text-cyan-600" />
-                <h4 className="text-sm font-bold text-slate-900 dark:text-white font-mono">
-                  {selectedClass} Record: {inspectingRecord.objectId || 'JSON Document'}
-                </h4>
+                <span className="text-lg">{getRowCountryMeta(inspectingRecord).flag}</span>
+                <div>
+                  <h3 className="font-bold text-sm text-slate-900 dark:text-white font-mono">
+                    {selectedClass} Record: {inspectingRecord.objectId}
+                  </h3>
+                  <span className="text-[10px] text-slate-400">
+                    {getRowCountryMeta(inspectingRecord).name} ({getRowCountryMeta(inspectingRecord).code}) Jurisdiction
+                  </span>
+                </div>
               </div>
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => handleCopyJson(inspectingRecord)}
-                  className="flex items-center gap-1 px-2.5 py-1 rounded text-xs font-semibold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
+                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded text-xs font-semibold bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 transition-colors"
                 >
-                  {copiedJson ? (
-                    <>
-                      <Check className="w-3.5 h-3.5 text-emerald-600" />
-                      <span>Copied!</span>
-                    </>
-                  ) : (
-                    <>
-                      <Copy className="w-3.5 h-3.5" />
-                      <span>Copy JSON</span>
-                    </>
-                  )}
+                  {copiedJson ? <Check className="w-3 h-3 text-emerald-500" /> : <Copy className="w-3 h-3" />}
+                  <span>{copiedJson ? 'Copied' : 'Copy JSON'}</span>
                 </button>
                 <button
                   onClick={() => setInspectingRecord(null)}
-                  className="p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500"
+                  className="p-1 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-white"
                 >
                   <X className="w-4 h-4" />
                 </button>
               </div>
             </div>
 
-            {/* Modal Body */}
-            <div className="p-4 overflow-y-auto flex-1 font-mono text-xs bg-slate-950 text-slate-200">
-              <pre className="whitespace-pre-wrap leading-relaxed">
+            <div className="mt-4 flex-1 overflow-y-auto">
+              <pre className="p-4 rounded-xl bg-slate-950 text-slate-100 font-mono text-xs overflow-x-auto leading-relaxed">
                 {JSON.stringify(inspectingRecord, null, 2)}
               </pre>
-            </div>
-
-            {/* Modal Footer */}
-            <div className="p-3 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 flex justify-end">
-              <button
-                onClick={() => setInspectingRecord(null)}
-                className="px-4 py-1.5 rounded-lg text-xs font-semibold bg-slate-200 dark:bg-slate-800 text-slate-800 dark:text-slate-200 hover:bg-slate-300 dark:hover:bg-slate-700"
-              >
-                Close
-              </button>
             </div>
           </div>
         </div>

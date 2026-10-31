@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { Bell, X, Check, Car, Truck, Shield } from 'lucide-react';
-import { NotificationItem } from '../types';
+import { Bell, X, Check, Car, Truck, Shield, Globe, MapPin, ArrowRight, PhoneCall, AlertTriangle, CreditCard, FileCheck2, Radio } from 'lucide-react';
+import { EastAfricaCountryCode, NotificationItem } from '../types';
+import { EAST_AFRICA_NOTIFICATION_COUNTRIES } from '../services/notifications';
 
 interface NotificationDrawerProps {
   isOpen: boolean;
@@ -9,6 +10,8 @@ interface NotificationDrawerProps {
   onMarkAllRead: () => void;
   onMarkRead: (id: string) => void;
   darkMode: boolean;
+  userJurisdiction?: EastAfricaCountryCode;
+  onNavigateTab?: (tab: string) => void;
 }
 
 export const NotificationDrawer: React.FC<NotificationDrawerProps> = ({
@@ -17,10 +20,14 @@ export const NotificationDrawer: React.FC<NotificationDrawerProps> = ({
   notifications,
   onMarkAllRead,
   onMarkRead,
+  darkMode,
+  userJurisdiction = 'ET',
+  onNavigateTab,
 }) => {
   const [filter, setFilter] = useState<
     'all' | 'unread' | 'dispatch' | 'regulatory' | 'settlement' | 'security' | 'system'
   >('all');
+  const [countryFilter, setCountryFilter] = useState<EastAfricaCountryCode | 'ALL'>('ALL');
 
   if (!isOpen) return null;
 
@@ -35,6 +42,12 @@ export const NotificationDrawer: React.FC<NotificationDrawerProps> = ({
   };
 
   const filtered = notifications.filter((n) => {
+    // Country filter
+    if (countryFilter !== 'ALL') {
+      if (n.countryCode && n.countryCode !== countryFilter) return false;
+      if (!n.countryCode) return false;
+    }
+    // Category filter
     if (filter === 'unread') return !n.read;
     if (filter === 'all') return true;
     if (filter === 'dispatch') return n.category === 'dispatch' || n.category === 'operations';
@@ -46,7 +59,10 @@ export const NotificationDrawer: React.FC<NotificationDrawerProps> = ({
       return <Shield className="w-4 h-4 text-purple-600 dark:text-purple-400" />;
     }
     if (item.category === 'settlement' || item.type === 'payment') {
-      return <Bell className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />;
+      return <CreditCard className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />;
+    }
+    if (item.category === 'regulatory') {
+      return <FileCheck2 className="w-4 h-4 text-amber-600 dark:text-amber-400" />;
     }
     switch (item.type) {
       case 'driver':
@@ -56,7 +72,7 @@ export const NotificationDrawer: React.FC<NotificationDrawerProps> = ({
       case 'vehicle':
         return <Truck className="w-4 h-4 text-blue-600 dark:text-blue-400" />;
       default:
-        return <Bell className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />;
+        return <Radio className="w-4 h-4 text-cyan-600 dark:text-cyan-400" />;
     }
   };
 
@@ -75,7 +91,7 @@ export const NotificationDrawer: React.FC<NotificationDrawerProps> = ({
     <div className="fixed inset-0 z-50 flex justify-end bg-black/60 backdrop-blur-xs">
       <div className="w-full max-w-md h-full flex flex-col justify-between border-l shadow-2xl bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white">
         {/* Header */}
-        <div className="p-5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
+        <div className="p-4 sm:p-5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-lg bg-cyan-50 dark:bg-cyan-500/10 flex items-center justify-center text-cyan-600 dark:text-cyan-400">
               <Bell className="w-4 h-4" />
@@ -83,7 +99,7 @@ export const NotificationDrawer: React.FC<NotificationDrawerProps> = ({
             <div>
               <h2 className="font-bold text-sm text-slate-900 dark:text-white">East Africa Dispatch Alerts</h2>
               <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                Corridor telemetry, customs checkpoints, and RBAC logs
+                8-nation live corridors, weighbridges &amp; regulatory notices
               </p>
             </div>
           </div>
@@ -95,16 +111,43 @@ export const NotificationDrawer: React.FC<NotificationDrawerProps> = ({
           </button>
         </div>
 
+        {/* 8-Nation Mini Country Pills */}
+        <div className="px-3.5 py-2 border-b border-slate-100 dark:border-slate-800/80 bg-slate-50/50 dark:bg-slate-800/30 flex items-center gap-1.5 overflow-x-auto text-[11px] scrollbar-thin">
+          <button
+            onClick={() => setCountryFilter('ALL')}
+            className={`px-2 py-0.5 rounded-md font-semibold whitespace-nowrap transition-colors ${
+              countryFilter === 'ALL'
+                ? 'bg-cyan-600 text-white'
+                : 'text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
+            }`}
+          >
+            🌍 All
+          </button>
+          {Object.entries(countryFlags).map(([code, flag]) => (
+            <button
+              key={code}
+              onClick={() => setCountryFilter(code as EastAfricaCountryCode)}
+              className={`px-2 py-0.5 rounded-md font-medium whitespace-nowrap transition-colors flex items-center gap-1 ${
+                countryFilter === code
+                  ? 'bg-cyan-600 text-white font-bold'
+                  : 'text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
+              }`}
+            >
+              <span>{flag}</span>
+              <span>{code}</span>
+            </button>
+          ))}
+        </div>
+
         {/* Filter Tabs */}
-        <div className="px-4 py-2.5 border-b border-slate-200 dark:border-slate-800 flex items-center gap-1.5 overflow-x-auto text-xs">
+        <div className="px-4 py-2 border-b border-slate-200 dark:border-slate-800 flex items-center gap-1 overflow-x-auto text-xs scrollbar-thin">
           {[
             { id: 'all', label: `All (${counts.all})` },
             { id: 'unread', label: `Unread (${counts.unread})` },
             { id: 'dispatch', label: `Corridors (${counts.dispatch})` },
-            { id: 'regulatory', label: `Regulatory (${counts.regulatory})` },
+            { id: 'regulatory', label: `Tariffs (${counts.regulatory})` },
             { id: 'settlement', label: `Fintech (${counts.settlement})` },
             { id: 'security', label: `Security (${counts.security})` },
-            { id: 'system', label: `System (${counts.system})` },
           ].map((tab) => (
             <button
               key={tab.id}
@@ -121,7 +164,7 @@ export const NotificationDrawer: React.FC<NotificationDrawerProps> = ({
         </div>
 
         {/* Notifications List */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-3">
+        <div className="flex-1 overflow-y-auto p-4 space-y-2.5">
           {filtered.length > 0 ? (
             filtered.map((item) => (
               <div
@@ -134,11 +177,11 @@ export const NotificationDrawer: React.FC<NotificationDrawerProps> = ({
                 }`}
               >
                 <div className="flex items-start gap-3">
-                  <div className="w-8 h-8 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center justify-center shrink-0">
+                  <div className="w-8 h-8 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center justify-center shrink-0 mt-0.5">
                     {getNotificationIcon(item)}
                   </div>
                   <div className="flex-1 pr-4 min-w-0">
-                    <div className="flex items-center gap-1.5 flex-wrap mb-0.5">
+                    <div className="flex items-center gap-1.5 flex-wrap mb-1">
                       {item.countryCode && item.countryCode !== 'ALL' && (
                         <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-slate-200 dark:bg-slate-700 text-slate-800 dark:text-slate-200">
                           {countryFlags[item.countryCode] || ''} {item.countryCode}
@@ -146,7 +189,13 @@ export const NotificationDrawer: React.FC<NotificationDrawerProps> = ({
                       )}
                       {item.severity === 'critical' && (
                         <span className="text-[9px] font-bold uppercase px-1 rounded bg-rose-100 dark:bg-rose-950 text-rose-700 dark:text-rose-300">
-                          Critical
+                          Critical SOS
+                        </span>
+                      )}
+                      {item.emergencyHotline && item.severity === 'critical' && (
+                        <span className="text-[9px] font-mono px-1 rounded bg-rose-50 text-rose-600 dark:bg-rose-900/50 dark:text-rose-300 flex items-center gap-0.5">
+                          <PhoneCall className="w-2.5 h-2.5" />
+                          <span>{item.emergencyHotline}</span>
                         </span>
                       )}
                     </div>
@@ -156,7 +205,7 @@ export const NotificationDrawer: React.FC<NotificationDrawerProps> = ({
                     <p className="text-[11px] text-slate-600 dark:text-slate-400 mt-0.5 leading-relaxed line-clamp-2">
                       {item.subtitle}
                     </p>
-                    <div className="flex items-center justify-between text-[10px] text-slate-500 font-mono mt-1.5">
+                    <div className="flex items-center justify-between text-[10px] text-slate-500 font-mono mt-2">
                       <span>{item.timestamp || item.timeAgo}</span>
                       {item.corridor && (
                         <span className="truncate max-w-[150px] text-cyan-600 dark:text-cyan-400">
@@ -164,17 +213,33 @@ export const NotificationDrawer: React.FC<NotificationDrawerProps> = ({
                         </span>
                       )}
                     </div>
+
+                    {item.actionTab && onNavigateTab && (
+                      <div className="mt-2 pt-1.5 border-t border-slate-200/60 dark:border-slate-800 flex justify-end">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onClose();
+                            onNavigateTab(item.actionTab!);
+                          }}
+                          className="text-[11px] font-semibold text-cyan-600 dark:text-cyan-400 hover:underline flex items-center gap-1"
+                        >
+                          <span>{item.actionLabel || `Open ${item.actionTab}`}</span>
+                          <ArrowRight className="w-3 h-3" />
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
 
                 {!item.read && (
-                  <span className="absolute top-3.5 right-3.5 w-2 h-2 rounded-full bg-cyan-500" />
+                  <span className="absolute top-3.5 right-3.5 w-2 h-2 rounded-full bg-cyan-500 shadow-xs" />
                 )}
               </div>
             ))
           ) : (
             <div className="text-center py-12 text-slate-500 dark:text-slate-400 text-xs">
-              No notifications in this category.
+              No notifications matching this category or nation.
             </div>
           )}
         </div>

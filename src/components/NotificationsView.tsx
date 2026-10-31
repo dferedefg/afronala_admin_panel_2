@@ -1,10 +1,9 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   Bell,
   Check,
   CheckCheck,
   Search,
-  Filter,
   AlertTriangle,
   AlertOctagon,
   Info,
@@ -16,7 +15,6 @@ import {
   Trash2,
   Radio,
   ExternalLink,
-  ChevronRight,
   Truck,
   Car,
   FileCheck2,
@@ -31,6 +29,13 @@ import {
   MapPin,
   Clock,
   RotateCcw,
+  PhoneCall,
+  Siren,
+  Building2,
+  Layers,
+  Sparkles,
+  Smartphone,
+  Navigation,
 } from 'lucide-react';
 import {
   EastAfricaCountryCode,
@@ -44,6 +49,7 @@ import {
   EAST_AFRICA_NOTIFICATION_COUNTRIES,
   filterNotifications,
   createBroadcastNotification,
+  simulateEmergencySos,
   BroadcastAlertInput,
   exportNotificationsAsCsv,
   downloadFile,
@@ -52,6 +58,11 @@ import {
 interface NotificationsViewProps {
   darkMode: boolean;
   userRole: string;
+  userJurisdiction?: EastAfricaCountryCode;
+  userJurisdictionName?: string;
+  userName?: string;
+  userEmail?: string;
+  assignedCorridors?: string[];
   notifications: NotificationItem[];
   onUpdateNotifications: React.Dispatch<React.SetStateAction<NotificationItem[]>>;
   onNavigateTab: (tab: string, filterValue?: string) => void;
@@ -63,6 +74,11 @@ interface NotificationsViewProps {
 export const NotificationsView: React.FC<NotificationsViewProps> = ({
   darkMode,
   userRole,
+  userJurisdiction = 'ET',
+  userJurisdictionName = 'Ethiopia',
+  userName = 'Operations Officer',
+  userEmail = 'operator@afronala.com',
+  assignedCorridors = ['Addis Ababa - Modjo - Adama Corridor'],
   notifications,
   onUpdateNotifications,
   onNavigateTab,
@@ -70,39 +86,68 @@ export const NotificationsView: React.FC<NotificationsViewProps> = ({
   onNotify,
   onGuardPermission,
 }) => {
+  // Determine operator's default station
+  const defaultCountryScope: EastAfricaCountryCode =
+    userJurisdiction && userJurisdiction !== 'ALL' ? userJurisdiction : 'ALL';
+
   // State: Filters
-  const [selectedCountry, setSelectedCountry] = useState<EastAfricaCountryCode>('ALL');
+  const [selectedCountry, setSelectedCountry] = useState<EastAfricaCountryCode>(defaultCountryScope);
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [selectedSeverity, setSelectedSeverity] = useState<string>('all');
   const [selectedStatus, setSelectedStatus] = useState<'all' | 'unread' | 'read'>('all');
   const [searchQuery, setSearchQuery] = useState('');
 
+  // Sync selected country if operator switches persona
+  useEffect(() => {
+    if (userJurisdiction && userJurisdiction !== 'ALL') {
+      setSelectedCountry(userJurisdiction);
+    }
+  }, [userJurisdiction]);
+
+  // Current operator station metadata
+  const operatorStationMeta =
+    userJurisdiction && userJurisdiction !== 'ALL'
+      ? EAST_AFRICA_NOTIFICATION_COUNTRIES[userJurisdiction]
+      : EAST_AFRICA_NOTIFICATION_COUNTRIES['ET'];
+
   // State: Broadcast Modal
   const [isBroadcastModalOpen, setIsBroadcastModalOpen] = useState(false);
+  const [selectedTemplate, setSelectedTemplate] = useState<string>('custom');
   const [broadcastForm, setBroadcastForm] = useState<BroadcastAlertInput>({
     title: '',
     subtitle: '',
-    countryCode: 'ALL',
-    corridor: '',
+    countryCode: defaultCountryScope,
+    corridor: operatorStationMeta?.primaryCorridor || '',
     category: 'dispatch',
     severity: 'warning',
     targetModule: 'dispatch',
     actionLabel: 'View Dispatch Radar',
     recipientAudience: 'all',
-    sourceAuthority: '',
+    sourceAuthority: operatorStationMeta?.regulator || '',
   });
 
-  // Calculate stats
+  // Calculate telemetry stats
   const totalCount = notifications.length;
   const unreadCount = notifications.filter((n) => !n.read).length;
   const criticalCount = notifications.filter((n) => n.severity === 'critical' && !n.read).length;
   const warningCount = notifications.filter((n) => n.severity === 'warning' && !n.read).length;
 
-  // Unread count per country
+  // Unread counts per country
   const unreadByCountry = useMemo(() => {
     const map: Record<string, number> = {};
     notifications.forEach((n) => {
       if (!n.read && n.countryCode) {
+        map[n.countryCode] = (map[n.countryCode] || 0) + 1;
+      }
+    });
+    return map;
+  }, [notifications]);
+
+  // Critical counts per country
+  const criticalByCountry = useMemo(() => {
+    const map: Record<string, number> = {};
+    notifications.forEach((n) => {
+      if (n.severity === 'critical' && !n.read && n.countryCode) {
         map[n.countryCode] = (map[n.countryCode] || 0) + 1;
       }
     });
@@ -139,9 +184,35 @@ export const NotificationsView: React.FC<NotificationsViewProps> = ({
     onNotify(
       'Notifications Updated',
       selectedCountry === 'ALL'
-        ? 'All notifications marked as read.'
-        : `Marked all ${selectedCountry} notifications as read.`,
+        ? 'All notifications marked as read across all 8 nations.'
+        : `Marked all notifications for ${selectedCountry} as read.`,
       'success'
+    );
+  };
+
+  const handleAcknowledgeAlert = (id: string) => {
+    const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + ' EAT';
+    onUpdateNotifications((prev) =>
+      prev.map((item) => {
+        if (item.id === id) {
+          return {
+            ...item,
+            read: true,
+            acknowledgedBy: userName,
+            acknowledgedAt: timeStr,
+          };
+        }
+        return item;
+      })
+    );
+    onNotify('Alert Acknowledged', `Action logged under operator: ${userName} at ${timeStr}.`, 'success');
+  };
+
+  const handleSendDriverPush = (item: NotificationItem) => {
+    onNotify(
+      'In-Cab Push Dispatched',
+      `Sent push alert to active drivers along ${item.corridor || item.countryName || 'the arterial corridor'}.`,
+      'info'
     );
   };
 
@@ -150,32 +221,116 @@ export const NotificationsView: React.FC<NotificationsViewProps> = ({
     onNotify('Notification Dismissed', 'Item removed from active audit stream.', 'info');
   };
 
+  const handleSimulateSos = () => {
+    const targetCountry = selectedCountry === 'ALL' ? (userJurisdiction !== 'ALL' ? userJurisdiction : 'ET') : selectedCountry;
+    const sosNotif = simulateEmergencySos(
+      targetCountry,
+      undefined,
+      userName
+    );
+    onUpdateNotifications((prev) => [sosNotif, ...prev]);
+    onNotify(
+      `🚨 EMERGENCY SOS SIMULATED (${targetCountry})`,
+      `Distress panic protocol activated along ${sosNotif.corridor}. National Highway Authority alerted.`,
+      'error'
+    );
+  };
+
   const handleExportCsv = () => {
     const csvData = exportNotificationsAsCsv(filteredNotifications);
-    const filename = `afronala-dispatch-notifications-${selectedCountry.toLowerCase()}-${Date.now()}.csv`;
+    const filename = `afronala-dispatch-alerts-${selectedCountry.toLowerCase()}-${Date.now()}.csv`;
     downloadFile(filename, csvData, 'text/csv;charset=utf-8;');
-    onNotify('Export Successful', `Downloaded ${filteredNotifications.length} notifications as CSV.`, 'success');
+    onNotify('Export Successful', `Exported ${filteredNotifications.length} notifications as CSV for ${selectedCountry}.`, 'success');
   };
 
   const handleExportJson = () => {
     const jsonStr = JSON.stringify(filteredNotifications, null, 2);
-    const filename = `afronala-dispatch-notifications-${selectedCountry.toLowerCase()}-${Date.now()}.json`;
+    const filename = `afronala-dispatch-alerts-${selectedCountry.toLowerCase()}-${Date.now()}.json`;
     downloadFile(filename, jsonStr, 'application/json');
     onNotify('Export Successful', `Exported ${filteredNotifications.length} records as JSON.`, 'success');
   };
 
   const handleResetFilters = () => {
-    setSelectedCountry('ALL');
+    setSelectedCountry(userJurisdiction !== 'ALL' ? userJurisdiction : 'ALL');
     setSelectedCategory('all');
     setSelectedSeverity('all');
     setSelectedStatus('all');
     setSearchQuery('');
   };
 
+  // Preset Template loader for broadcast modal
+  const handleApplyTemplate = (templateKey: string) => {
+    setSelectedTemplate(templateKey);
+    const code = broadcastForm.countryCode !== 'ALL' ? broadcastForm.countryCode : (userJurisdiction !== 'ALL' ? userJurisdiction : 'ET');
+    const meta = EAST_AFRICA_NOTIFICATION_COUNTRIES[code];
+
+    if (templateKey === 'weather') {
+      setBroadcastForm((prev) => ({
+        ...prev,
+        title: `Heavy Rainfall & Flash Flood Advisory on ${meta.primaryCorridor}`,
+        subtitle: `Surface water hazards reported by Highway Patrol. Commercial speed limiter adherence enforced at 50 km/h max. Keep headlights on.`,
+        category: 'dispatch',
+        severity: 'warning',
+        corridor: meta.primaryCorridor,
+        targetModule: 'dispatch',
+        actionLabel: 'Check Live Corridor Radar',
+        sourceAuthority: `${meta.regulator} Incident Division`,
+      }));
+    } else if (templateKey === 'weighbridge') {
+      setBroadcastForm((prev) => ({
+        ...prev,
+        title: `${meta.name} Border OSBP Weighbridge Calibration Delay`,
+        subtitle: `Customs automated axle scale undergoing 30-minute sensor calibration. Heavy container trucks hold at designated parking apron.`,
+        category: 'dispatch',
+        severity: 'warning',
+        corridor: meta.borderCheckpoints[0] || meta.primaryCorridor,
+        targetModule: 'truck',
+        actionLabel: 'Inspect Truck Queues',
+        sourceAuthority: meta.customsAuthority,
+      }));
+    } else if (templateKey === 'tariff') {
+      setBroadcastForm((prev) => ({
+        ...prev,
+        title: `${meta.regulator} Statutory Tariff Compliance Notice`,
+        subtitle: `Mandatory fare index calibration in effect. Ensure mobile meters reflect updated statutory commission rates without passenger surcharges.`,
+        category: 'regulatory',
+        severity: 'info',
+        corridor: `${meta.capitalCity} Metropolitan Area`,
+        targetModule: 'compliance',
+        actionLabel: 'Audit Rate Table',
+        sourceAuthority: meta.regulator,
+      }));
+    } else if (templateKey === 'security') {
+      setBroadcastForm((prev) => ({
+        ...prev,
+        title: `Mandatory Security Escort Convoy Active on ${meta.primaryCorridor}`,
+        subtitle: `All commercial logistics haulers and cross-border freight must report to the checkpoint assembly gate for coordinated security escort.`,
+        category: 'security',
+        severity: 'critical',
+        corridor: meta.primaryCorridor,
+        targetModule: 'geofences',
+        actionLabel: 'Monitor Escort Geofence',
+        sourceAuthority: `${meta.name} Highway Police & Defense Liaison`,
+      }));
+    } else if (templateKey === 'settlement') {
+      setBroadcastForm((prev) => ({
+        ...prev,
+        title: `${meta.fintechRail} Settlement Batch Successfully Reconciled`,
+        subtitle: `End-of-shift driver earnings distributed directly to verified mobile wallets without clearing delay.`,
+        category: 'settlement',
+        severity: 'success',
+        corridor: meta.fintechRail,
+        targetModule: 'settlements',
+        actionLabel: 'Open Settlement Ledger',
+        sourceAuthority: meta.fintechRail,
+      }));
+    }
+  };
+
   const handleBroadcastSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!broadcastForm.title.trim() || !broadcastForm.subtitle.trim()) {
-      onNotify('Form Validation Error', 'Please specify both an alert title and detailed description.', 'error');
+      onNotify('Validation Error', 'Please specify both an alert title and detailed description.', 'error');
       return;
     }
 
@@ -185,7 +340,7 @@ export const NotificationsView: React.FC<NotificationsViewProps> = ({
 
     const newNotif = createBroadcastNotification({
       ...broadcastForm,
-      broadcastBy: `${userRole} Operator`,
+      broadcastBy: `${userName} (${userRole})`,
     });
 
     onUpdateNotifications((prev) => [newNotif, ...prev]);
@@ -195,7 +350,7 @@ export const NotificationsView: React.FC<NotificationsViewProps> = ({
     setBroadcastForm({
       title: '',
       subtitle: '',
-      countryCode: selectedCountry === 'ALL' ? 'ET' : selectedCountry,
+      countryCode: selectedCountry === 'ALL' ? (userJurisdiction !== 'ALL' ? userJurisdiction : 'ET') : selectedCountry,
       corridor: '',
       category: 'dispatch',
       severity: 'warning',
@@ -204,6 +359,7 @@ export const NotificationsView: React.FC<NotificationsViewProps> = ({
       recipientAudience: 'all',
       sourceAuthority: '',
     });
+    setSelectedTemplate('custom');
 
     onNotify(
       `Broadcast Dispatched (${newNotif.countryCode})`,
@@ -217,30 +373,30 @@ export const NotificationsView: React.FC<NotificationsViewProps> = ({
     switch (severity) {
       case 'critical':
         return (
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-rose-100 dark:bg-rose-950/80 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800">
+          <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-rose-100 dark:bg-rose-950/80 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800 shadow-2xs">
             <span className="w-1.5 h-1.5 rounded-full bg-rose-600 dark:bg-rose-400 animate-ping motion-reduce:animate-none" />
-            Critical
+            Critical SOS / Halt
           </span>
         );
       case 'warning':
         return (
           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-amber-100 dark:bg-amber-950/80 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
             <AlertTriangle className="w-3 h-3 text-amber-600 dark:text-amber-400" />
-            Warning
+            Advisory Warning
           </span>
         );
       case 'security':
         return (
           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-purple-100 dark:bg-purple-950/80 text-purple-800 dark:text-purple-300 border border-purple-200 dark:border-purple-800">
             <ShieldAlert className="w-3 h-3 text-purple-600 dark:text-purple-400" />
-            Security / RBAC
+            Security Escort
           </span>
         );
       case 'success':
         return (
           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
             <Check className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
-            Settled / Resolved
+            Reconciled
           </span>
         );
       default:
@@ -256,15 +412,15 @@ export const NotificationsView: React.FC<NotificationsViewProps> = ({
   const getCardBorderClass = (item: NotificationItem) => {
     if (!item.read) {
       if (item.severity === 'critical') {
-        return 'border-l-4 border-l-rose-500 border-rose-200 dark:border-rose-900/60 bg-rose-50/20 dark:bg-rose-950/10';
+        return 'border-l-4 border-l-rose-500 border-rose-200 dark:border-rose-900/60 bg-rose-50/30 dark:bg-rose-950/15 shadow-xs';
       }
       if (item.severity === 'warning') {
-        return 'border-l-4 border-l-amber-500 border-amber-200 dark:border-amber-900/60 bg-amber-50/20 dark:bg-amber-950/10';
+        return 'border-l-4 border-l-amber-500 border-amber-200 dark:border-amber-900/60 bg-amber-50/20 dark:bg-amber-950/10 shadow-xs';
       }
       if (item.severity === 'security') {
-        return 'border-l-4 border-l-purple-500 border-purple-200 dark:border-purple-900/60 bg-purple-50/20 dark:bg-purple-950/10';
+        return 'border-l-4 border-l-purple-500 border-purple-200 dark:border-purple-900/60 bg-purple-50/20 dark:bg-purple-950/10 shadow-xs';
       }
-      return 'border-l-4 border-l-cyan-500 border-cyan-200 dark:border-cyan-800/80 bg-cyan-50/30 dark:bg-cyan-950/15';
+      return 'border-l-4 border-l-cyan-500 border-cyan-200 dark:border-cyan-800/80 bg-cyan-50/30 dark:bg-cyan-950/15 shadow-xs';
     }
     return 'border-l-4 border-l-slate-300 dark:border-l-slate-700 border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 opacity-90';
   };
@@ -291,9 +447,94 @@ export const NotificationsView: React.FC<NotificationsViewProps> = ({
   return (
     <div className="space-y-6">
       {/* ==================================================================== */}
-      {/* 1. TOP HEADER & ACTION CONTROLS                                      */}
+      {/* 1. OPERATOR STATION & JURISDICTION BINDING CONSOLE                   */}
       {/* ==================================================================== */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 p-5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xs">
+      <div className="p-4 sm:p-5 rounded-2xl border border-cyan-200/80 dark:border-cyan-800/50 bg-gradient-to-r from-cyan-50/70 via-sky-50/40 to-slate-50 dark:from-cyan-950/30 dark:via-slate-900 dark:to-slate-900 shadow-sm">
+        <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4">
+          {/* Station Identity Info */}
+          <div className="flex items-start sm:items-center gap-3">
+            <div className="w-11 h-11 rounded-2xl bg-cyan-600 dark:bg-cyan-500 text-white flex items-center justify-center shrink-0 shadow-sm text-lg">
+              {operatorStationMeta ? operatorStationMeta.flag : '🌍'}
+            </div>
+            <div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-cyan-700 dark:text-cyan-300 bg-cyan-100 dark:bg-cyan-950 px-2 py-0.5 rounded border border-cyan-200 dark:border-cyan-800">
+                  OPERATOR DUTY STATION: {userJurisdictionName.toUpperCase()} ({userJurisdiction})
+                </span>
+                <span className="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-1 font-mono">
+                  <span>Logged in as</span>
+                  <strong className="text-slate-800 dark:text-slate-200">{userName}</strong>
+                  <span>({userRole})</span>
+                </span>
+              </div>
+              <h2 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white mt-1">
+                {operatorStationMeta ? operatorStationMeta.stationHubName : 'East Africa Central Operations Command'}
+              </h2>
+              <div className="flex items-center gap-3 mt-1 text-xs text-slate-600 dark:text-slate-300 flex-wrap">
+                <span className="flex items-center gap-1 font-medium">
+                  <Building2 className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400" />
+                  <span>Regulator: {operatorStationMeta?.regulator}</span>
+                </span>
+                <span className="text-slate-300 dark:text-slate-700 hidden sm:inline">•</span>
+                <span className="flex items-center gap-1 font-medium text-rose-600 dark:text-rose-400">
+                  <PhoneCall className="w-3.5 h-3.5" />
+                  <span>Emergency Line: {operatorStationMeta?.emergencyHotline}</span>
+                </span>
+                <span className="text-slate-300 dark:text-slate-700 hidden sm:inline">•</span>
+                <span className="flex items-center gap-1 font-medium text-emerald-600 dark:text-emerald-400">
+                  <CreditCard className="w-3.5 h-3.5" />
+                  <span>Settlement: {operatorStationMeta?.fintechRail}</span>
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Quick Station Switch & Actions */}
+          <div className="flex items-center gap-2 flex-wrap shrink-0">
+            {userJurisdiction && userJurisdiction !== 'ALL' && (
+              <button
+                onClick={() => setSelectedCountry(userJurisdiction)}
+                className={`px-3 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 border ${
+                  selectedCountry === userJurisdiction
+                    ? 'bg-cyan-600 text-white border-cyan-600 shadow-xs'
+                    : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700'
+                }`}
+                title="Focus alerts exclusively on your assigned country station"
+              >
+                <MapPin className="w-3.5 h-3.5" />
+                <span>Focus My Station ({userJurisdiction})</span>
+              </button>
+            )}
+
+            <button
+              onClick={() => setSelectedCountry('ALL')}
+              className={`px-3 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 border ${
+                selectedCountry === 'ALL'
+                  ? 'bg-cyan-600 text-white border-cyan-600 shadow-xs'
+                  : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700'
+              }`}
+              title="View live alerts across all 8 member states"
+            >
+              <Globe className="w-3.5 h-3.5" />
+              <span>All 8 Nations Grid</span>
+            </button>
+
+            <button
+              onClick={handleSimulateSos}
+              className="px-3 py-2 rounded-xl text-xs font-bold bg-rose-600 hover:bg-rose-500 text-white shadow-xs transition-colors flex items-center gap-1.5 animate-pulse motion-reduce:animate-none"
+              title="Simulate active in-cab driver distress call along this station's primary arterial corridor"
+            >
+              <Siren className="w-3.5 h-3.5" />
+              <span>Simulate SOS Distress</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* ==================================================================== */}
+      {/* 2. MAIN HEADER & CONTROL TOOLBAR                                     */}
+      {/* ==================================================================== */}
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xs">
         <div>
           <div className="flex items-center gap-2.5 flex-wrap">
             <div className="w-9 h-9 rounded-xl bg-cyan-50 dark:bg-cyan-500/10 border border-cyan-200 dark:border-cyan-500/20 flex items-center justify-center text-cyan-600 dark:text-cyan-400">
@@ -302,14 +543,14 @@ export const NotificationsView: React.FC<NotificationsViewProps> = ({
             <div>
               <div className="flex items-center gap-2">
                 <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
-                  System Notifications &amp; Dispatch Alerts Hub
+                  Dispatch Alerts &amp; Regulatory Incident Hub
                 </h1>
                 <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-cyan-100 dark:bg-cyan-950/80 text-cyan-800 dark:text-cyan-300 border border-cyan-200 dark:border-cyan-800">
                   8-NATION EAST AFRICA
                 </span>
               </div>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                Unified cross-border telemetry, arterial corridor advisories, statutory regulatory checks, and RBAC governance stream
+                Real-time arterial alerts, weighbridge delays, statutory tariff compliance notices, and cross-border fintech clearing
               </p>
             </div>
           </div>
@@ -319,7 +560,7 @@ export const NotificationsView: React.FC<NotificationsViewProps> = ({
         <div className="flex items-center gap-2 flex-wrap shrink-0">
           <button
             onClick={() => setIsBroadcastModalOpen(true)}
-            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-cyan-600 hover:bg-cyan-500 text-white shadow-xs transition-colors"
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold bg-cyan-600 hover:bg-cyan-500 text-white shadow-xs transition-colors"
           >
             <Send className="w-3.5 h-3.5" />
             <span>Broadcast Regional Alert</span>
@@ -370,7 +611,7 @@ export const NotificationsView: React.FC<NotificationsViewProps> = ({
       </div>
 
       {/* ==================================================================== */}
-      {/* 2. STATS & TELEMETRY KPI TILES                                       */}
+      {/* 3. STATS & TELEMETRY KPI TILES                                       */}
       {/* ==================================================================== */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
@@ -382,7 +623,7 @@ export const NotificationsView: React.FC<NotificationsViewProps> = ({
             <span className="text-2xl font-bold font-mono tabular-nums text-slate-900 dark:text-white">
               {totalCount}
             </span>
-            <span className="text-[11px] text-slate-500">Across 8 nations</span>
+            <span className="text-[11px] text-slate-500 font-medium">8 Sovereign States</span>
           </div>
         </div>
 
@@ -408,36 +649,36 @@ export const NotificationsView: React.FC<NotificationsViewProps> = ({
 
         <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Cross-Border Arteries</span>
+            <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Primary Arteries</span>
             <Compass className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
           </div>
           <div className="mt-2 flex items-baseline gap-2">
             <span className="text-2xl font-bold font-mono tabular-nums text-slate-900 dark:text-white">
               8 Corridors
             </span>
-            <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium">100% Monitored</span>
+            <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium">Live Telematics</span>
           </div>
         </div>
 
         <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Back4App Multi-Region</span>
+            <span className="text-xs font-medium text-slate-500 dark:text-slate-400">BaaS LiveQuery Node</span>
             <Globe className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
           </div>
           <div className="mt-2 flex items-baseline gap-2">
             <span className="text-2xl font-bold font-mono tabular-nums text-emerald-600 dark:text-emerald-400">
               85ms
             </span>
-            <span className="text-[11px] text-slate-500 font-mono">Median Parse Latency</span>
+            <span className="text-[11px] text-slate-500 font-mono">Back4App Multi-Region</span>
           </div>
         </div>
       </div>
 
       {/* ==================================================================== */}
-      {/* 3. 8-NATION MULTI-COUNTRY SELECTOR BAR                               */}
+      {/* 4. 8-NATION MULTI-COUNTRY SELECTOR BAR                               */}
       {/* ==================================================================== */}
-      <div className="p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
-        <div className="flex items-center justify-between mb-2 px-1">
+      <div className="p-3.5 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
+        <div className="flex items-center justify-between mb-2.5 px-1">
           <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
             <Globe className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400" />
             <span>Select Regional Country Telemetry Scope</span>
@@ -445,7 +686,7 @@ export const NotificationsView: React.FC<NotificationsViewProps> = ({
           <span className="text-[11px] font-mono text-slate-500 dark:text-slate-400">
             {selectedCountry === 'ALL'
               ? 'Viewing All 8 East African Member States'
-              : `Filtered to ${EAST_AFRICA_NOTIFICATION_COUNTRIES[selectedCountry]?.name}`}
+              : `Filtered to ${EAST_AFRICA_NOTIFICATION_COUNTRIES[selectedCountry]?.name} (${EAST_AFRICA_NOTIFICATION_COUNTRIES[selectedCountry]?.currency})`}
           </span>
         </div>
 
@@ -474,28 +715,37 @@ export const NotificationsView: React.FC<NotificationsViewProps> = ({
             (code) => {
               const meta = EAST_AFRICA_NOTIFICATION_COUNTRIES[code];
               const isSelected = selectedCountry === code;
+              const isDutyStation = userJurisdiction === code;
               const countryUnread = unreadByCountry[code] || 0;
+              const countryCritical = criticalByCountry[code] || 0;
               const countryTotal = notifications.filter((n) => n.countryCode === code).length;
 
               return (
                 <button
                   key={code}
                   onClick={() => setSelectedCountry(code)}
-                  className={`px-3 py-2 rounded-xl text-xs font-bold whitespace-nowrap shrink-0 transition-colors flex items-center gap-2 border ${
+                  className={`px-3 py-2 rounded-xl text-xs font-bold whitespace-nowrap shrink-0 transition-colors flex items-center gap-2 border relative ${
                     isSelected
                       ? 'bg-cyan-600 text-white border-cyan-600 shadow-xs'
                       : 'bg-slate-50 dark:bg-slate-800/60 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700'
                   }`}
-                  title={`${meta.name} (${meta.currency}) · ${meta.regulator}`}
+                  title={`${meta.name} (${meta.currency}) · Regulator: ${meta.regulator} · Fleet: ${meta.activeFleetCount}`}
                 >
                   <span className="text-sm">{meta.flag}</span>
                   <span>{meta.name}</span>
+                  {isDutyStation && (
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 absolute top-1 right-1" title="Operator Duty Station" />
+                  )}
                   <span
                     className={`px-1.5 py-0.2 rounded text-[10px] font-mono tabular-nums ${
-                      countryUnread > 0
+                      countryCritical > 0
                         ? isSelected
-                          ? 'bg-rose-500 text-white font-bold'
+                          ? 'bg-rose-500 text-white font-bold animate-pulse'
                           : 'bg-rose-100 dark:bg-rose-950 text-rose-700 dark:text-rose-300 font-bold border border-rose-300 dark:border-rose-800'
+                        : countryUnread > 0
+                        ? isSelected
+                          ? 'bg-amber-400 text-slate-900 font-bold'
+                          : 'bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 font-semibold'
                         : isSelected
                         ? 'bg-white/20 text-white'
                         : 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-400'
@@ -511,7 +761,7 @@ export const NotificationsView: React.FC<NotificationsViewProps> = ({
       </div>
 
       {/* ==================================================================== */}
-      {/* 4. CATEGORY TABS & REFINEMENT SEARCH TOOLBAR                         */}
+      {/* 5. CATEGORY TABS & REFINEMENT SEARCH TOOLBAR                         */}
       {/* ==================================================================== */}
       <div className="space-y-3">
         {/* Category Tabs */}
@@ -521,7 +771,7 @@ export const NotificationsView: React.FC<NotificationsViewProps> = ({
             { id: 'dispatch', label: 'Corridors & Dispatch' },
             { id: 'regulatory', label: 'Tariff & Regulatory' },
             { id: 'settlement', label: 'Settlement & Fintech' },
-            { id: 'security', label: 'Security & Access' },
+            { id: 'security', label: 'Security & Escorts' },
             { id: 'operations', label: 'Fleet Operations' },
             { id: 'system', label: 'Platform & BaaS' },
           ].map((tab) => (
@@ -630,7 +880,7 @@ export const NotificationsView: React.FC<NotificationsViewProps> = ({
       </div>
 
       {/* ==================================================================== */}
-      {/* 5. NOTIFICATIONS STREAM / CARDS                                      */}
+      {/* 6. NOTIFICATIONS STREAM / CARDS                                      */}
       {/* ==================================================================== */}
       <div className="space-y-3">
         {filteredNotifications.length > 0 ? (
@@ -642,18 +892,18 @@ export const NotificationsView: React.FC<NotificationsViewProps> = ({
             return (
               <div
                 key={item.id}
-                className={`p-4 rounded-xl border transition-all ${getCardBorderClass(item)}`}
+                className={`p-4 sm:p-5 rounded-2xl border transition-all ${getCardBorderClass(item)}`}
               >
                 <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
                   {/* Left content block */}
-                  <div className="flex items-start gap-3 flex-1 min-w-0">
-                    <div className="w-8 h-8 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center justify-center shrink-0 mt-0.5">
+                  <div className="flex items-start gap-3.5 flex-1 min-w-0">
+                    <div className="w-9 h-9 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center justify-center shrink-0 mt-0.5 shadow-2xs">
                       {getCategoryIcon(item.category, item.type)}
                     </div>
 
                     <div className="flex-1 min-w-0">
                       {/* Meta badges line */}
-                      <div className="flex items-center gap-2 flex-wrap mb-1">
+                      <div className="flex items-center gap-2 flex-wrap mb-1.5">
                         {/* Severity Badge */}
                         {getSeverityBadge(item.severity)}
 
@@ -671,9 +921,17 @@ export const NotificationsView: React.FC<NotificationsViewProps> = ({
 
                         {/* Corridor Tag */}
                         {item.corridor && (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-mono text-cyan-700 dark:text-cyan-300 bg-cyan-50 dark:bg-cyan-950/60 border border-cyan-200 dark:border-cyan-800/80 max-w-[280px] truncate">
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-mono text-cyan-700 dark:text-cyan-300 bg-cyan-50 dark:bg-cyan-950/60 border border-cyan-200 dark:border-cyan-800/80 max-w-[320px] truncate">
                             <MapPin className="w-2.5 h-2.5 shrink-0" />
                             <span className="truncate">{item.corridor}</span>
+                          </span>
+                        )}
+
+                        {/* Emergency Hotline if critical */}
+                        {item.emergencyHotline && item.severity === 'critical' && (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-mono text-rose-700 dark:text-rose-300 bg-rose-50 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-800">
+                            <PhoneCall className="w-2.5 h-2.5" />
+                            <span>{item.emergencyHotline}</span>
                           </span>
                         )}
 
@@ -687,7 +945,7 @@ export const NotificationsView: React.FC<NotificationsViewProps> = ({
 
                       {/* Title & Description */}
                       <h3
-                        className={`text-sm font-bold leading-snug ${
+                        className={`text-sm sm:text-base font-bold leading-snug ${
                           !item.read
                             ? 'text-slate-900 dark:text-white'
                             : 'text-slate-700 dark:text-slate-300 font-semibold'
@@ -699,8 +957,16 @@ export const NotificationsView: React.FC<NotificationsViewProps> = ({
                         {item.subtitle}
                       </p>
 
+                      {/* Acknowledged Banner */}
+                      {item.acknowledgedBy && (
+                        <div className="mt-2 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-medium bg-emerald-50 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+                          <Check className="w-3.5 h-3.5 text-emerald-600" />
+                          <span>Acknowledged &amp; Escalated by {item.acknowledgedBy} at {item.acknowledgedAt}</span>
+                        </div>
+                      )}
+
                       {/* Footer actions on card */}
-                      <div className="mt-3 flex items-center gap-3 flex-wrap text-xs">
+                      <div className="mt-3.5 flex items-center gap-3 flex-wrap text-xs">
                         {/* Target Module Direct Jump */}
                         {item.actionTab && (
                           <button
@@ -711,6 +977,27 @@ export const NotificationsView: React.FC<NotificationsViewProps> = ({
                             <ArrowRight className="w-3 h-3" />
                           </button>
                         )}
+
+                        {/* Interactive Acknowledge Button */}
+                        {!item.acknowledgedBy && (
+                          <button
+                            onClick={() => handleAcknowledgeAlert(item.id)}
+                            className="inline-flex items-center gap-1 font-semibold text-emerald-600 dark:text-emerald-400 hover:underline"
+                          >
+                            <Check className="w-3.5 h-3.5" />
+                            <span>Acknowledge as {userName}</span>
+                          </button>
+                        )}
+
+                        {/* Push Driver Notification button */}
+                        <button
+                          onClick={() => handleSendDriverPush(item)}
+                          className="inline-flex items-center gap-1 font-medium text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 transition-colors"
+                          title="Simulate dispatching in-cab mobile alert to active vehicles"
+                        >
+                          <Smartphone className="w-3 h-3" />
+                          <span>Push In-Cab SMS</span>
+                        </button>
 
                         <span className="text-slate-300 dark:text-slate-700">·</span>
 
@@ -758,7 +1045,7 @@ export const NotificationsView: React.FC<NotificationsViewProps> = ({
                     </div>
 
                     {!item.read && (
-                      <span className="inline-block w-2 h-2 rounded-full bg-cyan-500" />
+                      <span className="inline-block w-2.5 h-2.5 rounded-full bg-cyan-500 shadow-xs" />
                     )}
                   </div>
                 </div>
@@ -766,17 +1053,17 @@ export const NotificationsView: React.FC<NotificationsViewProps> = ({
             );
           })
         ) : (
-          <div className="p-12 text-center rounded-xl border border-dashed border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/50">
+          <div className="p-12 text-center rounded-2xl border border-dashed border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/50">
             <Bell className="w-8 h-8 text-slate-400 mx-auto mb-2 opacity-50" />
             <h3 className="text-sm font-semibold text-slate-900 dark:text-white">
-              No Notifications Found
+              No Dispatch Notifications Found
             </h3>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-md mx-auto">
-              No events match the selected country ({selectedCountry}), category, or search filters.
+              No operational events match the selected territory ({selectedCountry}), category, or search filters.
             </p>
             <button
               onClick={handleResetFilters}
-              className="mt-4 px-3 py-1.5 rounded-lg text-xs font-semibold bg-cyan-600 text-white hover:bg-cyan-500 transition-colors inline-flex items-center gap-1.5"
+              className="mt-4 px-3.5 py-1.5 rounded-xl text-xs font-semibold bg-cyan-600 text-white hover:bg-cyan-500 transition-colors inline-flex items-center gap-1.5"
             >
               <RotateCcw className="w-3 h-3" />
               <span>Reset All Filters</span>
@@ -786,7 +1073,7 @@ export const NotificationsView: React.FC<NotificationsViewProps> = ({
       </div>
 
       {/* ==================================================================== */}
-      {/* 6. MODAL: BROADCAST REGIONAL DISPATCH ALERT                          */}
+      {/* 7. MODAL: BROADCAST REGIONAL DISPATCH ALERT                          */}
       {/* ==================================================================== */}
       {isBroadcastModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
@@ -802,7 +1089,7 @@ export const NotificationsView: React.FC<NotificationsViewProps> = ({
                     Broadcast Regional Dispatch Alert
                   </h2>
                   <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                    Publish instant corridor advisory or operational directive across East Africa
+                    Publish instant corridor advisory, customs update, or tariff directive
                   </p>
                 </div>
               </div>
@@ -816,6 +1103,36 @@ export const NotificationsView: React.FC<NotificationsViewProps> = ({
 
             {/* Modal Form */}
             <form onSubmit={handleBroadcastSubmit} className="flex-1 overflow-y-auto p-5 space-y-4 text-xs">
+              {/* Preset Quick Templates */}
+              <div>
+                <label className="block font-semibold mb-1 text-slate-700 dark:text-slate-300">
+                  Quick Incident Template
+                </label>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
+                  {[
+                    { id: 'custom', label: 'Custom Notice' },
+                    { id: 'weather', label: 'Heavy Rain / Flood' },
+                    { id: 'weighbridge', label: 'Weighbridge Delay' },
+                    { id: 'tariff', label: 'Tariff Directive' },
+                    { id: 'security', label: 'Security Escort' },
+                    { id: 'settlement', label: 'Fintech Payout' },
+                  ].map((tpl) => (
+                    <button
+                      key={tpl.id}
+                      type="button"
+                      onClick={() => handleApplyTemplate(tpl.id)}
+                      className={`px-2 py-1.5 rounded-lg text-[11px] font-medium border text-left transition-colors ${
+                        selectedTemplate === tpl.id
+                          ? 'border-cyan-600 bg-cyan-50 dark:bg-cyan-950/40 text-cyan-700 dark:text-cyan-300'
+                          : 'border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700'
+                      }`}
+                    >
+                      {tpl.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               {/* Target Country & Audience */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
@@ -833,6 +1150,10 @@ export const NotificationsView: React.FC<NotificationsViewProps> = ({
                           code !== 'ALL'
                             ? EAST_AFRICA_NOTIFICATION_COUNTRIES[code]?.primaryCorridor || ''
                             : '',
+                        sourceAuthority:
+                          code !== 'ALL'
+                            ? EAST_AFRICA_NOTIFICATION_COUNTRIES[code]?.regulator || ''
+                            : 'Afronala Central Dispatch Authority',
                       }));
                     }}
                     className="w-full px-3 py-2 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 focus:outline-hidden focus:ring-1 focus:ring-cyan-500"
@@ -905,6 +1226,7 @@ export const NotificationsView: React.FC<NotificationsViewProps> = ({
                     <option value="critical">Critical (Immediate Halt / Reroute)</option>
                     <option value="info">Informational (General Notice)</option>
                     <option value="security">Security (Escort / Perimeter Alert)</option>
+                    <option value="success">Settled (Financial Reconciliation)</option>
                   </select>
                 </div>
               </div>

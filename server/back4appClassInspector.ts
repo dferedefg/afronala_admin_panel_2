@@ -1,5 +1,6 @@
 import fs from 'fs';
 import path from 'path';
+import { generateAllBack4AppCsvs, TARGET_DIR } from './generateBack4AppCsvs.ts';
 
 export interface InferredField {
   name: string;
@@ -28,6 +29,7 @@ export interface Back4AppClassSummary {
   incomingPointers: { sourceClass: string; sourceColumn: string }[];
   fileSizeBytes: number;
   lastModifiedIso: string;
+  countryCounts?: Record<string, number>;
 }
 
 export interface Back4AppClassesManifest {
@@ -42,36 +44,36 @@ export interface Back4AppClassesManifest {
   };
 }
 
-const CLASSES_DIR = path.resolve(process.cwd(), 'back4app_cloud_code/back4app_classes');
+const CLASSES_DIR = TARGET_DIR;
 
 const CLASS_METADATA_MAP: Record<string, { category: Back4AppClassSummary['category']; primaryFunction: string }> = {
   _User: {
     category: 'Identity',
-    primaryFunction: 'Core authentication, single-identity multi-role accounts (roleCodes: ["customer", "driver", "truckOwner", "rideOwner"]), contact verification, and nested roleData.',
+    primaryFunction: 'Core authentication, single-identity multi-role accounts across all 8 East African countries (roleCodes: ["customer", "driver", "truckOwner", "rideOwner", "truckDispatcher"]), contact verification, and nested roleData.',
   },
   Customer: {
     category: 'Customer',
-    primaryFunction: 'Directory of passenger riders and freight shippers (individual vs corporate), preferred payment terms (cash/telebirr), loyalty points, and ratings.',
+    primaryFunction: 'Directory of passenger riders and enterprise freight shippers across East Africa, preferred payment terms (Telebirr, M-PESA, MoMo, etc.), national tax IDs (KRA, URA, RRA, TRA, etc.), and ratings.',
   },
   Driver: {
     category: 'Mobility (Ride)',
-    primaryFunction: 'Universal fleet operators. Dual-service mode (activeServiceMode: "ride" or "truck"), live GPS GeoPoint, CDL licenses, assigned vehicle pointers, and status.',
+    primaryFunction: 'Universal fleet operators across East African corridors. Dual-service mode (activeServiceMode: "ride" or "truck"), live GPS GeoPoint, CDL licenses, assigned vehicle pointers, and status.',
   },
   RideDriver: {
     category: 'Mobility (Ride)',
-    primaryFunction: 'Commercial fleet driver contractor bindings linking drivers with RideOwner entities, revenue commission splits (e.g., 80/20 or 100%), and invitation timelines.',
+    primaryFunction: 'Commercial fleet driver contractor bindings linking drivers with RideOwner entities across East Africa, statutory commission splits (e.g. 90/10 NTSA, 85/15 Standard), and licensing.',
   },
   RideOwner: {
     category: 'Mobility (Ride)',
-    primaryFunction: 'Taxi and city ride fleet owners managing driver fleets, vehicle allocations, operating licenses, business TINs, and aggregated payouts.',
+    primaryFunction: 'Taxi and city ride fleet owners managing driver fleets, vehicle allocations, operating licenses, business TINs, and localized payouts.',
   },
   TruckDispatcher: {
     category: 'Logistics (Truck)',
-    primaryFunction: 'Regional freight logistics coordinators authorized to allocate cargo waybills, assign drivers to corridors, and supervise transport manifests.',
+    primaryFunction: 'Regional freight logistics coordinators authorized across East African border gateways (Modjo, Mombasa, Malaba, KLP, Kurasini, Doraleh, Mogadishu, Nimule) to supervise manifests.',
   },
   TruckOwner: {
     category: 'Logistics (Truck)',
-    primaryFunction: 'Commercial heavy freight carriers, carrier service configurations (DOT / MC numbers, insurance policies), and multi-truck fleet rosters.',
+    primaryFunction: 'Commercial heavy freight carriers, carrier service configurations (DOT / transit permits, insurance policies), and multi-truck fleet rosters across all 8 nations.',
   },
 };
 
@@ -169,10 +171,13 @@ function inferParseType(
   if (columnName === 'user' || columnName === 'ownerUserId' || columnName === 'driverUserId') {
     return { type: 'Pointer', pointerTarget: '_User' };
   }
-  if (columnName === 'rideOwnerId') {
+  if (columnName === 'driver') {
+    return { type: 'Pointer', pointerTarget: 'Driver' };
+  }
+  if (columnName === 'rideOwner' || columnName === 'rideOwnerId') {
     return { type: 'Pointer', pointerTarget: 'RideOwner' };
   }
-  if (columnName === 'truckOwnerId') {
+  if (columnName === 'truckOwner' || columnName === 'truckOwnerId') {
     return { type: 'Pointer', pointerTarget: 'TruckOwner' };
   }
   if (columnName === 'assignedVehicleId' || columnName === 'assignedTruckId') {
@@ -181,63 +186,73 @@ function inferParseType(
 
   // 2. Check for GeoPoint signature
   for (const v of nonNull) {
-    if (typeof v === 'string' && v.trim().startsWith('{') && (v.includes('"GeoPoint"') || (v.includes('latitude') && v.includes('longitude')))) {
-      try {
-        const parsed = JSON.parse(v);
-        if (parsed.__type === 'GeoPoint' || (typeof parsed.latitude === 'number' && typeof parsed.longitude === 'number')) {
-          return { type: 'GeoPoint' };
-        }
-      } catch {
-        // ignore
-      }
+    if (typeof v === 'string' && v.trim().startsWith('{') && v.includes('"__type"') && v.includes('"GeoPoint"')) {
+      return { type: 'GeoPoint' };
     }
+  }
+  if (columnName.toLowerCase().includes('location') || columnName.toLowerCase().includes('coordinates')) {
+    return { type: 'GeoPoint' };
   }
 
-  // 3. Check for Array
-  let arrayMatchCount = 0;
-  for (const v of nonNull) {
-    if (typeof v === 'string' && v.trim().startsWith('[') && v.trim().endsWith(']')) {
-      arrayMatchCount++;
-    }
+  // 3. Check for Date signature
+  const isDate = nonNull.every((v) => {
+    if (typeof v !== 'string') return false;
+    return /^\d{4}-\d{2}-\d{2}(T|\s)\d{2}:\d{2}/.test(v.trim());
+  });
+  if (isDate) {
+    return { type: 'Date' };
   }
-  if (arrayMatchCount > 0 && arrayMatchCount === nonNull.length) {
+  if (
+    columnName.toLowerCase().endsWith('at') ||
+    columnName.toLowerCase().endsWith('date') ||
+    columnName === 'lastLoginAt' ||
+    columnName === 'createdAt' ||
+    columnName === 'updatedAt'
+  ) {
+    return { type: 'Date' };
+  }
+
+  // 4. Check for JSON Array
+  const isArray = nonNull.every((v) => {
+    if (typeof v !== 'string') return false;
+    const trimmed = v.trim();
+    return trimmed.startsWith('[') && trimmed.endsWith(']');
+  });
+  if (isArray) {
     return { type: 'Array' };
   }
 
-  // 4. Check for Object (JSON)
-  let objMatchCount = 0;
-  for (const v of nonNull) {
-    if (typeof v === 'string' && v.trim().startsWith('{') && v.trim().endsWith('}')) {
-      objMatchCount++;
-    }
-  }
-  if (objMatchCount > 0 && objMatchCount === nonNull.length) {
+  // 5. Check for JSON Object
+  const isObject = nonNull.every((v) => {
+    if (typeof v !== 'string') return false;
+    const trimmed = v.trim();
+    return trimmed.startsWith('{') && trimmed.endsWith('}');
+  });
+  if (isObject) {
     return { type: 'Object (JSON)' };
   }
 
-  // 5. Check for Boolean
+  // 6. Check for Boolean
   const isBool = nonNull.every((v) => {
-    const s = String(v).trim().toLowerCase();
+    const s = String(v).toLowerCase().trim();
     return s === 'true' || s === 'false';
   });
-  if (isBool) return { type: 'Boolean' };
-
-  // 6. Check for Date
-  const isDate = nonNull.every((v) => {
-    const s = String(v).trim();
-    if (s.length >= 19 && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(s)) {
-      return !isNaN(Date.parse(s));
-    }
-    return false;
-  });
-  if (isDate) return { type: 'Date' };
+  if (isBool) {
+    return { type: 'Boolean' };
+  }
 
   // 7. Check for Number
   const isNum = nonNull.every((v) => {
-    const s = String(v).trim();
-    return !isNaN(Number(s)) && s !== '';
+    return !isNaN(Number(v)) && String(v).trim() !== '';
   });
-  if (isNum && !columnName.toLowerCase().includes('phone') && !columnName.toLowerCase().includes('id') && !columnName.toLowerCase().includes('plate') && !columnName.toLowerCase().includes('tin')) {
+  if (
+    isNum &&
+    !columnName.toLowerCase().includes('phone') &&
+    !columnName.toLowerCase().includes('id') &&
+    !columnName.toLowerCase().includes('plate') &&
+    !columnName.toLowerCase().includes('tin') &&
+    !columnName.toLowerCase().includes('code')
+  ) {
     return { type: 'Number' };
   }
 
@@ -248,6 +263,44 @@ function inferParseType(
 let cachedManifest: Back4AppClassesManifest | null = null;
 const cachedClassRecords: Map<string, { rows: Record<string, any>[]; summary: Back4AppClassSummary }> = new Map();
 
+export function inferRecordCountry(r: Record<string, any>): string {
+  if (r.countryCode) return String(r.countryCode).toUpperCase();
+  if (r.operatingCountry) {
+    const c = String(r.operatingCountry).toLowerCase();
+    if (c.includes('ethiopia')) return 'ET';
+    if (c.includes('kenya')) return 'KE';
+    if (c.includes('uganda')) return 'UG';
+    if (c.includes('rwanda')) return 'RW';
+    if (c.includes('tanzania')) return 'TZ';
+    if (c.includes('djibouti')) return 'DJ';
+    if (c.includes('somalia')) return 'SO';
+    if (c.includes('south sudan')) return 'SS';
+  }
+  if (r.country) {
+    const c = String(r.country).toLowerCase();
+    if (c.includes('ethiopia')) return 'ET';
+    if (c.includes('kenya')) return 'KE';
+    if (c.includes('uganda')) return 'UG';
+    if (c.includes('rwanda')) return 'RW';
+    if (c.includes('tanzania')) return 'TZ';
+    if (c.includes('djibouti')) return 'DJ';
+    if (c.includes('somalia')) return 'SO';
+    if (c.includes('south sudan')) return 'SS';
+  }
+  if (r.phone) {
+    const p = String(r.phone);
+    if (p.startsWith('+251') || p.startsWith('091')) return 'ET';
+    if (p.startsWith('+254')) return 'KE';
+    if (p.startsWith('+256')) return 'UG';
+    if (p.startsWith('+250')) return 'RW';
+    if (p.startsWith('+255')) return 'TZ';
+    if (p.startsWith('+253')) return 'DJ';
+    if (p.startsWith('+252')) return 'SO';
+    if (p.startsWith('+211')) return 'SS';
+  }
+  return 'ET';
+}
+
 export function inspectBack4AppClasses(): Back4AppClassesManifest {
   if (cachedManifest) {
     return cachedManifest;
@@ -257,7 +310,14 @@ export function inspectBack4AppClasses(): Back4AppClassesManifest {
     fs.mkdirSync(CLASSES_DIR, { recursive: true });
   }
 
-  const files = fs.readdirSync(CLASSES_DIR).filter((f) => f.endsWith('.csv'));
+  let files = fs.readdirSync(CLASSES_DIR).filter((f) => f.endsWith('.csv'));
+
+  // Ensure all 7 classes exist with complete East African multi-country data
+  if (files.length < 7) {
+    generateAllBack4AppCsvs();
+    files = fs.readdirSync(CLASSES_DIR).filter((f) => f.endsWith('.csv'));
+  }
+
   const summaries: Back4AppClassSummary[] = [];
   let totalRecords = 0;
 
@@ -269,6 +329,24 @@ export function inspectBack4AppClasses(): Back4AppClassesManifest {
     const { headers, rows } = parseCsv(content);
 
     totalRecords += rows.length;
+
+    // Count records per country
+    const countryCounts: Record<string, number> = {
+      ALL: rows.length,
+      ET: 0,
+      KE: 0,
+      UG: 0,
+      RW: 0,
+      TZ: 0,
+      DJ: 0,
+      SO: 0,
+      SS: 0,
+    };
+
+    for (const r of rows) {
+      const code = inferRecordCountry(r);
+      countryCounts[code] = (countryCounts[code] || 0) + 1;
+    }
 
     const columns: InferredField[] = headers.map((header) => {
       const colValues = rows.map((r) => r[header]);
@@ -313,6 +391,7 @@ export function inspectBack4AppClasses(): Back4AppClassesManifest {
       incomingPointers: [],
       fileSizeBytes: stat.size,
       lastModifiedIso: stat.mtime.toISOString(),
+      countryCounts,
     };
 
     summaries.push(summary);
@@ -389,18 +468,47 @@ export function inspectBack4AppClasses(): Back4AppClassesManifest {
   return cachedManifest;
 }
 
-export function getBack4AppClassRecords(className: string): {
+export function getBack4AppClassRecords(
+  className: string,
+  countryFilter?: string
+): {
   summary: Back4AppClassSummary;
   records: Record<string, any>[];
+  countryBreakdown: Record<string, number>;
 } {
   inspectBack4AppClasses();
   const entry = cachedClassRecords.get(className);
   if (!entry) {
     throw new Error(`Back4App Parse class "${className}" not found in uploaded classes.`);
   }
+
+  const breakdown: Record<string, number> = {
+    ALL: entry.rows.length,
+    ET: 0,
+    KE: 0,
+    UG: 0,
+    RW: 0,
+    TZ: 0,
+    DJ: 0,
+    SO: 0,
+    SS: 0,
+  };
+
+  for (const r of entry.rows) {
+    const code = inferRecordCountry(r);
+    breakdown[code] = (breakdown[code] || 0) + 1;
+  }
+
+  let finalRows = entry.rows;
+  if (countryFilter && countryFilter !== 'ALL') {
+    const target = countryFilter.toUpperCase();
+    finalRows = entry.rows.filter((r) => inferRecordCountry(r) === target);
+  }
+
   return {
     summary: entry.summary,
-    records: entry.rows,
+    records: finalRows,
+    countryBreakdown: breakdown,
   };
 }
 

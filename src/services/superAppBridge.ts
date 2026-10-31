@@ -102,8 +102,11 @@ class SuperAppBridgeService {
     return json;
   }
 
-  async getUploadedClassRecords(className: string): Promise<import('../types').Back4AppClassDetailResponse> {
-    const res = await fetch(`/api/back4app/uploaded-classes/${encodeURIComponent(className)}`, {
+  async getUploadedClassRecords(className: string, country?: string): Promise<import('../types').Back4AppClassDetailResponse> {
+    const url = country && country !== 'ALL'
+      ? `/api/back4app/uploaded-classes/${encodeURIComponent(className)}?country=${encodeURIComponent(country)}`
+      : `/api/back4app/uploaded-classes/${encodeURIComponent(className)}`;
+    const res = await fetch(url, {
       headers: this.headers(),
     });
     const json = await res.json();

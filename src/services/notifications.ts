@@ -16,6 +16,12 @@ export interface EastAfricaCountryNotificationMeta {
   borderCheckpoints: string[];
   regulator: string;
   activeFleetCount: number;
+  stationHubName: string;
+  capitalCity: string;
+  emergencyHotline: string;
+  customsAuthority: string;
+  fintechRail: string;
+  centerCoords: [number, number];
 }
 
 export const EAST_AFRICA_NOTIFICATION_COUNTRIES: Record<
@@ -29,8 +35,14 @@ export const EAST_AFRICA_NOTIFICATION_COUNTRIES: Record<
     currency: 'ETB',
     primaryCorridor: 'Addis Ababa - Modjo Dry Port - Adama Expressway',
     borderCheckpoints: ['Galafi (DJ-ET)', 'Moyale (ET-KE)', 'Metema (ET-SD)', 'Tog Wajaale (ET-SO)'],
-    regulator: 'MOTRI & Federal Transport Authority (Bola)',
+    regulator: 'MOTRI & Federal Transport Authority (FTA)',
     activeFleetCount: 384,
+    stationHubName: 'Addis Ababa Central Telemetry & Dispatch Command',
+    capitalCity: 'Addis Ababa',
+    emergencyHotline: '991 (Police) / 907 (Traffic Command)',
+    customsAuthority: 'Ethiopian Customs Commission (ECC)',
+    fintechRail: 'EthSwitch & Ethio Telecom Telebirr',
+    centerCoords: [9.0227, 38.7468],
   },
   KE: {
     code: 'KE',
@@ -41,6 +53,12 @@ export const EAST_AFRICA_NOTIFICATION_COUNTRIES: Record<
     borderCheckpoints: ['Malaba (KE-UG)', 'Busia (KE-UG)', 'Namanga (KE-TZ)', 'Moyale (KE-ET)'],
     regulator: 'National Transport and Safety Authority (NTSA)',
     activeFleetCount: 295,
+    stationHubName: 'Nairobi National Operations & SGR Intermodal Hub',
+    capitalCity: 'Nairobi',
+    emergencyHotline: '999 / 112 / NTSA 0709 932 000',
+    customsAuthority: 'Kenya Revenue Authority (KRA)',
+    fintechRail: 'Safaricom M-PESA Daraja & PesaLink',
+    centerCoords: [-1.2921, 36.8219],
   },
   UG: {
     code: 'UG',
@@ -51,6 +69,12 @@ export const EAST_AFRICA_NOTIFICATION_COUNTRIES: Record<
     borderCheckpoints: ['Malaba OSBP (UG-KE)', 'Busia (UG-KE)', 'Katuna (UG-RW)', 'Nimule (UG-SS)'],
     regulator: 'Ministry of Works & Transport (MoWT) / URA',
     activeFleetCount: 210,
+    stationHubName: 'Kampala Transit Telematics & Border Coordination Base',
+    capitalCity: 'Kampala',
+    emergencyHotline: '999 / 112 / Police Traffic: 0800 199 099',
+    customsAuthority: 'Uganda Revenue Authority (URA)',
+    fintechRail: 'MTN Mobile Money UG & Airtel Money',
+    centerCoords: [0.3476, 32.5825],
   },
   RW: {
     code: 'RW',
@@ -61,6 +85,12 @@ export const EAST_AFRICA_NOTIFICATION_COUNTRIES: Record<
     borderCheckpoints: ['Rusumo OSBP (RW-TZ)', 'Gatuna (RW-UG)', 'Rubavu (RW-CD)', 'Nemba (RW-BI)'],
     regulator: 'Rwanda Utilities Regulatory Authority (RURA)',
     activeFleetCount: 165,
+    stationHubName: 'Kigali Logistics Platform (KLP) & Green EV Hub',
+    capitalCity: 'Kigali',
+    emergencyHotline: '112 (National Emergency) / 912 (Ambulance)',
+    customsAuthority: 'Rwanda Revenue Authority (RRA)',
+    fintechRail: 'MTN MoMo Rwanda & Airtel Money',
+    centerCoords: [-1.9441, 30.0619],
   },
   TZ: {
     code: 'TZ',
@@ -71,6 +101,12 @@ export const EAST_AFRICA_NOTIFICATION_COUNTRIES: Record<
     borderCheckpoints: ['Dar es Salaam Port Gate', 'Rusumo (TZ-RW)', 'Namanga (TZ-KE)', 'Tunduma (TZ-ZM)'],
     regulator: 'Land Transport Regulatory Authority (LATRA)',
     activeFleetCount: 240,
+    stationHubName: 'Dar es Salaam Port Maritime & Corridor Logistics Center',
+    capitalCity: 'Dar es Salaam / Dodoma',
+    emergencyHotline: '112 / 114 / LATRA Toll-Free: 0800 110 020',
+    customsAuthority: 'Tanzania Revenue Authority (TRA)',
+    fintechRail: 'Bank of Tanzania TIPS, Vodacom M-Pesa & Tigo Pesa',
+    centerCoords: [-6.7924, 39.2083],
   },
   DJ: {
     code: 'DJ',
@@ -81,6 +117,12 @@ export const EAST_AFRICA_NOTIFICATION_COUNTRIES: Record<
     borderCheckpoints: ['Galafi Checkpoint (DJ-ET)', 'PK12 Terminal', 'Doraleh SGTD Gate', 'Loyada (DJ-SO)'],
     regulator: 'Djibouti Ports & Free Zones Authority (DPFZA)',
     activeFleetCount: 180,
+    stationHubName: 'Doraleh SGTD Terminal & PK12 Dry Port Station',
+    capitalCity: 'Djibouti City',
+    emergencyHotline: '17 (Police) / 18 (Fire & Maritime Rescue)',
+    customsAuthority: 'Direction Générale des Douanes et Droits Indirects',
+    fintechRail: 'Djibouti Telecom D-Money Rail',
+    centerCoords: [11.5721, 43.1456],
   },
   SO: {
     code: 'SO',
@@ -91,6 +133,12 @@ export const EAST_AFRICA_NOTIFICATION_COUNTRIES: Record<
     borderCheckpoints: ['Berbera Container Terminal', 'Tog Wajaale (SO-ET)', 'Mogadishu Port Gate', 'KM4 Perimeter'],
     regulator: 'Ministry of Transport & Civil Aviation (MOTCA)',
     activeFleetCount: 125,
+    stationHubName: 'Berbera Seaport & Mogadishu Airport Logistics Base',
+    capitalCity: 'Mogadishu / Hargeisa',
+    emergencyHotline: '888 / 999 (Emergency Escort Command)',
+    customsAuthority: 'Ministry of Finance Customs Department',
+    fintechRail: 'Hormuud EVC Plus & Telesom Zaad',
+    centerCoords: [2.0469, 45.3182],
   },
   SS: {
     code: 'SS',
@@ -101,6 +149,12 @@ export const EAST_AFRICA_NOTIFICATION_COUNTRIES: Record<
     borderCheckpoints: ['Nimule OSBP (SS-UG)', 'Juba River Port', 'Kaya Checkpoint', 'Juba Int. Airport Gate'],
     regulator: 'National Ministry of Transport (MoTR / SSRA)',
     activeFleetCount: 95,
+    stationHubName: 'Juba Highway Escort & Customs Transit Command',
+    capitalCity: 'Juba',
+    emergencyHotline: '777 (National Police Escort Command)',
+    customsAuthority: 'South Sudan Revenue Authority (SSRA)',
+    fintechRail: 'm-GURUSH Mobile Money & Bank of South Sudan Switch',
+    centerCoords: [4.8594, 31.5713],
   },
 };
 
@@ -124,6 +178,8 @@ export const DEFAULT_EAST_AFRICA_NOTIFICATIONS: NotificationItem[] = [
     actionTab: 'compliance',
     sourceAuthority: 'MOTRI / Bola Transport Bureau',
     pinned: true,
+    emergencyHotline: '907 (Traffic Command)',
+    telemetryCoords: [8.9806, 38.7578],
   },
   {
     id: 'notif-et-02',
@@ -142,6 +198,8 @@ export const DEFAULT_EAST_AFRICA_NOTIFICATIONS: NotificationItem[] = [
     actionLabel: 'View Freight Radar',
     actionTab: 'truck',
     sourceAuthority: 'Ethiopian Customs Commission (ECC)',
+    emergencyHotline: '991 (Police Control)',
+    telemetryCoords: [8.5912, 39.1245],
   },
   {
     id: 'notif-et-03',
@@ -160,6 +218,26 @@ export const DEFAULT_EAST_AFRICA_NOTIFICATIONS: NotificationItem[] = [
     actionLabel: 'View Settlement Hub',
     actionTab: 'settlements',
     sourceAuthority: 'Ethio Telecom & EthSwitch',
+    telemetryCoords: [9.0227, 38.7468],
+  },
+  {
+    id: 'notif-et-04',
+    title: 'Moyale Border Post Cross-Border Transit Manifest Verified',
+    subtitle: 'Joint Ethiopian Customs Commission & Kenya Revenue Authority seal inspection completed for 12 transit reefer trucks.',
+    timeAgo: '1 hour ago',
+    timestamp: 'Today, 13:40 EAT',
+    category: 'dispatch',
+    read: true,
+    type: 'corridor',
+    countryCode: 'ET',
+    countryName: 'Ethiopia',
+    corridor: 'Moyale OSBP Transit Arterial (ET-KE)',
+    severity: 'info',
+    targetModule: 'truck',
+    actionLabel: 'Review Cross-Border Manifest',
+    actionTab: 'truck',
+    sourceAuthority: 'Ethiopian Customs Commission',
+    telemetryCoords: [3.5358, 39.0558],
   },
 
   // 🇰🇪 Kenya
@@ -181,6 +259,8 @@ export const DEFAULT_EAST_AFRICA_NOTIFICATIONS: NotificationItem[] = [
     actionTab: 'superapp-bidding',
     sourceAuthority: 'Kenya Revenue Authority (KRA) & NTSA',
     pinned: true,
+    emergencyHotline: '0709 932 000 (NTSA)',
+    telemetryCoords: [-2.6883, 38.1672],
   },
   {
     id: 'notif-ke-02',
@@ -199,6 +279,7 @@ export const DEFAULT_EAST_AFRICA_NOTIFICATIONS: NotificationItem[] = [
     actionLabel: 'Audit Vehicle Permits',
     actionTab: 'compliance',
     sourceAuthority: 'National Transport and Safety Authority (NTSA)',
+    telemetryCoords: [-1.2921, 36.8219],
   },
   {
     id: 'notif-ke-03',
@@ -217,6 +298,26 @@ export const DEFAULT_EAST_AFRICA_NOTIFICATIONS: NotificationItem[] = [
     actionLabel: 'Verify M-PESA Ledgers',
     actionTab: 'settlements',
     sourceAuthority: 'Safaricom PLC',
+    telemetryCoords: [-1.2921, 36.8219],
+  },
+  {
+    id: 'notif-ke-04',
+    title: 'JKIA Airport Ride Queue Surge Cap Active (1.30x)',
+    subtitle: 'Automated 1.30x surge pricing ceiling activated during evening international arrivals wave in accordance with NTSA 10% maximum fee rules.',
+    timeAgo: '3 hours ago',
+    timestamp: 'Today, 11:20 EAT',
+    category: 'operations',
+    read: true,
+    type: 'trip',
+    countryCode: 'KE',
+    countryName: 'Kenya',
+    corridor: 'JKIA Terminal 1A - Westlands Link',
+    severity: 'info',
+    targetModule: 'ride',
+    actionLabel: 'Inspect JKIA Dispatch Queue',
+    actionTab: 'ride',
+    sourceAuthority: 'Kenya Airports Authority & NTSA',
+    telemetryCoords: [-1.3192, 36.9275],
   },
 
   // 🇺🇬 Uganda
@@ -237,6 +338,8 @@ export const DEFAULT_EAST_AFRICA_NOTIFICATIONS: NotificationItem[] = [
     actionLabel: 'Reroute In-Transit Haulers',
     actionTab: 'truck',
     sourceAuthority: 'Uganda Revenue Authority (URA)',
+    emergencyHotline: '0800 199 099 (MoWT)',
+    telemetryCoords: [0.6322, 34.2755],
   },
   {
     id: 'notif-ug-02',
@@ -255,6 +358,26 @@ export const DEFAULT_EAST_AFRICA_NOTIFICATIONS: NotificationItem[] = [
     actionLabel: 'Inspect MoWT Records',
     actionTab: 'compliance',
     sourceAuthority: 'Ministry of Works and Transport (MoWT)',
+    telemetryCoords: [0.3476, 32.5825],
+  },
+  {
+    id: 'notif-ug-03',
+    title: 'MTN Mobile Money UG Instant Dispatch Wallet Reconciliation',
+    subtitle: 'UGX 38,400,000 processed for cross-border haulers with automated tax withholding to Uganda Revenue Authority.',
+    timeAgo: '4 hours ago',
+    timestamp: 'Today, 10:15 EAT',
+    category: 'settlement',
+    read: true,
+    type: 'payment',
+    countryCode: 'UG',
+    countryName: 'Uganda',
+    corridor: 'Bank of Uganda National Payment Switch',
+    severity: 'success',
+    targetModule: 'settlements',
+    actionLabel: 'View UGX Payout Stream',
+    actionTab: 'settlements',
+    sourceAuthority: 'MTN Uganda & Bank of Uganda',
+    telemetryCoords: [0.3476, 32.5825],
   },
 
   // 🇷🇼 Rwanda
@@ -275,6 +398,8 @@ export const DEFAULT_EAST_AFRICA_NOTIFICATIONS: NotificationItem[] = [
     actionLabel: 'Review Geofence Perimeter',
     actionTab: 'geofences',
     sourceAuthority: 'Rwanda Utilities Regulatory Authority (RURA)',
+    emergencyHotline: '112 (National Police)',
+    telemetryCoords: [-2.3831, 30.7831],
   },
   {
     id: 'notif-rw-02',
@@ -293,6 +418,26 @@ export const DEFAULT_EAST_AFRICA_NOTIFICATIONS: NotificationItem[] = [
     actionLabel: 'Track Delivery ETA',
     actionTab: 'truck',
     sourceAuthority: 'Rwanda Revenue Authority (RRA)',
+    telemetryCoords: [-1.9441, 30.0619],
+  },
+  {
+    id: 'notif-rw-03',
+    title: 'RURA Clean Electric Taxi Priority Queue Active',
+    subtitle: '100% zero-emission electric vehicles dispatched with 0% municipal surcharge at Kigali Convention Centre charging depot.',
+    timeAgo: '3 hours ago',
+    timestamp: 'Today, 11:30 EAT',
+    category: 'operations',
+    read: true,
+    type: 'trip',
+    countryCode: 'RW',
+    countryName: 'Rwanda',
+    corridor: 'KG 2 Roundabout - Kigali Convention Centre',
+    severity: 'success',
+    targetModule: 'ride',
+    actionLabel: 'View Electric Fleet Status',
+    actionTab: 'ride',
+    sourceAuthority: 'RURA Clean Transport Division',
+    telemetryCoords: [-1.9536, 30.0931],
   },
 
   // 🇹🇿 Tanzania
@@ -313,6 +458,8 @@ export const DEFAULT_EAST_AFRICA_NOTIFICATIONS: NotificationItem[] = [
     actionLabel: 'Review Fleet Allocations',
     actionTab: 'superapp-bidding',
     sourceAuthority: 'Land Transport Regulatory Authority (LATRA)',
+    emergencyHotline: '0800 110 020 (LATRA)',
+    telemetryCoords: [-6.8286, 39.2882],
   },
   {
     id: 'notif-tz-02',
@@ -331,6 +478,26 @@ export const DEFAULT_EAST_AFRICA_NOTIFICATIONS: NotificationItem[] = [
     actionLabel: 'View Tanzania Settlements',
     actionTab: 'settlements',
     sourceAuthority: 'Bank of Tanzania (BoT)',
+    telemetryCoords: [-6.7924, 39.2083],
+  },
+  {
+    id: 'notif-tz-03',
+    title: 'LATRA Commercial Vehicle Tracking System (VTS) Handshake Verified',
+    subtitle: 'All 240 active Tanzanian inter-regional buses and long-haul trucks streaming mandatory 10-second GPS telemetry without packet loss.',
+    timeAgo: '5 hours ago',
+    timestamp: 'Today, 09:25 EAT',
+    category: 'operations',
+    read: true,
+    type: 'vehicle',
+    countryCode: 'TZ',
+    countryName: 'Tanzania',
+    corridor: 'Morogoro Road - Chalinze Junction',
+    severity: 'info',
+    targetModule: 'dispatch',
+    actionLabel: 'Monitor VTS Radar',
+    actionTab: 'dispatch',
+    sourceAuthority: 'LATRA Telematics Command',
+    telemetryCoords: [-6.6389, 38.125],
   },
 
   // 🇩🇯 Djibouti
@@ -351,6 +518,8 @@ export const DEFAULT_EAST_AFRICA_NOTIFICATIONS: NotificationItem[] = [
     actionLabel: 'Verify Customs Documents',
     actionTab: 'compliance',
     sourceAuthority: 'Djibouti Ports and Free Zones Authority (DPFZA)',
+    emergencyHotline: '17 (Police Maritime)',
+    telemetryCoords: [11.595, 43.08],
   },
   {
     id: 'notif-dj-02',
@@ -369,6 +538,26 @@ export const DEFAULT_EAST_AFRICA_NOTIFICATIONS: NotificationItem[] = [
     actionLabel: 'Audit D-Money Accounts',
     actionTab: 'settlements',
     sourceAuthority: 'Djibouti Telecom',
+    telemetryCoords: [11.5721, 43.1456],
+  },
+  {
+    id: 'notif-dj-03',
+    title: 'Galafi Checkpoint High-Temperature Mid-Day Advisory',
+    subtitle: 'Temperatures exceeding 42°C in the Dikhil Desert corridor; mandatory mandatory coolant checks for heavy transit tractor-trailers.',
+    timeAgo: '4 hours ago',
+    timestamp: 'Today, 10:40 EAT',
+    category: 'operations',
+    read: true,
+    type: 'corridor',
+    countryCode: 'DJ',
+    countryName: 'Djibouti',
+    corridor: 'Dikhil - Galafi Checkpoint (DJ-ET)',
+    severity: 'warning',
+    targetModule: 'dispatch',
+    actionLabel: 'View Corridor Heatmap',
+    actionTab: 'dispatch',
+    sourceAuthority: 'DPFZA Logistics Security Directorate',
+    telemetryCoords: [11.7167, 41.8333],
   },
 
   // 🇸🇴 Somalia
@@ -389,6 +578,8 @@ export const DEFAULT_EAST_AFRICA_NOTIFICATIONS: NotificationItem[] = [
     actionLabel: 'Inspect Truck Manifest',
     actionTab: 'truck',
     sourceAuthority: 'Somaliland Ports & Customs Authority',
+    emergencyHotline: '888 (Emergency Escort)',
+    telemetryCoords: [10.4358, 45.0142],
   },
   {
     id: 'notif-so-02',
@@ -407,6 +598,26 @@ export const DEFAULT_EAST_AFRICA_NOTIFICATIONS: NotificationItem[] = [
     actionLabel: 'View Zaad / EVC Records',
     actionTab: 'settlements',
     sourceAuthority: 'Central Bank of Somalia',
+    telemetryCoords: [2.0469, 45.3182],
+  },
+  {
+    id: 'notif-so-03',
+    title: 'Aden Adde Airport Security Escort Corridor Active',
+    subtitle: 'Armored logistics convoy departed Medina gate under official MOTCA flight cargo logistics coordination protocol.',
+    timeAgo: '6 hours ago',
+    timestamp: 'Today, 08:30 EAT',
+    category: 'security',
+    read: true,
+    type: 'corridor',
+    countryCode: 'SO',
+    countryName: 'Somalia',
+    corridor: 'KM4 - Aden Adde Seaport Perimeter',
+    severity: 'security',
+    targetModule: 'geofences',
+    actionLabel: 'Audit Security Geofence',
+    actionTab: 'geofences',
+    sourceAuthority: 'Ministry of Transport & Civil Aviation (MOTCA)',
+    telemetryCoords: [2.0139, 45.3056],
   },
 
   // 🇸🇸 South Sudan
@@ -428,6 +639,8 @@ export const DEFAULT_EAST_AFRICA_NOTIFICATIONS: NotificationItem[] = [
     actionTab: 'geofences',
     sourceAuthority: 'South Sudan Ministry of Transport & SSRA',
     pinned: true,
+    emergencyHotline: '777 (Police Escort Command)',
+    telemetryCoords: [3.595, 32.062],
   },
   {
     id: 'notif-ss-02',
@@ -446,6 +659,26 @@ export const DEFAULT_EAST_AFRICA_NOTIFICATIONS: NotificationItem[] = [
     actionLabel: 'Check m-GURUSH Balances',
     actionTab: 'settlements',
     sourceAuthority: 'Bank of South Sudan',
+    telemetryCoords: [4.8594, 31.5713],
+  },
+  {
+    id: 'notif-ss-03',
+    title: 'Juba River Port Fuel Tanker Manifest Confirmed',
+    subtitle: 'Anti-siphoning digital telemetry sensors validated across 6 river barge fuel tankers destined for Upper Nile delivery.',
+    timeAgo: '6 hours ago',
+    timestamp: 'Today, 08:50 EAT',
+    category: 'operations',
+    read: true,
+    type: 'shipment',
+    countryCode: 'SS',
+    countryName: 'South Sudan',
+    corridor: 'White Nile Inland Waterway Corridor',
+    severity: 'info',
+    targetModule: 'truck',
+    actionLabel: 'Inspect River Manifest',
+    actionTab: 'truck',
+    sourceAuthority: 'South Sudan Revenue Authority',
+    telemetryCoords: [4.838, 31.612],
   },
 
   // 🛡️ Global Security & RBAC Governance
@@ -582,6 +815,42 @@ export function createBroadcastNotification(input: BroadcastAlertInput): Notific
     broadcastBy: input.broadcastBy || 'Operations Controller',
     recipientAudience: input.recipientAudience,
     pinned: input.severity === 'critical',
+    emergencyHotline: countryMeta ? countryMeta.emergencyHotline : '112 (East Africa Transit Emergency)',
+    telemetryCoords: countryMeta ? countryMeta.centerCoords : [1.0, 36.0],
+  };
+}
+
+export function simulateEmergencySos(
+  countryCode: EastAfricaCountryCode,
+  corridor?: string,
+  operatorName?: string
+): NotificationItem {
+  const code = countryCode === 'ALL' ? 'ET' : countryCode;
+  const meta = EAST_AFRICA_NOTIFICATION_COUNTRIES[code];
+  const targetCorridor = corridor || meta.primaryCorridor;
+
+  return {
+    id: `notif-sos-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+    title: `🚨 EMERGENCY SOS DISTRESS: ${meta.name.toUpperCase()} CORRIDOR`,
+    subtitle: `Driver in-cab distress panic signal triggered on ${targetCorridor}. Immediate telematics lock and rapid escalation dispatched to ${meta.regulator} and Highway Police.`,
+    timeAgo: 'Just now',
+    timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + ' EAT',
+    category: 'security',
+    read: false,
+    type: 'corridor',
+    countryCode: code,
+    countryName: meta.name,
+    corridor: targetCorridor,
+    severity: 'critical',
+    targetModule: 'dispatch',
+    actionLabel: 'Pinpoint Driver Radar & Escalate',
+    actionTab: 'dispatch',
+    sourceAuthority: `${meta.regulator} Incident Response Command`,
+    broadcastBy: operatorName || 'Automated Telematics Engine',
+    recipientAudience: 'all',
+    pinned: true,
+    emergencyHotline: meta.emergencyHotline,
+    telemetryCoords: meta.centerCoords,
   };
 }
 
@@ -599,6 +868,8 @@ export function exportNotificationsAsCsv(notifications: NotificationItem[]): str
     'Timestamp',
     'Read Status',
     'Target Module',
+    'Emergency Hotline',
+    'Acknowledged By',
   ];
 
   const escapeCsv = (val: string | undefined | null) => {
@@ -620,6 +891,8 @@ export function exportNotificationsAsCsv(notifications: NotificationItem[]): str
     escapeCsv(n.timestamp || n.timeAgo),
     escapeCsv(n.read ? 'READ' : 'UNREAD'),
     escapeCsv(n.targetModule || 'dispatch'),
+    escapeCsv(n.emergencyHotline || 'N/A'),
+    escapeCsv(n.acknowledgedBy || 'Unacknowledged'),
   ]);
 
   return [headers.join(','), ...rows.map((r) => r.join(','))].join('\n');

@@ -745,7 +745,19 @@ export default function App() {
             />
           )}
 
-          {activeTab === 'livequery' && <LiveQueryWebhooksView darkMode={darkMode} />}
+          {activeTab === 'livequery' && (
+            <LiveQueryWebhooksView
+              darkMode={darkMode}
+              userRole={currentUser.role}
+              userJurisdiction={currentUser.jurisdictionCountry}
+              userJurisdictionName={currentUser.jurisdictionName}
+              currentUserName={currentUser.name}
+              currentUserEmail={currentUser.email}
+              assignedCorridors={currentUser.assignedCorridors}
+              onNotify={pushToast}
+              onGuardPermission={guardPermission}
+            />
+          )}
 
           {activeTab === 'ambalay' && <AmbaLayMapsConsole darkMode={darkMode} />}
 
@@ -840,6 +852,12 @@ export default function App() {
           {activeTab === 'back4app-classes' && (
             <Back4AppDatabaseClassesView
               darkMode={darkMode}
+              userRole={currentUser.role}
+              userJurisdiction={currentUser.jurisdictionCountry}
+              userJurisdictionName={currentUser.jurisdictionName}
+              currentUserName={currentUser.name}
+              currentUserEmail={currentUser.email}
+              assignedCorridors={currentUser.assignedCorridors}
               onNotify={pushToast}
             />
           )}
@@ -909,6 +927,10 @@ export default function App() {
               trips={trips}
               shipments={shipments}
               userRole={currentUser.role}
+              userJurisdiction={currentUser.jurisdictionCountry}
+              userJurisdictionName={currentUser.jurisdictionName}
+              currentUserName={currentUser.name}
+              currentUserEmail={currentUser.email}
               onAddCustomer={handleAddCustomer}
               onUpdateCustomer={handleUpdateCustomer}
               onDeleteCustomer={handleDeleteCustomer}
@@ -938,6 +960,11 @@ export default function App() {
             <NotificationsView
               darkMode={darkMode}
               userRole={currentUser.role}
+              userJurisdiction={currentUser.jurisdictionCountry}
+              userJurisdictionName={currentUser.jurisdictionName}
+              userName={currentUser.name}
+              userEmail={currentUser.email}
+              assignedCorridors={currentUser.assignedCorridors}
               notifications={notifications}
               onUpdateNotifications={setNotifications}
               onNavigateTab={(tab, filterValue) => {
@@ -956,11 +983,16 @@ export default function App() {
             <SettingsView
               darkMode={darkMode}
               user={currentUser}
+              userRole={currentUser.role}
+              userJurisdiction={currentUser.jurisdictionCountry}
+              userJurisdictionName={currentUser.jurisdictionName}
+              assignedCorridors={currentUser.assignedCorridors}
               onToggleTheme={toggleTheme}
               onOpenDbModal={() => setIsDbModalOpen(true)}
               onOpenFlutterModal={() => setIsFlutterModalOpen(true)}
               onSwitchPersona={handleSwitchPersona}
               onNotify={pushToast}
+              onGuardPermission={guardPermission}
             />
           )}
           </ErrorBoundary>
@@ -1010,6 +1042,8 @@ export default function App() {
           setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, read: true } : n)))
         }
         darkMode={darkMode}
+        userJurisdiction={currentUser.jurisdictionCountry}
+        onNavigateTab={(tab) => setActiveTab(tab)}
       />
 
       {/* Back4App Database Inspector Modal */}

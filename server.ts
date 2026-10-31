@@ -1242,8 +1242,9 @@ app.get('/api/back4app/uploaded-classes/:className', (req: Request, res: Respons
   if (!className) {
     return res.status(400).json({ error: 'Missing className parameter' });
   }
+  const countryParam = String(req.query.country || req.header('x-user-country') || '').trim().toUpperCase();
   try {
-    const data = getBack4AppClassRecords(className);
+    const data = getBack4AppClassRecords(className, countryParam || undefined);
     return res.json(data);
   } catch (error: any) {
     return res.status(404).json({ error: error?.message || `Class ${className} not found` });

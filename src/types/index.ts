@@ -199,6 +199,10 @@ export interface NotificationItem {
   broadcastBy?: string;
   recipientAudience?: 'all' | 'drivers' | 'shippers' | 'fleet_owners' | 'customs_agents';
   pinned?: boolean;
+  acknowledgedBy?: string;
+  acknowledgedAt?: string;
+  emergencyHotline?: string;
+  telemetryCoords?: [number, number];
 }
 
 export interface AdminUser {
@@ -333,6 +337,11 @@ export interface WebhookSubscription {
   lastStatus?: number;
   successCount: number;
   failureCount: number;
+  countryCode?: EastAfricaCountryCode;
+  countryName?: string;
+  targetRailOrAuthority?: string;
+  currency?: EastAfricaCurrency;
+  corridor?: string;
 }
 
 export interface LiveQueryEvent {
@@ -343,6 +352,10 @@ export interface LiveQueryEvent {
   objectId: string;
   payload: Record<string, any>;
   clientIp?: string;
+  countryCode?: EastAfricaCountryCode;
+  countryName?: string;
+  currency?: EastAfricaCurrency;
+  cityOrCorridor?: string;
 }
 
 // AmbaLay Maps Ethiopian Geospatial Types
@@ -609,6 +622,14 @@ export interface CustomerAccount {
   status: CustomerAccountStatus;
   notes?: string;
   joinedDate: string;
+  countryCode?: EastAfricaCountryCode;
+  countryName?: string;
+  city?: string;
+  currency?: EastAfricaCurrency;
+  totalSpentLocal?: number;
+  paymentRail?: string;
+  taxNumberLabel?: string;
+  corridor?: string;
 }
 
 export interface ToastMessage {
@@ -1138,6 +1159,7 @@ export interface Back4AppClassSummary {
   incomingPointers: { sourceClass: string; sourceColumn: string }[];
   fileSizeBytes: number;
   lastModifiedIso: string;
+  countryCounts?: Record<string, number>;
 }
 
 export interface Back4AppUploadedClassesManifest {
@@ -1155,6 +1177,7 @@ export interface Back4AppUploadedClassesManifest {
 export interface Back4AppClassDetailResponse {
   summary: Back4AppClassSummary;
   records: Record<string, any>[];
+  countryBreakdown?: Record<string, number>;
 }
 
 
