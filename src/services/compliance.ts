@@ -36,6 +36,12 @@ export interface CountryRegulatoryAuthorityInfo {
   exchangeRateToETB: number;
   directiveCode: string;
   emissionsStandard: string;
+  rideCommissionCapPct: number;
+  maxSurgeMultiplierCap: number;
+  rideWaitMinRate: number;
+  truckTonKmRate: number;
+  truckDemurrageDailyCap: number;
+  truckWeighbridgeDirective: string;
   documents: Record<
     DriverDocumentType,
     {
@@ -75,6 +81,12 @@ export const EAST_AFRICA_REGULATORY_AUTHORITIES: Record<
     exchangeRateToETB: 1.0,
     directiveCode: 'AACTB Dir. 2026/04 · Municipal Metered Tariff Schedule',
     emissionsStandard: 'UNEP Horn of Africa Euro IV Baseline',
+    rideCommissionCapPct: 15,
+    maxSurgeMultiplierCap: 1.5,
+    rideWaitMinRate: 4.50,
+    truckTonKmRate: 6.80,
+    truckDemurrageDailyCap: 4500,
+    truckWeighbridgeDirective: 'ERA 48-Tonne Gross Axle Limit Directive',
     documents: {
       commercial_license: {
         label: 'Commercial Driving License',
@@ -160,6 +172,12 @@ export const EAST_AFRICA_REGULATORY_AUTHORITIES: Record<
     exchangeRateToETB: 0.95,
     directiveCode: 'NTSA Cap 403 & EPRA Super Petrol/Diesel Price Gazette',
     emissionsStandard: 'KEBS KS 1515 Euro IV Emissions Limit',
+    rideCommissionCapPct: 18,
+    maxSurgeMultiplierCap: 1.5,
+    rideWaitMinRate: 5.0,
+    truckTonKmRate: 9.5,
+    truckDemurrageDailyCap: 6500,
+    truckWeighbridgeDirective: 'KeNHA / EAC Harmonized Axle Load Control Act 2016',
     documents: {
       commercial_license: {
         label: 'NTSA Commercial PSV License Badge',
@@ -244,6 +262,12 @@ export const EAST_AFRICA_REGULATORY_AUTHORITIES: Record<
     exchangeRateToETB: 0.033,
     directiveCode: 'Traffic & Road Safety Act 1998 (Amended 2020) MoWT S.I.',
     emissionsStandard: 'NEMA / EAC Harmonized Vehicle Emissions Standard',
+    rideCommissionCapPct: 18,
+    maxSurgeMultiplierCap: 1.6,
+    rideWaitMinRate: 150.0,
+    truckTonKmRate: 320.0,
+    truckDemurrageDailyCap: 210000,
+    truckWeighbridgeDirective: 'UNRA Virtual Weighbridge & Axle Load Monitoring S.I.',
     documents: {
       commercial_license: {
         label: 'MoWT Commercial Driver Permit (Class CM/CH)',
@@ -327,6 +351,12 @@ export const EAST_AFRICA_REGULATORY_AUTHORITIES: Record<
     exchangeRateToETB: 0.091,
     directiveCode: 'RURA Regulation No 004/TRANS/RURA/2021 Passenger Tariffs',
     emissionsStandard: 'REMA Low-Emission Urban Mobility Standard Euro IV',
+    rideCommissionCapPct: 15,
+    maxSurgeMultiplierCap: 1.5,
+    rideWaitMinRate: 50.0,
+    truckTonKmRate: 95.0,
+    truckDemurrageDailyCap: 62000,
+    truckWeighbridgeDirective: 'RTDA Axle Load Control & Overload Fees Regulation',
     documents: {
       commercial_license: {
         label: 'RURA Professional Transport Authorization (PTA)',
@@ -410,6 +440,12 @@ export const EAST_AFRICA_REGULATORY_AUTHORITIES: Record<
     exchangeRateToETB: 0.046,
     directiveCode: 'LATRA Act No. 3 of 2019 & Transport Tariffs Order',
     emissionsStandard: 'TBS / NEMC Vehicle Road Emission Baseline',
+    rideCommissionCapPct: 15,
+    maxSurgeMultiplierCap: 1.5,
+    rideWaitMinRate: 100.0,
+    truckTonKmRate: 210.0,
+    truckDemurrageDailyCap: 140000,
+    truckWeighbridgeDirective: 'TANROADS Vehicle Overload Control Act & Weighbridges',
     documents: {
       commercial_license: {
         label: 'LATRA Commercial PSV/HGV Driving License',
@@ -493,6 +529,12 @@ export const EAST_AFRICA_REGULATORY_AUTHORITIES: Record<
     exchangeRateToETB: 0.70,
     directiveCode: 'Décret N° 2018-192/PR/MET Port & Transit Corridor Safety',
     emissionsStandard: 'Port Autonome de Djibouti Green Corridor Standard',
+    rideCommissionCapPct: 12,
+    maxSurgeMultiplierCap: 1.4,
+    rideWaitMinRate: 15.0,
+    truckTonKmRate: 35.0,
+    truckDemurrageDailyCap: 28000,
+    truckWeighbridgeDirective: 'Port Autonome de Djibouti & DTT Single Customs Transit Protocol',
     documents: {
       commercial_license: {
         label: 'Permis Professionnel Poids Lourd / Transport DTT',
@@ -576,6 +618,12 @@ export const EAST_AFRICA_REGULATORY_AUTHORITIES: Record<
     exchangeRateToETB: 125.0,
     directiveCode: 'Federal Transport Regulatory Act & Inter-State Transit Protocol',
     emissionsStandard: 'IGAD Regional Transport Clean Air Protocol',
+    rideCommissionCapPct: 10,
+    maxSurgeMultiplierCap: 1.3,
+    rideWaitMinRate: 0.10,
+    truckTonKmRate: 0.22,
+    truckDemurrageDailyCap: 50,
+    truckWeighbridgeDirective: 'MoTCA Commercial Transit & Corridor Axle Guidelines',
     documents: {
       commercial_license: {
         label: 'MoTCA Commercial Transport Driving License',
@@ -659,6 +707,12 @@ export const EAST_AFRICA_REGULATORY_AUTHORITIES: Record<
     exchangeRateToETB: 0.086,
     directiveCode: 'National Road Safety Act 2012 & MoTR Transit Regulations',
     emissionsStandard: 'South Sudan Road Transport Baseline Standard',
+    rideCommissionCapPct: 12,
+    maxSurgeMultiplierCap: 1.4,
+    rideWaitMinRate: 90.0,
+    truckTonKmRate: 180.0,
+    truckDemurrageDailyCap: 95000,
+    truckWeighbridgeDirective: 'MoTR South Sudan Road Transport Safety & Axle Protocol',
     documents: {
       commercial_license: {
         label: 'MoTR Commercial Heavy Duty Driving License',
@@ -1368,6 +1422,14 @@ export const INITIAL_COMPLIANCE_RECORDS: FleetTripCompliance[] = [
     exchangeRateToETB: 0.086,
     regulatoryAuthority: 'MoTR / Police',
     inspectionType: 'Traffic Police Inspection',
+    serviceModule: 'truck',
+    cargoWeightTons: 22,
+    platformCommissionPct: 12,
+    platformCommissionCapPct: 12,
+    commissionCompliance: 'compliant',
+    surgeMultiplierApplied: 1.0,
+    maxSurgeCap: 1.4,
+    variancePct: -11.2,
   },
 ];
 
@@ -1381,7 +1443,13 @@ export function auditTripCompliance(
   durationMin: number,
   actualFare: number,
   corridor: string,
-  countryCode: EastAfricaCountryCode = 'ET'
+  countryCode: EastAfricaCountryCode = 'ET',
+  options?: {
+    serviceModule?: 'ride' | 'truck';
+    cargoWeightTons?: number;
+    platformCommissionPct?: number;
+    surgeMultiplierApplied?: number;
+  }
 ): FleetTripCompliance {
   const cCode = countryCode === 'ALL' ? 'ET' : countryCode;
   const regInfo = EAST_AFRICA_REGULATORY_AUTHORITIES[cCode] || EAST_AFRICA_REGULATORY_AUTHORITIES.ET;
@@ -1398,12 +1466,24 @@ export function auditTripCompliance(
   const actualFareLocal = actualFare;
   const actualFareETB = Math.round(actualFareLocal * regInfo.exchangeRateToETB * 100) / 100;
 
+  const variancePct = legalMaxLocal > 0
+    ? Math.round(((actualFareLocal - legalMaxLocal) / legalMaxLocal) * 1000) / 10
+    : 0;
+
+  const serviceModule: 'ride' | 'truck' = options?.serviceModule || (vehicleType === 'cargo_truck' ? 'truck' : 'ride');
+  const cargoWeightTons = options?.cargoWeightTons ?? (serviceModule === 'truck' ? 12 : undefined);
+  const platformCommissionPct = options?.platformCommissionPct ?? (regInfo.rideCommissionCapPct || 15);
+  const platformCommissionCapPct = regInfo.rideCommissionCapPct || 15;
+  const commissionCompliance = platformCommissionPct <= platformCommissionCapPct ? 'compliant' : 'commission_exceeded';
+  const surgeMultiplierApplied = options?.surgeMultiplierApplied ?? 1.0;
+  const maxSurgeCap = regInfo.maxSurgeMultiplierCap || 1.5;
+
   let complianceStatus: 'compliant' | 'tariff_exceeded' | 'undercharged' = 'compliant';
-  let notes = `Certified compliant with ${regInfo.shortAuthority} tariff limits.`;
+  let notes = `Certified compliant with ${regInfo.shortAuthority} statutory tariff caps (${regInfo.currency} ${legalMaxLocal.toFixed(2)} max).`;
 
   if (actualFareLocal > legalMaxLocal) {
     complianceStatus = 'tariff_exceeded';
-    notes = `Exceeds ${regInfo.shortAuthority} tariff ceiling by ${regInfo.currency} ${(actualFareLocal - legalMaxLocal).toFixed(2)}.`;
+    notes = `Exceeds ${regInfo.shortAuthority} tariff ceiling by ${regInfo.currency} ${(actualFareLocal - legalMaxLocal).toFixed(2)} (+${variancePct}% variance).`;
   } else if (actualFareLocal < spec.baseFare * 0.8) {
     complianceStatus = 'undercharged';
     notes = 'Below standard operational cost threshold; review driver commission subsidy.';
@@ -1435,6 +1515,14 @@ export function auditTripCompliance(
     exchangeRateToETB: regInfo.exchangeRateToETB,
     regulatoryAuthority: regInfo.shortAuthority,
     inspectionType: regInfo.inspectionLabel,
+    serviceModule,
+    cargoWeightTons,
+    platformCommissionPct,
+    platformCommissionCapPct,
+    commissionCompliance,
+    surgeMultiplierApplied,
+    maxSurgeCap,
+    variancePct,
   };
 }
 

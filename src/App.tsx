@@ -17,6 +17,8 @@ import {
   Vehicle,
   VehicleStatus,
   ActiveDriverTripOffer,
+  EastAfricaCountryCode,
+  EastAfricaModuleCountryConfig,
 } from './types';
 import { back4AppService, DEFAULT_ALERTS, DEFAULT_CUSTOMERS, DEFAULT_MODULES } from './services/back4app';
 import { getRequiredRolesLabel, hasPermission } from './services/rbac';
@@ -325,6 +327,28 @@ export default function App() {
     );
   };
 
+  // Country-scoped module toggle handler
+  const handleToggleModuleCountry = async (
+    key: string,
+    countryCode: Exclude<EastAfricaCountryCode, 'ALL'>,
+    enabled: boolean
+  ) => {
+    if (!guardPermission('manage_modules', `Toggle ${key} in ${countryCode}`)) return;
+    const updated = await back4AppService.toggleModuleCountry(key, countryCode, enabled);
+    setModules(updated);
+  };
+
+  // Country-scoped module config update handler
+  const handleUpdateModuleCountryConfig = async (
+    key: string,
+    countryCode: Exclude<EastAfricaCountryCode, 'ALL'>,
+    config: Partial<EastAfricaModuleCountryConfig>
+  ) => {
+    if (!guardPermission('manage_modules', `Update ${key} parameters in ${countryCode}`)) return;
+    const updated = await back4AppService.updateModuleCountryConfig(key, countryCode, config);
+    setModules(updated);
+  };
+
   // Drivers CRUD
   const handleAddDriver = async (driver: Omit<Driver, 'objectId'>) => {
     if (!guardPermission('manage_ride', 'Register Ride driver')) return;
@@ -424,6 +448,7 @@ export default function App() {
     icon: string;
     enabled: boolean;
     customClasses: string[];
+    targetCountries?: Exclude<EastAfricaCountryCode, 'ALL'>[];
   }) => {
     if (!guardPermission('manage_modules', `Register ${data.name} module`)) return;
     const newMod = await back4AppService.registerNewModule(data);
@@ -627,8 +652,12 @@ export default function App() {
             <ModuleManagement
               modules={modules}
               darkMode={darkMode}
+              user={currentUser}
               userRole={currentUser.role}
+              userJurisdiction={currentUser.jurisdictionCountry}
               onToggleModule={handleToggleModule}
+              onToggleModuleCountry={handleToggleModuleCountry}
+              onUpdateModuleCountryConfig={handleUpdateModuleCountryConfig}
               onForceSync={handleForceSync}
               onOpenRegisterModal={() => {
                 if (!guardPermission('manage_modules', 'Open Register New Module dialog')) return;
@@ -643,6 +672,7 @@ export default function App() {
                 }
               }}
               onGuardPermission={guardPermission}
+              onNotify={pushToast}
             />
           )}
 
@@ -747,6 +777,9 @@ export default function App() {
             <FleetComplianceView
               darkMode={darkMode}
               userRole={currentUser.role}
+              userJurisdiction={currentUser.jurisdictionCountry}
+              userJurisdictionName={currentUser.jurisdictionName}
+              assignedCorridors={currentUser.assignedCorridors}
               onGuardPermission={guardPermission}
               onNotify={pushToast}
             />

@@ -15,6 +15,12 @@ import {
   Check,
 } from 'lucide-react';
 
+import { EastAfricaCountryCode } from '../types';
+import {
+  EAST_AFRICAN_COUNTRIES_META,
+  EAST_AFRICAN_COUNTRIES_ORDERED,
+} from '../services/eastAfricaModules';
+
 interface RegisterModuleModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -27,6 +33,7 @@ interface RegisterModuleModalProps {
     icon: string;
     enabled: boolean;
     customClasses: string[];
+    targetCountries?: Exclude<EastAfricaCountryCode, 'ALL'>[];
   }) => Promise<void>;
 }
 
@@ -62,6 +69,9 @@ export const RegisterModuleModal: React.FC<RegisterModuleModalProps> = ({
   const [enabled, setEnabled] = useState(true);
   const [classInput, setClassInput] = useState('');
   const [customClasses, setCustomClasses] = useState<string[]>([]);
+  const [selectedCountries, setSelectedCountries] = useState<Exclude<EastAfricaCountryCode, 'ALL'>[]>(
+    EAST_AFRICAN_COUNTRIES_ORDERED
+  );
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   if (!isOpen) return null;
@@ -99,6 +109,20 @@ export const RegisterModuleModal: React.FC<RegisterModuleModalProps> = ({
     setCustomClasses(customClasses.filter((c) => c !== cl));
   };
 
+  const toggleCountry = (code: Exclude<EastAfricaCountryCode, 'ALL'>) => {
+    setSelectedCountries((prev) =>
+      prev.includes(code) ? prev.filter((c) => c !== code) : [...prev, code]
+    );
+  };
+
+  const handleSelectAllCountries = () => {
+    if (selectedCountries.length === EAST_AFRICAN_COUNTRIES_ORDERED.length) {
+      setSelectedCountries([]);
+    } else {
+      setSelectedCountries(EAST_AFRICAN_COUNTRIES_ORDERED);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim() || !key.trim()) return;
@@ -113,6 +137,7 @@ export const RegisterModuleModal: React.FC<RegisterModuleModalProps> = ({
         icon,
         enabled,
         customClasses: customClasses.length > 0 ? customClasses : [`${name.replace(/\s+/g, '')}Record`],
+        targetCountries: selectedCountries.length > 0 ? selectedCountries : EAST_AFRICAN_COUNTRIES_ORDERED,
       });
       onClose();
     } finally {
@@ -311,6 +336,51 @@ export const RegisterModuleModal: React.FC<RegisterModuleModalProps> = ({
                   </button>
                 </span>
               ))}
+            </div>
+          </div>
+
+          {/* East African Regional Jurisdictions */}
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                East Africa Deployment Scope ({selectedCountries.length}/8 Nations)
+              </label>
+              <button
+                type="button"
+                onClick={handleSelectAllCountries}
+                className="text-[11px] font-semibold text-cyan-600 dark:text-cyan-400 hover:underline"
+              >
+                {selectedCountries.length === EAST_AFRICAN_COUNTRIES_ORDERED.length
+                  ? 'Deselect All'
+                  : 'Select All 8 Nations'}
+              </button>
+            </div>
+            <p className="text-[11px] text-slate-500 dark:text-slate-400 mb-2.5">
+              Select which East African member states this vertical will be provisioned in with statutory rate rules.
+            </p>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              {EAST_AFRICAN_COUNTRIES_ORDERED.map((code) => {
+                const meta = EAST_AFRICAN_COUNTRIES_META[code];
+                const isSelected = selectedCountries.includes(code);
+                return (
+                  <button
+                    key={code}
+                    type="button"
+                    onClick={() => toggleCountry(code)}
+                    className={`flex items-center gap-2 p-2 rounded-xl border text-xs font-medium transition-colors text-left ${
+                      isSelected
+                        ? 'bg-cyan-50 dark:bg-cyan-950/40 border-cyan-500/50 text-cyan-900 dark:text-cyan-200'
+                        : 'bg-slate-50 dark:bg-slate-800/40 border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 opacity-60'
+                    }`}
+                  >
+                    <span className="text-base">{meta.flag}</span>
+                    <div className="min-w-0">
+                      <p className="font-bold truncate">{code}</p>
+                      <p className="text-[10px] text-slate-500 dark:text-slate-400 truncate">{meta.currency}</p>
+                    </div>
+                  </button>
+                );
+              })}
             </div>
           </div>
 

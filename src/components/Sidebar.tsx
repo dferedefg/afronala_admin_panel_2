@@ -28,6 +28,7 @@ import {
   Radio,
   CreditCard,
   Leaf,
+  Scale,
   FileCheck2,
   Gavel,
   Flame,
@@ -447,10 +448,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <button
             onClick={() => onSelectTab('compliance')}
             className={`w-full ${navItemClass(activeTab === 'compliance')}`}
-            title="Fuel Efficiency & Tariff Regulatory Compliance"
+            title="Ride Hailing & Truck Delivery Regulatory Tariff Compliance across East Africa"
           >
-            <Leaf className="w-4 h-4 shrink-0 text-amber-600 dark:text-amber-400" />
-            {!collapsed && <span>Tariff &amp; Fuel Compliance</span>}
+            <Scale className="w-4 h-4 shrink-0 text-teal-600 dark:text-teal-400" />
+            {!collapsed && <span>Tariff &amp; Regulatory Compliance</span>}
           </button>
         </div>
 

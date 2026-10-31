@@ -9,6 +9,32 @@ export interface SchemaField {
   description?: string;
 }
 
+export type ModuleOperatingStatus = 'active' | 'pilot' | 'staged' | 'regulatory_pending' | 'disabled';
+
+export interface EastAfricaModuleCountryConfig {
+  countryCode: Exclude<EastAfricaCountryCode, 'ALL'>;
+  countryName: string;
+  flag: string;
+  enabled: boolean;
+  operatingStatus: ModuleOperatingStatus;
+  statusLabel: string;
+  regulatoryAuthority: string;
+  regulatoryFilingNumber?: string;
+  statutoryCommissionCapPct: number;
+  withholdingTaxPct: number;
+  currency: EastAfricaCurrency;
+  primaryPaymentRail: string;
+  activeFleetCount: number;
+  supportedCities: string[];
+  primaryHubs: string[];
+  speedLimiterRequired?: boolean;
+  cashOnDeliveryAllowed?: boolean;
+  crossBorderBondedTransit?: boolean;
+  emergencySOSHooked?: boolean;
+  notes?: string;
+  updatedAt?: string;
+}
+
 export interface ModuleItem {
   id: string;
   objectId?: string;
@@ -25,6 +51,12 @@ export interface ModuleItem {
   customClasses?: string[];
   fields?: SchemaField[];
   createdAt?: string;
+  // East Africa multi-country regional scoping
+  countries?: Exclude<EastAfricaCountryCode, 'ALL'>[];
+  countryConfigs?: Partial<Record<Exclude<EastAfricaCountryCode, 'ALL'>, EastAfricaModuleCountryConfig>>;
+  panEastAfricaCommissionCapPct?: number;
+  globalRolloutStage?: 'Active (Production)' | 'Phased Regional Rollout' | 'Pilot Sandbox' | 'Standby / Pre-launch';
+  primaryRegulatoryAgency?: string;
 }
 
 export type DriverStatus = 'Active' | 'Pending' | 'Verified' | 'Suspended';
@@ -477,7 +509,16 @@ export interface FleetTripCompliance {
   exchangeRateToETB?: number;
   regulatoryAuthority?: string;
   inspectionType?: string;
+  serviceModule?: 'ride' | 'truck';
+  cargoWeightTons?: number;
+  platformCommissionPct?: number;
+  platformCommissionCapPct?: number;
+  commissionCompliance?: 'compliant' | 'commission_exceeded';
+  surgeMultiplierApplied?: number;
+  maxSurgeCap?: number;
+  variancePct?: number;
 }
+
 
 export type DriverDocumentType =
   | 'commercial_license'

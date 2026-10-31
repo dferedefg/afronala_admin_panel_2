@@ -34,13 +34,15 @@ export interface TripTariffPdfOptions {
   userRole: string;
   statusFilterLabel: string;
   searchQuery?: string;
+  countryScope?: string;
   summary: {
     totalTrips: number;
     complianceRate: number;
     violationsCount: number;
-    totalFuelLiters: number;
-    totalFuelCostETB: number;
-    totalCo2Kg: number;
+    totalFuelLiters?: number;
+    totalFuelCostETB?: number;
+    totalCo2Kg?: number;
+    commissionAdherenceRate?: number;
   };
 }
 
@@ -848,23 +850,22 @@ export function exportTripTariffCompliancePdf(options: TripTariffPdfOptions): {
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(13.5);
   doc.setTextColor(255, 255, 255);
-  doc.text('AFRONALA FLEET OPERATIONS - TRIP FUEL & MUNICIPAL TARIFF AUDIT', 14, 11);
+  doc.text('AFRONALA OPERATIONS - RIDE & TRUCK TARIFF REGULATORY AUDIT', 14, 11);
 
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(8.5);
   doc.setTextColor(203, 213, 225);
   doc.text(
-    'East Africa 8-Nation Tariff Schedule & Fuel Benchmark | FTA/AACTB, NTSA, MoWT, RURA, LATRA, DTT, MoTCA, MoTR',
+    'East Africa Corridor Tariff Schedules, Commission Caps & Rate Compliance | FTA/AACTB, NTSA, MoWT, RURA, LATRA, DTT, MoTCA, MoTR',
     14,
     17
   );
 
   const filterDesc = [
+    `Jurisdiction: ${sanitizePdfText(options.countryScope || 'East Africa Region')}`,
     `Filter: ${sanitizePdfText(statusFilterLabel)}`,
-    `Exported Trips: ${records.length}`,
-    `Sedan Cap: ETB ${VEHICLE_FUEL_STANDARDS.sedan.maxRatePerKmETB}/km`,
-    `Minibus Cap: ETB ${VEHICLE_FUEL_STANDARDS.minibus.maxRatePerKmETB}/km`,
-    `Truck Cap: ETB ${VEHICLE_FUEL_STANDARDS.cargo_truck.maxRatePerKmETB}/km`,
+    `Dispatched Records: ${records.length}`,
+    `Metered Fares, Surge Caps & Freight Ton-Km Audited`,
   ];
   if (searchQuery && searchQuery.trim()) {
     filterDesc.push(`Search: "${sanitizePdfText(searchQuery.trim())}"`);
@@ -894,22 +895,22 @@ export function exportTripTariffCompliancePdf(options: TripTariffPdfOptions): {
     {
       label: 'TARIFF COMPLIANCE RATE',
       value: `${summary.complianceRate}%`,
-      sub: `${summary.violationsCount} ceiling breach(es) across ${summary.totalTrips} trips`,
+      sub: `${summary.violationsCount} ceiling breach(es) across ${summary.totalTrips} records`,
     },
     {
-      label: 'FLEET FUEL CONSUMED',
-      value: `${summary.totalFuelLiters} L`,
-      sub: `Estimated pump cost: ETB ${summary.totalFuelCostETB.toLocaleString()}`,
+      label: 'CEILING BREACH VIOLATIONS',
+      value: `${summary.violationsCount}`,
+      sub: summary.violationsCount === 0 ? 'Zero rate violations detected' : 'Requires tariff recalibration/refund',
     },
     {
-      label: 'ESTIMATED CO2 FOOTPRINT',
-      value: `${summary.totalCo2Kg} kg`,
-      sub: 'UNEP regional urban & freight benchmark',
+      label: 'COMMISSION ADHERENCE',
+      value: `${summary.commissionAdherenceRate ?? 100}%`,
+      sub: 'Statutory commission caps honored (15-18%)',
     },
     {
-      label: 'TOTAL AUDITED TRIPS',
+      label: 'TOTAL DISPATCHED TRIPS & LOADS',
       value: `${records.length}`,
-      sub: 'Included in offline audit export',
+      sub: 'Audited against statutory gazette schedule',
     },
   ];
 
@@ -956,19 +957,20 @@ export function exportTripTariffCompliancePdf(options: TripTariffPdfOptions): {
     },
     head: [
       [
-        'Trip ID',
-        'Vehicle & Driver',
-        'Route Corridor & Distance',
-        'Fuel Burn',
-        'Fuel Cost',
-        'CO2 (kg)',
-        'Actual Fare',
-        'Legal Max',
-        'Status & Notes',
+        'Ref ID',
+        'Module & Vehicle',
+        'Corridor / Route & Distance',
+        'Charged Fare',
+        'Statutory Max',
+        'Variance',
+        'Comm. Cap',
+        'Regulatory Standing & Authority',
       ],
     ],
     body: records.map((r) => {
       const cur = r.currency || 'ETB';
+      const isTruck = r.serviceModule === 'truck' || r.vehicleType === 'cargo_truck';
+      const moduleBadge = isTruck ? '[TRUCK FREIGHT]' : '[RIDE HAILING]';
       const actualStr =
         r.actualFareLocal !== undefined && cur !== 'ETB'
           ? `${cur} ${r.actualFareLocal.toLocaleString()}\n(ETB ${r.actualFareETB.toFixed(0)})`
@@ -977,39 +979,49 @@ export function exportTripTariffCompliancePdf(options: TripTariffPdfOptions): {
         r.legalMaxFareLocal !== undefined && cur !== 'ETB'
           ? `${cur} ${r.legalMaxFareLocal.toLocaleString()}\n(ETB ${r.legalMaxFareETB.toFixed(0)})`
           : `ETB ${r.legalMaxFareETB.toFixed(2)}`;
-      const fuelCostStr =
-        r.fuelCostLocal !== undefined && cur !== 'ETB'
-          ? `${cur} ${r.fuelCostLocal.toFixed(1)}`
-          : `ETB ${r.fuelCostETB.toFixed(2)}`;
+      
+      const varianceVal = r.variancePct ?? (
+        r.actualFareETB && r.legalMaxFareETB
+          ? Math.round(((r.actualFareETB - r.legalMaxFareETB) / r.legalMaxFareETB) * 1000) / 10
+          : 0
+      );
+      const varianceStr = varianceVal > 0 ? `+${varianceVal}% (BREACH)` : `${varianceVal}% (OK)`;
+
+      const commStr = `${r.platformCommissionPct ?? 15}% / ${r.platformCommissionCapPct ?? 15}% cap\n${
+        r.commissionCompliance === 'commission_exceeded' ? 'EXCEEDED' : 'COMPLIANT'
+      }`;
+
       const cTag = r.countryCode ? `[${r.countryCode}] ` : '';
+      const metricLine = isTruck && r.cargoWeightTons
+        ? `${r.distanceKm} km | ${r.durationMin} min | ${r.cargoWeightTons}T Cargo`
+        : `${r.distanceKm} km | ${r.durationMin} min`;
+
       return [
         sanitizePdfText(r.tripId),
-        `${cTag}${sanitizePdfText(r.vehiclePlate)} (${r.vehicleType})\n${sanitizePdfText(r.vehicleModel)}\nDriver: ${sanitizePdfText(r.driverName)}`,
-        `${sanitizePdfText(r.routeCorridor)}\n${r.distanceKm} km | ${r.durationMin} min | ${sanitizePdfText(r.date)}`,
-        `${r.estimatedFuelLiters} L`,
-        fuelCostStr,
-        `${r.co2Kg} kg`,
+        `${cTag}${moduleBadge}\n${sanitizePdfText(r.vehiclePlate)} · ${sanitizePdfText(r.vehicleModel)}\nDriver: ${sanitizePdfText(r.driverName)}`,
+        `${sanitizePdfText(r.routeCorridor)}\n${metricLine} | ${sanitizePdfText(r.date)}`,
         actualStr,
         legalStr,
+        varianceStr,
+        commStr,
         `${r.complianceStatus === 'compliant' ? 'COMPLIANT' : 'TARIFF EXCEEDED'}\n${sanitizePdfText(r.regulatoryAuthority ? r.regulatoryAuthority + ' | ' : '')}${sanitizePdfText(r.notes)}`,
       ];
     }),
     columnStyles: {
-      0: { cellWidth: 19, font: 'courier', fontStyle: 'bold' },
-      1: { cellWidth: 40 },
-      2: { cellWidth: 54 },
-      3: { cellWidth: 18, halign: 'right', font: 'courier' },
-      4: { cellWidth: 23, halign: 'right', font: 'courier' },
-      5: { cellWidth: 17, halign: 'right', font: 'courier' },
-      6: { cellWidth: 24, halign: 'right', font: 'courier', fontStyle: 'bold' },
-      7: { cellWidth: 24, halign: 'right', font: 'courier' },
-      8: { cellWidth: 50 },
+      0: { cellWidth: 20, font: 'courier', fontStyle: 'bold' },
+      1: { cellWidth: 44 },
+      2: { cellWidth: 62 },
+      3: { cellWidth: 25, halign: 'right', font: 'courier', fontStyle: 'bold' },
+      4: { cellWidth: 25, halign: 'right', font: 'courier' },
+      5: { cellWidth: 22, halign: 'center', font: 'courier' },
+      6: { cellWidth: 24, halign: 'center' },
+      7: { cellWidth: 47 },
     },
     didParseCell: (hookData) => {
       if (hookData.section !== 'body') return;
       const row = records[hookData.row.index];
       if (!row) return;
-      if (hookData.column.index === 8 && row.complianceStatus !== 'compliant') {
+      if (hookData.column.index === 7 && row.complianceStatus !== 'compliant') {
         hookData.cell.styles.textColor = [190, 18, 60];
         hookData.cell.styles.fillColor = [255, 241, 242];
       }
@@ -1020,7 +1032,7 @@ export function exportTripTariffCompliancePdf(options: TripTariffPdfOptions): {
   drawSignOffSection(doc, finalY, auditRef, userRole, timestampLabel);
   applyPageFooters(doc, auditRef, timestampLabel);
 
-  const fileName = `afronala_trip_tariff_audit_${timestampLabel.slice(0, 10)}.pdf`;
+  const fileName = `afronala_tariff_rate_audit_${timestampLabel.slice(0, 10)}.pdf`;
   doc.save(fileName);
 
   return { fileName, auditRef };

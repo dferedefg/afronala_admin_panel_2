@@ -25,6 +25,7 @@ import {
   VehicleStatus,
   WebhookSubscription,
   EastAfricaCountryCode,
+  EastAfricaModuleCountryConfig,
   EastAfricaNodeDiagnosticSummary,
 } from '../types';
 import {
@@ -44,94 +45,140 @@ export const BACK4APP_CONFIG = {
   serverUrl: '/api/back4app',
 };
 
+import {
+  DEFAULT_MODULE_COUNTRY_CONFIGS,
+  EAST_AFRICAN_COUNTRIES_ORDERED,
+  buildDefaultCountryConfigsForModule,
+} from './eastAfricaModules';
+
 export const DEFAULT_MODULES: ModuleItem[] = [
   {
     id: 'mod-1',
     key: 'ride',
     name: 'Ride Module',
-    description: 'Ride hailing, city transportation and mobility services.',
+    description: 'Ride hailing, city transportation and mobility services across East African metropolitan hubs.',
     icon: 'Car',
     enabled: true,
     statusText: 'Enabled',
     category: 'Mobility',
     canToggle: true,
+    countries: ['ET', 'KE', 'UG', 'RW', 'TZ', 'DJ', 'SO'],
+    countryConfigs: DEFAULT_MODULE_COUNTRY_CONFIGS.ride,
+    panEastAfricaCommissionCapPct: 15,
+    globalRolloutStage: 'Active (Production)',
+    primaryRegulatoryAgency: 'FTA (ET), NTSA (KE), MoWT (UG), RURA (RW), LATRA (TZ)',
   },
   {
     id: 'mod-2',
     key: 'truck',
     name: 'Truck Delivery',
-    description: 'Logistics, freight cargo and regional heavy transport.',
+    description: 'Logistics, heavy freight cargo and cross-border transport across all 8 East African corridors.',
     icon: 'Truck',
     enabled: true,
     statusText: 'Enabled',
     category: 'Logistics',
     canToggle: true,
+    countries: ['ET', 'KE', 'UG', 'RW', 'TZ', 'DJ', 'SO', 'SS'],
+    countryConfigs: DEFAULT_MODULE_COUNTRY_CONFIGS.truck,
+    panEastAfricaCommissionCapPct: 15,
+    globalRolloutStage: 'Active (Production)',
+    primaryRegulatoryAgency: 'ERA, KeNHA, UNRA, RURA, TANROADS, DPFZA (Axle Weight Standards)',
   },
   {
     id: 'mod-3',
     key: 'food',
     name: 'Food Delivery',
-    description: 'Restaurant ordering, cloud kitchens, and meal delivery.',
+    description: 'Restaurant ordering, cloud kitchens, and meal delivery in primary East African cities.',
     icon: 'Utensils',
     enabled: false,
     statusText: 'Disabled',
     category: 'Commerce',
     canToggle: true,
+    countries: ['ET', 'KE'],
+    countryConfigs: DEFAULT_MODULE_COUNTRY_CONFIGS.food,
+    panEastAfricaCommissionCapPct: 18,
+    globalRolloutStage: 'Phased Regional Rollout',
+    primaryRegulatoryAgency: 'EFDA (ET) & KEBS (KE) Food Safety Standards',
   },
   {
     id: 'mod-4',
     key: 'marketplace',
     name: 'Marketplace',
-    description: 'E-commerce marketplace, vendor stores, and product delivery.',
+    description: 'E-commerce marketplace, vendor stores, and regional trade across East Africa.',
     icon: 'ShoppingBag',
     enabled: false,
     statusText: 'Disabled',
     category: 'Commerce',
     canToggle: true,
+    countries: ['ET', 'KE'],
+    countryConfigs: DEFAULT_MODULE_COUNTRY_CONFIGS.marketplace,
+    panEastAfricaCommissionCapPct: 8,
+    globalRolloutStage: 'Phased Regional Rollout',
+    primaryRegulatoryAgency: 'MoTRI (ET) & CAK (KE) E-Commerce Guidelines',
   },
   {
     id: 'mod-5',
     key: 'events',
     name: 'Events & Tickets',
-    description: 'Event ticketing, venue access control, and festival bookings.',
+    description: 'Event ticketing, venue access control, and festival bookings across East African capitals.',
     icon: 'Calendar',
     enabled: false,
     statusText: 'Disabled',
     category: 'Lifestyle',
     canToggle: true,
+    countries: ['ET', 'KE', 'RW'],
+    countryConfigs: DEFAULT_MODULE_COUNTRY_CONFIGS.events,
+    panEastAfricaCommissionCapPct: 6,
+    globalRolloutStage: 'Phased Regional Rollout',
+    primaryRegulatoryAgency: 'National Tourism Boards (BK Arena, KICC, Millennium Hall)',
   },
   {
     id: 'mod-6',
     key: 'hotels',
     name: 'Hotels & Booking',
-    description: 'Hotel reservations, lodge bookings, and travel accommodations.',
+    description: 'Hotel reservations, safari lodge bookings, and ecotourism stays across East Africa.',
     icon: 'Building2',
     enabled: false,
     statusText: 'Disabled',
     category: 'Hospitality',
     canToggle: true,
+    countries: ['KE', 'TZ', 'RW', 'ET'],
+    countryConfigs: DEFAULT_MODULE_COUNTRY_CONFIGS.hotels,
+    panEastAfricaCommissionCapPct: 10,
+    globalRolloutStage: 'Phased Regional Rollout',
+    primaryRegulatoryAgency: 'TRA (KE), TANAPA (TZ), RDB (RW), Tourism Ethiopia (ET)',
   },
   {
     id: 'mod-7',
     key: 'wallet',
     name: 'Wallet & Payments',
-    description: 'Digital wallet, peer-to-peer transfers, and merchant QR checkout.',
+    description: 'Digital wallet, peer-to-peer transfers, and local mobile money rails across all 8 nations.',
     icon: 'Wallet',
     enabled: false,
     statusText: 'Disabled',
     category: 'Fintech',
     canToggle: true,
+    countries: ['ET', 'KE', 'UG', 'RW', 'TZ', 'DJ', 'SO', 'SS'],
+    countryConfigs: DEFAULT_MODULE_COUNTRY_CONFIGS.wallet,
+    panEastAfricaCommissionCapPct: 1.5,
+    globalRolloutStage: 'Active (Production)',
+    primaryRegulatoryAgency: 'Central Banks of ET, KE, UG, RW, TZ, DJ, SO, SS',
   },
   {
     id: 'mod-8',
     key: 'courier',
     name: 'Courier Service',
-    description: 'On-demand parcel, urgent document, and express courier transport.',
+    description: 'On-demand parcel, urgent document, and express motorcycle courier transport.',
     icon: 'Package',
     enabled: false,
     statusText: 'Disabled',
     category: 'Logistics',
     canToggle: true,
+    countries: ['ET', 'KE', 'UG', 'RW', 'TZ'],
+    countryConfigs: DEFAULT_MODULE_COUNTRY_CONFIGS.courier,
+    panEastAfricaCommissionCapPct: 15,
+    globalRolloutStage: 'Phased Regional Rollout',
+    primaryRegulatoryAgency: 'National Postal & Communications Authorities (ECA, CA, UCC, RURA, TCRA)',
   },
   {
     id: 'mod-9',
@@ -1651,6 +1698,7 @@ class Back4AppService {
 
   // Modules CRUD
   async getModules(): Promise<ModuleItem[]> {
+    let resultList: ModuleItem[] = [];
     try {
       const res = await fetch('/api/back4app/classes/ModuleRegistry', {
         headers: this.buildHeaders(),
@@ -1664,6 +1712,23 @@ class Back4AppService {
           for (const r of json.results) {
             if (!r.key || seenKeys.has(r.key)) continue;
             seenKeys.add(r.key);
+
+            const defaultMod = DEFAULT_MODULES.find((m) => m.key === r.key);
+            const countryConfigs =
+              r.countryConfigs ||
+              defaultMod?.countryConfigs ||
+              (r.key !== 'more'
+                ? buildDefaultCountryConfigsForModule(r.key, r.name, r.category || 'Mobility')
+                : undefined);
+
+            const countries =
+              r.countries ||
+              defaultMod?.countries ||
+              (countryConfigs
+                ? (Object.keys(countryConfigs) as Exclude<EastAfricaCountryCode, 'ALL'>[]).filter(
+                    (k) => countryConfigs[k]?.enabled
+                  )
+                : undefined);
 
             remoteModules.push({
               id: r.moduleId || r.objectId,
@@ -1679,25 +1744,56 @@ class Back4AppService {
               isCustom: Boolean(r.isCustom),
               customClasses: r.customClasses,
               fields: r.fields,
+              countries,
+              countryConfigs,
+              panEastAfricaCommissionCapPct: r.panEastAfricaCommissionCapPct || defaultMod?.panEastAfricaCommissionCapPct,
+              globalRolloutStage: r.globalRolloutStage || defaultMod?.globalRolloutStage,
+              primaryRegulatoryAgency: r.primaryRegulatoryAgency || defaultMod?.primaryRegulatoryAgency,
             });
           }
 
           this.setStored('modules', remoteModules);
-          return remoteModules;
+          resultList = remoteModules;
         } else {
           await this.seedModules(DEFAULT_MODULES);
-          return DEFAULT_MODULES;
+          resultList = DEFAULT_MODULES;
         }
       }
     } catch (e) {
       console.warn('Back4App proxy fetch failed, falling back to cache:', e);
     }
-    const cached = this.getStored<ModuleItem[]>('modules', DEFAULT_MODULES);
-    const seen = new Set<string>();
-    return cached.filter((m) => {
-      if (seen.has(m.key)) return false;
-      seen.add(m.key);
-      return true;
+
+    if (resultList.length === 0) {
+      const cached = this.getStored<ModuleItem[]>('modules', DEFAULT_MODULES);
+      const seen = new Set<string>();
+      resultList = cached.filter((m) => {
+        if (seen.has(m.key)) return false;
+        seen.add(m.key);
+        return true;
+      });
+    }
+
+    // Hydrate countryConfigs if missing from prior legacy cache
+    return resultList.map((mod) => {
+      if (mod.key === 'more') return mod;
+      if (!mod.countryConfigs) {
+        const defaultMod = DEFAULT_MODULES.find((m) => m.key === mod.key);
+        const configs =
+          defaultMod?.countryConfigs ||
+          buildDefaultCountryConfigsForModule(mod.key, mod.name, mod.category);
+        const countries =
+          defaultMod?.countries ||
+          (Object.keys(configs) as Exclude<EastAfricaCountryCode, 'ALL'>[]).filter((c) => configs[c]?.enabled);
+        return {
+          ...mod,
+          countryConfigs: configs,
+          countries: mod.countries || countries,
+          panEastAfricaCommissionCapPct: mod.panEastAfricaCommissionCapPct || defaultMod?.panEastAfricaCommissionCapPct || 15,
+          globalRolloutStage: mod.globalRolloutStage || defaultMod?.globalRolloutStage || 'Active (Production)',
+          primaryRegulatoryAgency: mod.primaryRegulatoryAgency || defaultMod?.primaryRegulatoryAgency,
+        };
+      }
+      return mod;
     });
   }
 
@@ -1724,6 +1820,11 @@ class Back4AppService {
           enabled: mod.enabled,
           category: mod.category,
           canToggle: mod.canToggle,
+          countries: mod.countries,
+          countryConfigs: mod.countryConfigs,
+          panEastAfricaCommissionCapPct: mod.panEastAfricaCommissionCapPct,
+          globalRolloutStage: mod.globalRolloutStage,
+          primaryRegulatoryAgency: mod.primaryRegulatoryAgency,
         };
 
         if (existingByKey.has(mod.key)) {
@@ -1763,6 +1864,125 @@ class Back4AppService {
         });
       } catch (err) {
         console.warn('Error syncing module toggle to Back4App proxy:', err);
+      }
+    }
+    return updated;
+  }
+
+  /**
+   * Toggles a module for a specific East African jurisdiction (country-scoped toggle)
+   */
+  async toggleModuleCountry(
+    moduleKey: string,
+    countryCode: Exclude<EastAfricaCountryCode, 'ALL'>,
+    enabled: boolean
+  ): Promise<ModuleItem[]> {
+    const current = await this.getModules();
+    const updated = current.map((m) => {
+      if (m.key !== moduleKey) return m;
+
+      const currentConfigs = m.countryConfigs || {};
+      const existingCountryConfig = currentConfigs[countryCode];
+
+      const newCountryConfig = existingCountryConfig
+        ? {
+            ...existingCountryConfig,
+            enabled,
+            operatingStatus: enabled
+              ? (existingCountryConfig.operatingStatus === 'disabled' ? 'active' : existingCountryConfig.operatingStatus)
+              : ('disabled' as const),
+            statusLabel: enabled ? 'Active in Country' : 'Disabled in Country',
+            updatedAt: new Date().toISOString(),
+          }
+        : undefined;
+
+      const updatedConfigs = newCountryConfig
+        ? { ...currentConfigs, [countryCode]: newCountryConfig }
+        : currentConfigs;
+
+      const updatedCountries = enabled
+        ? Array.from(new Set([...(m.countries || []), countryCode]))
+        : (m.countries || []).filter((c) => c !== countryCode);
+
+      return {
+        ...m,
+        countries: updatedCountries,
+        countryConfigs: updatedConfigs,
+      };
+    });
+
+    this.setStored('modules', updated);
+
+    const target = updated.find((m) => m.key === moduleKey);
+    if (target?.objectId && !target.objectId.startsWith('local-')) {
+      try {
+        await fetch(`/api/back4app/classes/ModuleRegistry/${target.objectId}`, {
+          method: 'PUT',
+          headers: this.buildHeaders(),
+          body: JSON.stringify({
+            countries: target.countries,
+            countryConfigs: target.countryConfigs,
+          }),
+        });
+      } catch (err) {
+        console.warn('Error syncing country module toggle to Back4App proxy:', err);
+      }
+    }
+    return updated;
+  }
+
+  /**
+   * Updates detailed regulatory, commission, or operational parameters for a module in a specific country
+   */
+  async updateModuleCountryConfig(
+    moduleKey: string,
+    countryCode: Exclude<EastAfricaCountryCode, 'ALL'>,
+    configUpdate: Partial<EastAfricaModuleCountryConfig>
+  ): Promise<ModuleItem[]> {
+    const current = await this.getModules();
+    const updated = current.map((m) => {
+      if (m.key !== moduleKey) return m;
+
+      const currentConfigs = m.countryConfigs || {};
+      const existingConfig = currentConfigs[countryCode];
+      if (!existingConfig) return m;
+
+      const mergedConfig: EastAfricaModuleCountryConfig = {
+        ...existingConfig,
+        ...configUpdate,
+        updatedAt: new Date().toISOString(),
+      };
+
+      const isEnabled = mergedConfig.enabled;
+      const updatedCountries = isEnabled
+        ? Array.from(new Set([...(m.countries || []), countryCode]))
+        : (m.countries || []).filter((c) => c !== countryCode);
+
+      return {
+        ...m,
+        countries: updatedCountries,
+        countryConfigs: {
+          ...currentConfigs,
+          [countryCode]: mergedConfig,
+        },
+      };
+    });
+
+    this.setStored('modules', updated);
+
+    const target = updated.find((m) => m.key === moduleKey);
+    if (target?.objectId && !target.objectId.startsWith('local-')) {
+      try {
+        await fetch(`/api/back4app/classes/ModuleRegistry/${target.objectId}`, {
+          method: 'PUT',
+          headers: this.buildHeaders(),
+          body: JSON.stringify({
+            countries: target.countries,
+            countryConfigs: target.countryConfigs,
+          }),
+        });
+      } catch (err) {
+        console.warn('Error updating module country config in Back4App proxy:', err);
       }
     }
     return updated;
@@ -2586,8 +2806,17 @@ class Back4AppService {
     enabled: boolean;
     customClasses: string[];
     sampleFields?: Record<string, any>;
+    targetCountries?: Exclude<EastAfricaCountryCode, 'ALL'>[];
   }): Promise<ModuleItem> {
     const moduleId = 'mod-' + Date.now();
+    const targetCountries = data.targetCountries || EAST_AFRICAN_COUNTRIES_ORDERED;
+    const countryConfigs = buildDefaultCountryConfigsForModule(
+      data.key,
+      data.name,
+      data.category,
+      targetCountries
+    );
+
     const newModule: ModuleItem = {
       id: moduleId,
       objectId: 'local-' + Date.now(),
@@ -2602,6 +2831,11 @@ class Back4AppService {
       isCustom: true,
       customClasses: data.customClasses,
       createdAt: new Date().toISOString(),
+      countries: targetCountries,
+      countryConfigs,
+      panEastAfricaCommissionCapPct: 15,
+      globalRolloutStage: 'Phased Regional Rollout',
+      primaryRegulatoryAgency: 'Regional Trade & Transport Authorities',
     };
 
     try {
@@ -2619,6 +2853,11 @@ class Back4AppService {
           canToggle: true,
           isCustom: true,
           customClasses: newModule.customClasses,
+          countries: newModule.countries,
+          countryConfigs: newModule.countryConfigs,
+          panEastAfricaCommissionCapPct: newModule.panEastAfricaCommissionCapPct,
+          globalRolloutStage: newModule.globalRolloutStage,
+          primaryRegulatoryAgency: newModule.primaryRegulatoryAgency,
         }),
       });
       if (res.ok) {
