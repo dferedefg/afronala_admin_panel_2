@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   AdminUser,
   CustomerAccount,
@@ -26,7 +26,7 @@ import { TopBar } from './components/TopBar';
 import { Sidebar } from './components/Sidebar';
 import { LoginView } from './components/LoginView';
 import { DashboardHome } from './components/DashboardHome';
-import { JurisdictionDashboardWrapper } from './components/JurisdictionDashboardWrapper';
+import { JurisdictionDashboardWrapper, resolveItemCountryCode } from './components/JurisdictionDashboardWrapper';
 import { ModuleManagement } from './components/ModuleManagement';
 import { RideModuleView } from './components/RideModuleView';
 import { TruckDeliveryView } from './components/TruckDeliveryView';
@@ -58,6 +58,7 @@ import { CommerceLifestyleStandbyView } from './components/CommerceLifestyleStan
 import { CommerceVerticalKey } from './services/eastAfricaCommerce';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { DEFAULT_EAST_AFRICA_NOTIFICATIONS } from './services/notifications';
+import { OperatorProfileModal } from './components/OperatorProfileModal';
 import { X, Smartphone, CheckCircle2, AlertTriangle, Info, ShieldAlert } from 'lucide-react';
 
 const INITIAL_NOTIFICATIONS: NotificationItem[] = DEFAULT_EAST_AFRICA_NOTIFICATIONS;
@@ -104,6 +105,7 @@ export default function App() {
   const [isSchemaEditorOpen, setIsSchemaEditorOpen] = useState(false);
   const [schemaEditorModuleKey, setSchemaEditorModuleKey] = useState<string>('ride');
   const [isDriverSimulatorOpen, setIsDriverSimulatorOpen] = useState(false);
+  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [activeDriverOffer, setActiveDriverOffer] = useState<ActiveDriverTripOffer | null>(null);
 
   // Data state
@@ -523,7 +525,89 @@ export default function App() {
     setIsSchemaEditorOpen(true);
   };
 
-  const unreadCount = notifications.filter((n) => !n.read).length;
+  // Country restriction toggle state (restricts dashboard and module views to user's assigned country)
+  const [restrictToAssignedCountry, setRestrictToAssignedCountry] = useState<boolean>(() => {
+    const saved = localStorage.getItem('afronala_restrict_country');
+    return saved !== null ? saved === 'true' : true;
+  });
+
+  const handleToggleCountryRestriction = useCallback(() => {
+    setRestrictToAssignedCountry((prev) => {
+      const next = !prev;
+      localStorage.setItem('afronala_restrict_country', String(next));
+      const targetCountryName =
+        currentUser?.jurisdictionName || currentUser?.jurisdictionCountry || 'assigned country';
+      pushToast(
+        next ? 'Country Scope Restricted' : 'Pan-Regional Scope Active',
+        next
+          ? `Dashboard and operational views restricted to metrics & notifications for ${targetCountryName}.`
+          : 'Displaying pan-regional operational metrics across all 8 East African corridors.',
+        'info'
+      );
+      return next;
+    });
+  }, [currentUser, pushToast]);
+
+  const handleUpdateUser = (updatedUser: AdminUser) => {
+    setCurrentUser(updatedUser);
+    back4AppService.setAdminRole(updatedUser.role);
+    try {
+      localStorage.setItem('afronala_current_user', JSON.stringify(updatedUser));
+    } catch {}
+    pushToast(
+      'Station Profile Updated',
+      `Credentials updated for ${updatedUser.name} (${updatedUser.jurisdictionName || 'East Africa'}).`,
+      'success'
+    );
+  };
+
+  // Active assigned country of the logged-in user
+  const userAssignedCountry = (currentUser?.jurisdictionCountry || 'ET') as EastAfricaCountryCode;
+  const isCountryRestricted = restrictToAssignedCountry && userAssignedCountry !== 'ALL';
+
+  // Filtered operational datasets based on restriction toggle
+  const scopedTrips = useMemo(() => {
+    if (!isCountryRestricted) return trips;
+    return trips.filter((t) => resolveItemCountryCode(t, 'trip') === userAssignedCountry);
+  }, [trips, isCountryRestricted, userAssignedCountry]);
+
+  const scopedShipments = useMemo(() => {
+    if (!isCountryRestricted) return shipments;
+    return shipments.filter((s) => resolveItemCountryCode(s, 'shipment') === userAssignedCountry);
+  }, [shipments, isCountryRestricted, userAssignedCountry]);
+
+  const scopedDrivers = useMemo(() => {
+    if (!isCountryRestricted) return drivers;
+    return drivers.filter((d) => resolveItemCountryCode(d, 'driver') === userAssignedCountry);
+  }, [drivers, isCountryRestricted, userAssignedCountry]);
+
+  const scopedVehicles = useMemo(() => {
+    if (!isCountryRestricted) return vehicles;
+    return vehicles.filter((v) => resolveItemCountryCode(v, 'vehicle') === userAssignedCountry);
+  }, [vehicles, isCountryRestricted, userAssignedCountry]);
+
+  const scopedCustomers = useMemo(() => {
+    if (!isCountryRestricted) return customers;
+    return customers.filter((c) => resolveItemCountryCode(c, 'customer') === userAssignedCountry);
+  }, [customers, isCountryRestricted, userAssignedCountry]);
+
+  const scopedNotifications = useMemo(() => {
+    if (!isCountryRestricted) return notifications;
+    return notifications.filter(
+      (n) => !n.countryCode || n.countryCode === userAssignedCountry || n.countryCode === 'ALL'
+    );
+  }, [notifications, isCountryRestricted, userAssignedCountry]);
+
+  const scopedAlerts = useMemo(() => {
+    if (!isCountryRestricted) return alerts;
+    return alerts.filter(
+      (a) => resolveItemCountryCode(a, 'alert') === userAssignedCountry
+    );
+  }, [alerts, isCountryRestricted, userAssignedCountry]);
+
+  const unreadCount = useMemo(() => {
+    return scopedNotifications.filter((n) => !n.read).length;
+  }, [scopedNotifications]);
 
   if (!currentUser) {
     return (
@@ -566,19 +650,22 @@ export default function App() {
         onSelectDashboard={() => setActiveTab('dashboard')}
         onSwitchPersona={handleSwitchPersona}
         onLogout={() => setCurrentUser(null)}
+        onOpenProfileModal={() => setIsProfileModalOpen(true)}
         onNavigateTab={(tab, filterValue) => {
           setActiveTab(tab);
           if (filterValue) {
             pushToast('Universal Search Jump', `Navigated to ${tab} · Filter: "${filterValue}"`, 'info');
           }
         }}
-        drivers={drivers}
-        vehicles={vehicles}
-        trips={trips}
-        shipments={shipments}
-        customers={customers}
+        restrictToCountry={restrictToAssignedCountry}
+        onToggleRestrictToCountry={handleToggleCountryRestriction}
+        drivers={scopedDrivers}
+        vehicles={scopedVehicles}
+        trips={scopedTrips}
+        shipments={scopedShipments}
+        customers={scopedCustomers}
         modules={modules}
-        alerts={alerts}
+        alerts={scopedAlerts}
       />
 
       {/* Main Workspace: Sidebar + Viewport */}
@@ -634,11 +721,13 @@ export default function App() {
             <JurisdictionDashboardWrapper
               user={currentUser}
               darkMode={darkMode}
-              trips={trips}
-              shipments={shipments}
-              drivers={drivers}
-              alerts={alerts}
+              trips={scopedTrips}
+              shipments={scopedShipments}
+              drivers={scopedDrivers}
+              alerts={scopedAlerts}
               activePulses={activePulses}
+              restrictToAssignedCountry={restrictToAssignedCountry}
+              onToggleCountryRestriction={handleToggleCountryRestriction}
               onAcknowledgePulse={handleAcknowledgePulse}
               onAcknowledgeAllPulses={handleAcknowledgeAllPulses}
               onResolveAlert={handleResolveAlert}
@@ -843,7 +932,12 @@ export default function App() {
           {activeTab === 'superapp-inspector' && (
             <SuperAppMonorepoView
               darkMode={darkMode}
-              userRole={currentUser.role}
+              user={currentUser}
+              userRole={currentUser?.role || 'Super Admin'}
+              userJurisdiction={currentUser?.jurisdictionCountry}
+              userJurisdictionName={currentUser?.jurisdictionName}
+              assignedCorridors={currentUser?.assignedCorridors}
+              onSwitchPersona={handleSwitchPersona}
               onGuardPermission={guardPermission}
               onNotify={pushToast}
             />
@@ -883,9 +977,9 @@ export default function App() {
           {(activeTab === 'ride' || activeTab.startsWith('ride-')) && (
             <RideModuleView
               darkMode={darkMode}
-              drivers={drivers}
-              vehicles={vehicles}
-              trips={trips}
+              drivers={scopedDrivers}
+              vehicles={scopedVehicles}
+              trips={scopedTrips}
               userRole={currentUser.role}
               userJurisdiction={currentUser.jurisdictionCountry}
               userJurisdictionName={currentUser.jurisdictionName}
@@ -906,7 +1000,7 @@ export default function App() {
           {(activeTab === 'truck' || activeTab.startsWith('truck-')) && (
             <TruckDeliveryView
               darkMode={darkMode}
-              shipments={shipments}
+              shipments={scopedShipments}
               userRole={currentUser.role}
               userJurisdiction={currentUser.jurisdictionCountry}
               userJurisdictionName={currentUser.jurisdictionName}
@@ -923,9 +1017,9 @@ export default function App() {
           {activeTab === 'customers' && (
             <CustomersView
               darkMode={darkMode}
-              customers={customers}
-              trips={trips}
-              shipments={shipments}
+              customers={scopedCustomers}
+              trips={scopedTrips}
+              shipments={scopedShipments}
               userRole={currentUser.role}
               userJurisdiction={currentUser.jurisdictionCountry}
               userJurisdictionName={currentUser.jurisdictionName}
@@ -942,8 +1036,8 @@ export default function App() {
           {activeTab === 'reports' && (
             <ReportsView
               darkMode={darkMode}
-              trips={trips}
-              shipments={shipments}
+              trips={scopedTrips}
+              shipments={scopedShipments}
               user={currentUser}
               userRole={currentUser.role}
               userJurisdiction={currentUser.jurisdictionCountry}
@@ -965,7 +1059,7 @@ export default function App() {
               userName={currentUser.name}
               userEmail={currentUser.email}
               assignedCorridors={currentUser.assignedCorridors}
-              notifications={notifications}
+              notifications={scopedNotifications}
               onUpdateNotifications={setNotifications}
               onNavigateTab={(tab, filterValue) => {
                 setActiveTab(tab);
@@ -990,6 +1084,7 @@ export default function App() {
               onToggleTheme={toggleTheme}
               onOpenDbModal={() => setIsDbModalOpen(true)}
               onOpenFlutterModal={() => setIsFlutterModalOpen(true)}
+              onOpenProfileModal={() => setIsProfileModalOpen(true)}
               onSwitchPersona={handleSwitchPersona}
               onNotify={pushToast}
               onGuardPermission={guardPermission}
@@ -1023,28 +1118,51 @@ export default function App() {
         onOpenSchemaModal={() => handleOpenSchemaEditor('ride')}
         onOpenDriverSimulator={() => setIsDriverSimulatorOpen(true)}
         darkMode={darkMode}
-        drivers={drivers}
-        vehicles={vehicles}
-        trips={trips}
-        shipments={shipments}
-        customers={customers}
+        drivers={scopedDrivers}
+        vehicles={scopedVehicles}
+        trips={scopedTrips}
+        shipments={scopedShipments}
+        customers={scopedCustomers}
         modules={modules}
-        alerts={alerts}
+        alerts={scopedAlerts}
       />
 
       {/* Slide-out Notification Drawer */}
       <NotificationDrawer
         isOpen={isNotificationDrawerOpen}
         onClose={() => setIsNotificationDrawerOpen(false)}
-        notifications={notifications}
+        notifications={scopedNotifications}
         onMarkAllRead={() => setNotifications((prev) => prev.map((n) => ({ ...n, read: true })))}
         onMarkRead={(id) =>
           setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, read: true } : n)))
         }
         darkMode={darkMode}
         userJurisdiction={currentUser.jurisdictionCountry}
-        onNavigateTab={(tab) => setActiveTab(tab)}
+        userJurisdictionName={currentUser.jurisdictionName}
+        userName={currentUser.name}
+        userRole={currentUser.role}
+        onNavigateTab={(tab) => {
+          setActiveTab(tab);
+          setIsNotificationDrawerOpen(false);
+        }}
       />
+
+      {/* Operator Profile & Duty Station Credentials Modal */}
+      {currentUser && (
+        <OperatorProfileModal
+          isOpen={isProfileModalOpen}
+          onClose={() => setIsProfileModalOpen(false)}
+          user={currentUser}
+          darkMode={darkMode}
+          onUpdateUser={handleUpdateUser}
+          onSwitchPersona={handleSwitchPersona}
+          onOpenNotifications={() => {
+            setIsProfileModalOpen(false);
+            setIsNotificationDrawerOpen(true);
+          }}
+          onNotify={pushToast}
+        />
+      )}
 
       {/* Back4App Database Inspector Modal */}
       <DatabaseModal

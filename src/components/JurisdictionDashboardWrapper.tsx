@@ -36,6 +36,8 @@ export interface JurisdictionDashboardWrapperProps {
   drivers?: Driver[];
   alerts: SystemAlert[];
   activePulses?: TriggeredActivityPulse[];
+  restrictToAssignedCountry?: boolean;
+  onToggleCountryRestriction?: () => void;
   onAcknowledgePulse?: (pulseId: string) => void;
   onAcknowledgeAllPulses?: () => void;
   onResolveAlert?: (alertIdOrIndex: string | number) => Promise<void>;
@@ -46,13 +48,13 @@ export interface JurisdictionDashboardWrapperProps {
 
 /**
  * Robust helper function to infer or resolve the sovereign East African country code
- * for any Trip, Shipment, or Driver record.
+ * for any Trip, Shipment, Driver, Vehicle, Customer, or Alert record.
  */
 export function resolveItemCountryCode(
-  item: Trip | Shipment | Driver,
-  type: 'trip' | 'shipment' | 'driver'
+  item: any,
+  type: 'trip' | 'shipment' | 'driver' | 'vehicle' | 'customer' | 'alert'
 ): Exclude<EastAfricaCountryCode, 'ALL'> {
-  if (item.countryCode && item.countryCode !== 'ALL') {
+  if (item && item.countryCode && item.countryCode !== 'ALL') {
     return item.countryCode as Exclude<EastAfricaCountryCode, 'ALL'>;
   }
 
@@ -78,7 +80,7 @@ export function resolveItemCountryCode(
     if (text.includes('-so-') || text.includes('mogadishu') || text.includes('mog-')) return 'SO';
     if (text.includes('-ss-') || text.includes('juba') || text.includes('nimule') || text.includes('ssd-')) return 'SS';
     return 'ET';
-  } else {
+  } else if (type === 'driver') {
     const d = item as Driver;
     const text = `${d.phone || ''} ${d.vehiclePlate || ''} ${d.name || ''}`.toLowerCase();
     if (text.startsWith('+254') || text.includes('kda-') || text.includes('kby-')) return 'KE';
@@ -88,6 +90,41 @@ export function resolveItemCountryCode(
     if (text.startsWith('+253') || text.includes('dj-')) return 'DJ';
     if (text.startsWith('+252') || text.includes('mog-')) return 'SO';
     if (text.startsWith('+211') || text.includes('ssd-')) return 'SS';
+    return 'ET';
+  } else if (type === 'vehicle') {
+    const v = item as any;
+    const plate = (v.plate || '').toUpperCase();
+    const city = (v.city || '').toLowerCase();
+    if (plate.startsWith('KD') || plate.startsWith('KB') || city.includes('nairobi') || city.includes('mombasa')) return 'KE';
+    if (plate.startsWith('RAD') || plate.startsWith('RA') || city.includes('kigali')) return 'RW';
+    if (plate.startsWith('UB') || plate.startsWith('U') || city.includes('kampala')) return 'UG';
+    if (plate.startsWith('T-') || plate.startsWith('TZ') || city.includes('dar es salaam')) return 'TZ';
+    if (plate.startsWith('DJ-') || city.includes('djibouti')) return 'DJ';
+    if (plate.startsWith('MOG') || city.includes('mogadishu')) return 'SO';
+    if (plate.startsWith('SSD') || city.includes('juba')) return 'SS';
+    return 'ET';
+  } else if (type === 'customer') {
+    const c = item as any;
+    const phone = (c.phone || '').toLowerCase();
+    const address = `${c.city || ''} ${c.address || ''} ${c.companyName || ''}`.toLowerCase();
+    if (phone.startsWith('+254') || address.includes('nairobi') || address.includes('kenya')) return 'KE';
+    if (phone.startsWith('+250') || address.includes('kigali') || address.includes('rwanda')) return 'RW';
+    if (phone.startsWith('+256') || address.includes('kampala') || address.includes('uganda')) return 'UG';
+    if (phone.startsWith('+255') || address.includes('dar es salaam') || address.includes('tanzania')) return 'TZ';
+    if (phone.startsWith('+253') || address.includes('djibouti')) return 'DJ';
+    if (phone.startsWith('+252') || address.includes('mogadishu') || address.includes('somalia')) return 'SO';
+    if (phone.startsWith('+211') || address.includes('juba') || address.includes('south sudan')) return 'SS';
+    return 'ET';
+  } else {
+    const a = item as any;
+    const text = `${a.title || ''} ${a.message || ''} ${a.corridor || ''}`.toLowerCase();
+    if (text.includes('kenya') || text.includes('nairobi') || text.includes('mombasa')) return 'KE';
+    if (text.includes('rwanda') || text.includes('kigali')) return 'RW';
+    if (text.includes('uganda') || text.includes('kampala')) return 'UG';
+    if (text.includes('tanzania') || text.includes('dar es salaam')) return 'TZ';
+    if (text.includes('djibouti')) return 'DJ';
+    if (text.includes('somalia') || text.includes('mogadishu')) return 'SO';
+    if (text.includes('south sudan') || text.includes('juba')) return 'SS';
     return 'ET';
   }
 }
@@ -105,6 +142,8 @@ export const JurisdictionDashboardWrapper: React.FC<JurisdictionDashboardWrapper
   drivers = [],
   alerts,
   activePulses = [],
+  restrictToAssignedCountry = true,
+  onToggleCountryRestriction,
   onAcknowledgePulse,
   onAcknowledgeAllPulses,
   onResolveAlert,
@@ -112,11 +151,13 @@ export const JurisdictionDashboardWrapper: React.FC<JurisdictionDashboardWrapper
   onSwitchPersona,
   onPushToast,
 }) => {
-  // If user has an explicit sovereign jurisdiction (not ALL), they are strictly locked to it
-  const isSovereignLocked = Boolean(user.jurisdictionCountry && user.jurisdictionCountry !== 'ALL');
+  // If user has an explicit sovereign jurisdiction (not ALL) and restriction is active:
+  const isSovereignLocked = Boolean(
+    restrictToAssignedCountry && user.jurisdictionCountry && user.jurisdictionCountry !== 'ALL'
+  );
   const userCountryCode = (user.jurisdictionCountry || 'ALL') as EastAfricaCountryCode;
 
-  // For Super Admins with 'ALL', allow an interactive country filter override on the dashboard
+  // For Super Admins with 'ALL' or when restriction toggle is turned off, allow an interactive country filter override on the dashboard
   const [adminCountryFilter, setAdminCountryFilter] = useState<EastAfricaCountryCode>('ALL');
 
   // Effective operational country for data restriction
@@ -141,6 +182,15 @@ export const JurisdictionDashboardWrapper: React.FC<JurisdictionDashboardWrapper
     if (effectiveCountry === 'ALL') return drivers;
     return drivers.filter((d) => resolveItemCountryCode(d, 'driver') === effectiveCountry);
   }, [drivers, effectiveCountry]);
+
+  // Filtered alerts array matching user's operational country code
+  const filteredAlerts = useMemo(() => {
+    if (effectiveCountry === 'ALL') return alerts;
+    return alerts.filter((a) => {
+      const code = resolveItemCountryCode(a, 'alert');
+      return code === effectiveCountry;
+    });
+  }, [alerts, effectiveCountry]);
 
   // Active country profile
   const activeCountryConfig = useMemo(() => {
@@ -215,8 +265,35 @@ export const JurisdictionDashboardWrapper: React.FC<JurisdictionDashboardWrapper
             </div>
           </div>
 
-          {/* Visibility Counts Pill */}
-          <div className="flex items-center gap-2 text-xs self-start md:self-auto shrink-0">
+          {/* Controls & Counts Strip */}
+          <div className="flex items-center gap-2 text-xs self-start md:self-auto shrink-0 flex-wrap">
+            {onToggleCountryRestriction && (
+              <button
+                type="button"
+                onClick={onToggleCountryRestriction}
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all ${
+                  restrictToAssignedCountry
+                    ? 'bg-cyan-600 text-white border-cyan-500 shadow-xs'
+                    : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-300 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-750'
+                }`}
+                title={
+                  restrictToAssignedCountry
+                    ? 'Restricted to operational metrics for your assigned country. Click to view All East Africa.'
+                    : 'Viewing all East Africa. Click to restrict to your assigned country.'
+                }
+              >
+                <span>{restrictToAssignedCountry ? activeCountryConfig?.flag || '🔒' : '🌍'}</span>
+                <span>{restrictToAssignedCountry ? `${userCountryCode} Restricted` : 'All EAC'}</span>
+                <span
+                  className={`w-6 h-3.5 rounded-full p-0.5 flex items-center transition-colors ${
+                    restrictToAssignedCountry ? 'bg-white/30 justify-end' : 'bg-slate-300 dark:bg-slate-600 justify-start'
+                  }`}
+                >
+                  <span className="w-2.5 h-2.5 rounded-full bg-white shadow-2xs" />
+                </span>
+              </button>
+            )}
+
             <div
               className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border text-[11px] font-mono font-semibold ${
                 darkMode ? 'bg-slate-950/70 border-slate-800' : 'bg-slate-50 border-slate-200'
@@ -240,7 +317,7 @@ export const JurisdictionDashboardWrapper: React.FC<JurisdictionDashboardWrapper
           </div>
         </div>
 
-        {/* Super Admin Country Switcher (only shown when user is unrestricted 'ALL') */}
+        {/* Super Admin Country Switcher (shown when unrestricted) */}
         {!isSovereignLocked && (
           <div className="mt-4 pt-3 border-t border-slate-200 dark:border-slate-800/80">
             <div className="flex items-center gap-2 overflow-x-auto pb-1 text-xs">
@@ -289,7 +366,7 @@ export const JurisdictionDashboardWrapper: React.FC<JurisdictionDashboardWrapper
         trips={filteredTrips}
         shipments={filteredShipments}
         drivers={filteredDrivers}
-        alerts={alerts}
+        alerts={filteredAlerts}
         activePulses={activePulses}
         onAcknowledgePulse={onAcknowledgePulse}
         onAcknowledgeAllPulses={onAcknowledgeAllPulses}

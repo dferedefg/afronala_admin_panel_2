@@ -76,7 +76,10 @@ interface TopBarProps {
   onSelectDashboard?: () => void;
   onSwitchPersona?: (persona: AdminUser) => void;
   onLogout?: () => void;
+  onOpenProfileModal?: () => void;
   onNavigateTab?: (tab: string, filterValue?: string) => void;
+  restrictToCountry?: boolean;
+  onToggleRestrictToCountry?: () => void;
   // Global search data inputs
   drivers?: Driver[];
   vehicles?: Vehicle[];
@@ -106,7 +109,10 @@ export const TopBar: React.FC<TopBarProps> = ({
   onSelectDashboard,
   onSwitchPersona,
   onLogout,
+  onOpenProfileModal,
   onNavigateTab,
+  restrictToCountry = true,
+  onToggleRestrictToCountry,
   drivers = [],
   vehicles = [],
   trips = [],
@@ -118,6 +124,27 @@ export const TopBar: React.FC<TopBarProps> = ({
   const [personaMenuOpen, setPersonaMenuOpen] = useState(false);
   const [avatarFailed, setAvatarFailed] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+
+  const assignedCountryCode = user.jurisdictionCountry || 'ET';
+  const assignedCountryFlag =
+    assignedCountryCode === 'ET' ? '🇪🇹' :
+    assignedCountryCode === 'KE' ? '🇰🇪' :
+    assignedCountryCode === 'RW' ? '🇷🇼' :
+    assignedCountryCode === 'UG' ? '🇺🇬' :
+    assignedCountryCode === 'TZ' ? '🇹🇿' :
+    assignedCountryCode === 'DJ' ? '🇩🇯' :
+    assignedCountryCode === 'SO' ? '🇸🇴' :
+    assignedCountryCode === 'SS' ? '🇸🇸' : '🌍';
+  const assignedCountryName =
+    user.jurisdictionName ||
+    (assignedCountryCode === 'ET' ? 'Ethiopia' :
+     assignedCountryCode === 'KE' ? 'Kenya' :
+     assignedCountryCode === 'RW' ? 'Rwanda' :
+     assignedCountryCode === 'UG' ? 'Uganda' :
+     assignedCountryCode === 'TZ' ? 'Tanzania' :
+     assignedCountryCode === 'DJ' ? 'Djibouti' :
+     assignedCountryCode === 'SO' ? 'Somalia' :
+     assignedCountryCode === 'SS' ? 'South Sudan' : 'East Africa');
 
   // Global Search & Intellisense State
   const [searchQuery, setSearchQuery] = useState('');
@@ -687,6 +714,40 @@ export const TopBar: React.FC<TopBarProps> = ({
           </button>
         )}
 
+        {/* Country-Specific Operations Restriction Toggle */}
+        {onToggleRestrictToCountry && (
+          <button
+            type="button"
+            role="switch"
+            aria-checked={restrictToCountry}
+            onClick={onToggleRestrictToCountry}
+            title={
+              restrictToCountry
+                ? `Operational metrics & notifications restricted to ${assignedCountryName} (${assignedCountryCode}). Click to view All East Africa.`
+                : `Viewing Pan-East Africa metrics. Click to restrict to your assigned country (${assignedCountryName}).`
+            }
+            className={`flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all shrink-0 ${
+              restrictToCountry
+                ? 'bg-cyan-50/90 dark:bg-cyan-950/70 border-cyan-400 dark:border-cyan-500/70 text-cyan-900 dark:text-cyan-200 shadow-2xs'
+                : 'bg-white dark:bg-slate-800/80 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'
+            }`}
+          >
+            <span className="text-sm shrink-0 leading-none">
+              {restrictToCountry ? assignedCountryFlag : '🌍'}
+            </span>
+            <span className="hidden sm:inline font-bold">
+              {restrictToCountry ? `${assignedCountryCode} Only` : 'All EAC'}
+            </span>
+            <span
+              className={`w-6 h-3.5 rounded-full p-0.5 flex items-center transition-colors duration-200 ease-in-out shrink-0 ${
+                restrictToCountry ? 'bg-cyan-600 justify-end' : 'bg-slate-300 dark:bg-slate-600 justify-start'
+              }`}
+            >
+              <span className="w-2.5 h-2.5 rounded-full bg-white shadow-2xs" />
+            </span>
+          </button>
+        )}
+
         {/* Theme toggle */}
         <button
           onClick={onToggleTheme}
@@ -712,50 +773,111 @@ export const TopBar: React.FC<TopBarProps> = ({
 
         {/* RBAC Persona Switcher Dropdown */}
         <div ref={menuRef} className="relative pl-2 border-l border-slate-200 dark:border-slate-800">
-          <button
-            type="button"
-            onClick={() => setPersonaMenuOpen((prev) => !prev)}
-            className="flex items-center gap-2 py-1 px-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-            title="Switch Admin Role Persona"
-          >
-            {user.avatar && !avatarFailed ? (
-              <img
-                src={user.avatar}
-                alt={user.name}
-                referrerPolicy="no-referrer"
-                onError={() => setAvatarFailed(true)}
-                className="w-8 h-8 rounded-full object-cover ring-2 ring-cyan-500/30 shrink-0"
-              />
-            ) : (
-              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-cyan-600 to-blue-600 text-white font-bold text-xs flex items-center justify-center shrink-0">
-                {getInitials(user.name)}
-              </div>
-            )}
-            <div className="hidden xl:block text-left">
-              <p className="text-xs font-semibold leading-tight text-slate-900 dark:text-white whitespace-nowrap">
-                {user.name}
-              </p>
-              <p className="text-[10px] text-cyan-600 dark:text-cyan-400 font-medium whitespace-nowrap">
-                {user.role}
-              </p>
-            </div>
-            <ChevronDown className="w-3.5 h-3.5 text-slate-400 hidden xl:block" />
-          </button>
+          {(() => {
+            const userCountryFlag =
+              user.jurisdictionCountry === 'ET' ? '🇪🇹' :
+              user.jurisdictionCountry === 'KE' ? '🇰🇪' :
+              user.jurisdictionCountry === 'RW' ? '🇷🇼' :
+              user.jurisdictionCountry === 'UG' ? '🇺🇬' :
+              user.jurisdictionCountry === 'TZ' ? '🇹🇿' :
+              user.jurisdictionCountry === 'DJ' ? '🇩🇯' :
+              user.jurisdictionCountry === 'SO' ? '🇸🇴' :
+              user.jurisdictionCountry === 'SS' ? '🇸🇸' : '🌍';
+            return (
+              <button
+                type="button"
+                onClick={() => setPersonaMenuOpen((prev) => !prev)}
+                className="flex items-center gap-2 py-1 px-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                title={`${user.name} (${user.role} · ${user.jurisdictionName || 'East Africa'})`}
+              >
+                <div className="relative shrink-0">
+                  {user.avatar && !avatarFailed ? (
+                    <img
+                      src={user.avatar}
+                      alt={user.name}
+                      referrerPolicy="no-referrer"
+                      onError={() => setAvatarFailed(true)}
+                      className="w-8 h-8 rounded-full object-cover ring-2 ring-cyan-500/30"
+                    />
+                  ) : (
+                    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-cyan-600 to-blue-600 text-white font-bold text-xs flex items-center justify-center">
+                      {getInitials(user.name)}
+                    </div>
+                  )}
+                  <span className="absolute -bottom-1 -right-1 text-xs filter drop-shadow-xs">
+                    {userCountryFlag}
+                  </span>
+                </div>
+                <div className="hidden xl:block text-left">
+                  <div className="flex items-center gap-1">
+                    <p className="text-xs font-semibold leading-tight text-slate-900 dark:text-white whitespace-nowrap">
+                      {user.name}
+                    </p>
+                  </div>
+                  <p className="text-[10px] text-cyan-600 dark:text-cyan-400 font-medium whitespace-nowrap">
+                    {user.role} · {userCountryFlag} {user.jurisdictionCountry || 'ET'}
+                  </p>
+                </div>
+                <ChevronDown className="w-3.5 h-3.5 text-slate-400 hidden xl:block" />
+              </button>
+            );
+          })()}
 
           {personaMenuOpen && (
             <div className="absolute right-0 mt-2 w-80 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xl z-50 overflow-hidden">
-              <div className="px-4 py-3 border-b border-slate-200 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-950/60">
+              <div className="p-3 border-b border-slate-200 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-950/60 space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-bold text-slate-900 dark:text-white">
-                    Switch RBAC Persona
+                    Operator Station &amp; Persona
                   </span>
                   <span className="text-[10px] font-mono text-cyan-600 dark:text-cyan-400">
-                    Live Access Guard
+                    Live Session
                   </span>
                 </div>
-                <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
-                  Test role-scoped permissions across modules, fleet, freight, and treasury.
-                </p>
+
+                {onOpenProfileModal && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPersonaMenuOpen(false);
+                      onOpenProfileModal();
+                    }}
+                    className="w-full flex items-center justify-between p-2 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white font-semibold text-xs transition-colors shadow-2xs"
+                  >
+                    <div className="flex items-center gap-2">
+                      <ShieldCheck className="w-3.5 h-3.5" />
+                      <span>View Operator Profile &amp; Station</span>
+                    </div>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </button>
+                )}
+
+                {onToggleRestrictToCountry && (
+                  <div className="flex items-center justify-between p-2 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-xs">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="text-base shrink-0">{assignedCountryFlag}</span>
+                      <div className="min-w-0">
+                        <p className="font-semibold text-slate-900 dark:text-white truncate">
+                          {assignedCountryCode} Scope Only
+                        </p>
+                        <p className="text-[10px] text-slate-500 dark:text-slate-400 truncate">
+                          {restrictToCountry ? 'Restricted to operational station' : 'All East Africa visible'}
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={restrictToCountry}
+                      onClick={onToggleRestrictToCountry}
+                      className={`w-7 h-4 rounded-full p-0.5 flex items-center transition-colors shrink-0 ${
+                        restrictToCountry ? 'bg-cyan-600 justify-end' : 'bg-slate-300 dark:bg-slate-600 justify-start'
+                      }`}
+                    >
+                      <span className="w-3 h-3 rounded-full bg-white shadow-2xs" />
+                    </button>
+                  </div>
+                )}
               </div>
 
               <div className="p-2 space-y-1 max-h-80 overflow-y-auto">

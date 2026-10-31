@@ -1,7 +1,25 @@
-import React, { useState } from 'react';
-import { Bell, X, Check, Car, Truck, Shield, Globe, MapPin, ArrowRight, PhoneCall, AlertTriangle, CreditCard, FileCheck2, Radio } from 'lucide-react';
+import React, { useState, useEffect, useMemo } from 'react';
+import {
+  Bell,
+  X,
+  Check,
+  Car,
+  Truck,
+  Shield,
+  Globe,
+  MapPin,
+  ArrowRight,
+  PhoneCall,
+  AlertTriangle,
+  CreditCard,
+  FileCheck2,
+  Radio,
+  Building2,
+  ShieldAlert,
+} from 'lucide-react';
 import { EastAfricaCountryCode, NotificationItem } from '../types';
 import { EAST_AFRICA_NOTIFICATION_COUNTRIES } from '../services/notifications';
+import { EAST_AFRICAN_COUNTRIES_META } from '../services/eastAfricaModules';
 
 interface NotificationDrawerProps {
   isOpen: boolean;
@@ -11,6 +29,9 @@ interface NotificationDrawerProps {
   onMarkRead: (id: string) => void;
   darkMode: boolean;
   userJurisdiction?: EastAfricaCountryCode;
+  userJurisdictionName?: string;
+  userName?: string;
+  userRole?: string;
   onNavigateTab?: (tab: string) => void;
 }
 
@@ -22,14 +43,53 @@ export const NotificationDrawer: React.FC<NotificationDrawerProps> = ({
   onMarkRead,
   darkMode,
   userJurisdiction = 'ET',
+  userJurisdictionName,
+  userName,
+  userRole,
   onNavigateTab,
 }) => {
   const [filter, setFilter] = useState<
     'all' | 'unread' | 'dispatch' | 'regulatory' | 'settlement' | 'security' | 'system'
   >('all');
-  const [countryFilter, setCountryFilter] = useState<EastAfricaCountryCode | 'ALL'>('ALL');
 
-  if (!isOpen) return null;
+  // Default filter to the logged-in user's sovereign country of operation
+  const [countryFilter, setCountryFilter] = useState<EastAfricaCountryCode | 'ALL'>(() => {
+    return userJurisdiction && userJurisdiction !== 'ALL' ? userJurisdiction : 'ALL';
+  });
+
+  // Re-sync when operator persona or jurisdiction changes
+  useEffect(() => {
+    if (userJurisdiction && userJurisdiction !== 'ALL') {
+      setCountryFilter(userJurisdiction);
+    }
+  }, [userJurisdiction, isOpen]);
+
+  const countryFlags: Record<string, string> = {
+    ET: '🇪🇹',
+    KE: '🇰🇪',
+    UG: '🇺🇬',
+    RW: '🇷🇼',
+    TZ: '🇹🇿',
+    DJ: '🇩🇯',
+    SO: '🇸🇴',
+    SS: '🇸🇸',
+  };
+
+  const userCountryMeta = userJurisdiction && userJurisdiction !== 'ALL'
+    ? EAST_AFRICAN_COUNTRIES_META[userJurisdiction]
+    : null;
+
+  const userStationNotifMeta = userJurisdiction && userJurisdiction !== 'ALL'
+    ? EAST_AFRICA_NOTIFICATION_COUNTRIES[userJurisdiction]
+    : null;
+
+  // Counts computed dynamically
+  const myCountryCounts = useMemo(() => {
+    if (!userJurisdiction || userJurisdiction === 'ALL') return notifications.length;
+    return notifications.filter(
+      (n) => !n.countryCode || n.countryCode === userJurisdiction || n.countryCode === 'ALL'
+    ).length;
+  }, [notifications, userJurisdiction]);
 
   const counts = {
     all: notifications.length,
@@ -44,8 +104,7 @@ export const NotificationDrawer: React.FC<NotificationDrawerProps> = ({
   const filtered = notifications.filter((n) => {
     // Country filter
     if (countryFilter !== 'ALL') {
-      if (n.countryCode && n.countryCode !== countryFilter) return false;
-      if (!n.countryCode) return false;
+      if (n.countryCode && n.countryCode !== countryFilter && n.countryCode !== 'ALL') return false;
     }
     // Category filter
     if (filter === 'unread') return !n.read;
@@ -76,16 +135,7 @@ export const NotificationDrawer: React.FC<NotificationDrawerProps> = ({
     }
   };
 
-  const countryFlags: Record<string, string> = {
-    ET: '🇪🇹',
-    KE: '🇰🇪',
-    UG: '🇺🇬',
-    RW: '🇷🇼',
-    TZ: '🇹🇿',
-    DJ: '🇩🇯',
-    SO: '🇸🇴',
-    SS: '🇸🇸',
-  };
+  if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end bg-black/60 backdrop-blur-xs">
@@ -93,13 +143,20 @@ export const NotificationDrawer: React.FC<NotificationDrawerProps> = ({
         {/* Header */}
         <div className="p-4 sm:p-5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-cyan-50 dark:bg-cyan-500/10 flex items-center justify-center text-cyan-600 dark:text-cyan-400">
+            <div className="w-9 h-9 rounded-xl bg-cyan-50 dark:bg-cyan-500/10 flex items-center justify-center text-cyan-600 dark:text-cyan-400 shadow-xs">
               <Bell className="w-4 h-4" />
             </div>
             <div>
-              <h2 className="font-bold text-sm text-slate-900 dark:text-white">East Africa Dispatch Alerts</h2>
+              <div className="flex items-center gap-1.5">
+                <h2 className="font-bold text-sm text-slate-900 dark:text-white">East Africa Dispatch Alerts</h2>
+                {userCountryMeta && (
+                  <span className="text-base" title={userCountryMeta.name}>
+                    {userCountryMeta.flag}
+                  </span>
+                )}
+              </div>
               <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                8-nation live corridors, weighbridges &amp; regulatory notices
+                {userJurisdictionName || 'Pan-East Africa'} · {userName || 'Active Operator'} ({userRole || 'Operator'})
               </p>
             </div>
           </div>
@@ -111,25 +168,62 @@ export const NotificationDrawer: React.FC<NotificationDrawerProps> = ({
           </button>
         </div>
 
-        {/* 8-Nation Mini Country Pills */}
+        {/* Individual Operator Station Context Banner */}
+        {userCountryMeta && (
+          <div className="px-4 py-2.5 bg-gradient-to-r from-cyan-50 to-blue-50/50 dark:from-cyan-950/40 dark:to-slate-900 border-b border-cyan-100 dark:border-cyan-900/40 flex items-center justify-between gap-2 text-xs">
+            <div className="flex items-center gap-2 min-w-0">
+              <Building2 className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400 shrink-0" />
+              <div className="truncate">
+                <span className="font-semibold text-slate-900 dark:text-white">Station: </span>
+                <span className="text-slate-700 dark:text-slate-300">
+                  {userStationNotifMeta?.stationHubName || `${userCountryMeta.name} Dispatch Command`}
+                </span>
+              </div>
+            </div>
+
+            {userStationNotifMeta?.emergencyHotline && (
+              <span className="shrink-0 text-[10px] font-mono font-semibold px-2 py-0.5 rounded bg-rose-100 dark:bg-rose-950 text-rose-700 dark:text-rose-300 flex items-center gap-1">
+                <PhoneCall className="w-2.5 h-2.5" />
+                <span>{userStationNotifMeta.emergencyHotline.split('/')[0].trim()}</span>
+              </span>
+            )}
+          </div>
+        )}
+
+        {/* 8-Nation Mini Country Pills & Station Focus Toggle */}
         <div className="px-3.5 py-2 border-b border-slate-100 dark:border-slate-800/80 bg-slate-50/50 dark:bg-slate-800/30 flex items-center gap-1.5 overflow-x-auto text-[11px] scrollbar-thin">
+          {userCountryMeta && (
+            <button
+              onClick={() => setCountryFilter(userJurisdiction)}
+              className={`px-2.5 py-1 rounded-md font-bold whitespace-nowrap transition-colors flex items-center gap-1 ${
+                countryFilter === userJurisdiction
+                  ? 'bg-cyan-600 text-white shadow-xs'
+                  : 'bg-white dark:bg-slate-800 text-cyan-700 dark:text-cyan-400 border border-cyan-200 dark:border-cyan-800/60'
+              }`}
+            >
+              <span>{userCountryMeta.flag}</span>
+              <span>My Station ({myCountryCounts})</span>
+            </button>
+          )}
+
           <button
             onClick={() => setCountryFilter('ALL')}
             className={`px-2 py-0.5 rounded-md font-semibold whitespace-nowrap transition-colors ${
               countryFilter === 'ALL'
-                ? 'bg-cyan-600 text-white'
+                ? 'bg-cyan-600 text-white shadow-xs'
                 : 'text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
             }`}
           >
-            🌍 All
+            🌍 All East Africa
           </button>
+
           {Object.entries(countryFlags).map(([code, flag]) => (
             <button
               key={code}
               onClick={() => setCountryFilter(code as EastAfricaCountryCode)}
               className={`px-2 py-0.5 rounded-md font-medium whitespace-nowrap transition-colors flex items-center gap-1 ${
                 countryFilter === code
-                  ? 'bg-cyan-600 text-white font-bold'
+                  ? 'bg-cyan-600 text-white font-bold shadow-xs'
                   : 'text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
               }`}
             >
@@ -172,7 +266,7 @@ export const NotificationDrawer: React.FC<NotificationDrawerProps> = ({
                 onClick={() => onMarkRead(item.id)}
                 className={`p-3.5 rounded-xl border transition-colors cursor-pointer relative ${
                   !item.read
-                    ? 'bg-cyan-50/60 dark:bg-slate-800/70 border-cyan-200 dark:border-cyan-500/30'
+                    ? 'bg-cyan-50/60 dark:bg-slate-800/70 border-cyan-200 dark:border-cyan-500/30 shadow-2xs'
                     : 'bg-slate-50 dark:bg-slate-800/20 border-slate-200 dark:border-slate-800 opacity-80'
                 }`}
               >
@@ -239,7 +333,7 @@ export const NotificationDrawer: React.FC<NotificationDrawerProps> = ({
             ))
           ) : (
             <div className="text-center py-12 text-slate-500 dark:text-slate-400 text-xs">
-              No notifications matching this category or nation.
+              No notifications matching this category or station.
             </div>
           )}
         </div>

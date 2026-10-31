@@ -62,6 +62,7 @@ interface SettingsViewProps {
   onToggleTheme: () => void;
   onOpenDbModal: () => void;
   onOpenFlutterModal: () => void;
+  onOpenProfileModal?: () => void;
   onSwitchPersona?: (persona: AdminUser) => void;
   onNotify?: (title: string, message?: string, type?: ToastMessage['type']) => void;
   onGuardPermission?: (action: PermissionAction, description: string) => boolean;
@@ -340,6 +341,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   onToggleTheme,
   onOpenDbModal,
   onOpenFlutterModal,
+  onOpenProfileModal,
   onSwitchPersona,
   onNotify,
   onGuardPermission,
@@ -548,6 +550,18 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               >
                 <span>Focus My Station</span>
                 <span>({EAST_AFRICAN_COUNTRIES_META[operatorCountry as Exclude<EastAfricaCountryCode, 'ALL'>]?.flag})</span>
+              </button>
+            )}
+
+            {onOpenProfileModal && (
+              <button
+                type="button"
+                onClick={onOpenProfileModal}
+                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-cyan-50 dark:bg-cyan-950/40 text-cyan-800 dark:text-cyan-300 border border-cyan-200 dark:border-cyan-800 hover:bg-cyan-100 transition-colors"
+                title="View and edit your individual operator profile and station credentials"
+              >
+                <ShieldCheck className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400" />
+                <span>Operator Profile ({EAST_AFRICAN_COUNTRIES_META[operatorCountry as Exclude<EastAfricaCountryCode, 'ALL'>]?.flag || '🌍'})</span>
               </button>
             )}
 

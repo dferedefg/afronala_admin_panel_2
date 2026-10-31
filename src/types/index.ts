@@ -205,15 +205,50 @@ export interface NotificationItem {
   telemetryCoords?: [number, number];
 }
 
+export interface OperatorNotificationPreferences {
+  soundEnabled: boolean;
+  desktopPushEnabled: boolean;
+  criticalSosAlerts: boolean;
+  dispatchOperations: boolean;
+  freightCustoms: boolean;
+  regulatoryCompliance: boolean;
+  financialSettlements: boolean;
+  surgePricingFlags: boolean;
+  smsEmergencyRelay: boolean;
+}
+
+export const DEFAULT_OPERATOR_NOTIF_PREFERENCES: OperatorNotificationPreferences = {
+  soundEnabled: true,
+  desktopPushEnabled: true,
+  criticalSosAlerts: true,
+  dispatchOperations: true,
+  freightCustoms: true,
+  regulatoryCompliance: true,
+  financialSettlements: true,
+  surgePricingFlags: true,
+  smsEmergencyRelay: false,
+};
+
 export interface AdminUser {
   name: string;
   email: string;
   role: string;
   avatar: string;
-  status: 'online' | 'busy' | 'away';
+  status: 'online' | 'busy' | 'away' | 'suspended';
   jurisdictionCountry?: EastAfricaCountryCode;
   jurisdictionName?: string;
+  defaultJurisdictionCountry?: EastAfricaCountryCode;
   assignedCorridors?: string[];
+  phone?: string;
+  operatorId?: string;
+  dutyStation?: string;
+  taxPin?: string;
+  emergencyContact?: string;
+  dutyLanguage?: string;
+  notificationPreferences?: OperatorNotificationPreferences;
+  permissions?: PermissionAction[];
+  accountActive?: boolean;
+  lastActive?: string;
 }
 
 export type DispatchStatus = 'Queued' | 'Assigned' | 'En Route' | 'Onboard' | 'Completed' | 'Cancelled';
@@ -590,7 +625,14 @@ export interface DriverDocumentComplianceRecord {
 
 // Role-Based Access Control (RBAC) & Governance
 export type AdminRole =
+  | 'SuperAdmin'
   | 'Super Admin'
+  | 'IT Admin'
+  | 'Finance Admin'
+  | 'Operations Admin'
+  | 'Call Center Admin'
+  | 'Safety Admin'
+  | 'Safety & Compliance Admin'
   | 'Ride Manager'
   | 'Freight Coordinator'
   | 'Finance Auditor'
@@ -603,7 +645,11 @@ export type PermissionAction =
   | 'manage_customers'
   | 'manage_finance'
   | 'manage_approvals'
-  | 'manage_pricing_flags';
+  | 'manage_pricing_flags'
+  | 'manage_support'
+  | 'manage_it_system'
+  | 'view_audit_logs'
+  | 'manage_staff_rbac';
 
 // Customer & Corporate Shipper Directory Entity
 export type CustomerAccountType = 'Ride Passenger' | 'Corporate Shipper';
